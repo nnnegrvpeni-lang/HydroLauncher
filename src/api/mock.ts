@@ -39,6 +39,7 @@ let settings: AppSettings = {
   maxConcurrentDownloads: 8,
   closeOnLaunch: false,
   showSnapshots: false,
+  autoUpdateHorizon: true,
   customJavaPaths: [],
 };
 

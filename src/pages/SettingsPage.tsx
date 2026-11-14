@@ -325,6 +325,22 @@ function PerformanceGroup() {
           label="Показывать снапшоты"
         />
       </div>
+
+      <div className="flex items-center justify-between gap-4 px-5 py-3.5">
+        <div>
+          <p className="text-[13px] font-medium text-ink">
+            Автообновление Horizon (Rust)
+          </p>
+          <p className="text-xs text-muted">
+            Скачивать свежий nightly-билд при запуске сборок в режиме «Авто»
+          </p>
+        </div>
+        <Switch
+          checked={settings.autoUpdateHorizon}
+          onChange={(checked) => void save({ ...settings, autoUpdateHorizon: checked })}
+          label="Автообновление Horizon (Rust)"
+        />
+      </div>
     </Group>
   );
 }

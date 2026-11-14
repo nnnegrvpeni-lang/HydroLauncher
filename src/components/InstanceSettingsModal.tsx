@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { ChevronDown, Download, Loader2, RefreshCw } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Modal } from './ui/Modal';
 import { Switch } from './ui/Switch';
+import { useCatalogStore } from '../stores/catalogStore';
 import { useInstancesStore } from '../stores/instancesStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { cn } from '../utils/cn';
 import { formatMemory } from '../utils/format';
-import { api, type HorizonReleaseSummary, type HorizonUpdateInfo, type Instance } from '../api';
+import { api, type Instance } from '../api';
 
 interface InstanceSettingsModalProps {
   instance: Instance | null;
@@ -31,12 +32,9 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
   const loaderDropdownRef = useRef<HTMLDivElement>(null);
   const [saving, setSaving] = useState(false);
 
-  const [horizonReleases, setHorizonReleases] = useState<HorizonReleaseSummary[]>([]);
-  const [horizonReleasesLoading, setHorizonReleasesLoading] = useState(false);
-  const [horizonStatus, setHorizonStatus] = useState<HorizonUpdateInfo | null>(null);
-  const [horizonChecking, setHorizonChecking] = useState(false);
-  const [horizonUpdating, setHorizonUpdating] = useState(false);
-  const [horizonError, setHorizonError] = useState<string | null>(null);
+  const horizonReleases = useCatalogStore((s) => s.horizonReleases);
+  const horizonReleasesLoading = useCatalogStore((s) => s.horizonReleasesLoading);
+  const ensureHorizonReleases = useCatalogStore((s) => s.ensureHorizonReleases);
 
   useEffect(() => {
     if (!instance) return;
@@ -47,37 +45,20 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
     setJvmArgsText(instance.jvmArgs.join(' '));
     setLoaderVersion(instance.loaderVersion ?? '');
     setLoaderDropdownOpen(false);
-    setHorizonStatus(null);
-    setHorizonError(null);
   }, [instance, settings?.defaultMemoryMb]);
 
   useEffect(() => {
     if (!instance) {
       setLoaderVersions([]);
-      setHorizonReleases([]);
       return;
     }
     let active = true;
     if (instance.engine === 'horizon') {
       setLoaderVersions([]);
-      setHorizonReleasesLoading(true);
-      api
-        .listHorizonReleases()
-        .then((list) => {
-          if (active) setHorizonReleases(list);
-        })
-        .catch(() => {
-          if (active) setHorizonReleases([]);
-        })
-        .finally(() => {
-          if (active) setHorizonReleasesLoading(false);
-        });
-      return () => {
-        active = false;
-      };
+      void ensureHorizonReleases();
+      return;
     }
 
-    setHorizonReleases([]);
     if (instance.loader === 'vanilla') {
       setLoaderVersions([]);
       return;
@@ -97,7 +78,7 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
     return () => {
       active = false;
     };
-  }, [instance]);
+  }, [instance, ensureHorizonReleases]);
 
   useEffect(() => {
     if (!loaderDropdownOpen) return;
@@ -206,7 +187,6 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
                     type="button"
                     onClick={() => {
                       setLoaderVersion('');
-                      setHorizonStatus(null);
                       setLoaderDropdownOpen(false);
                     }}
                     className={cn(
@@ -224,7 +204,6 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
                       type="button"
                       onClick={() => {
                         setLoaderVersion(rel.tagName);
-                        setHorizonStatus(null);
                         setLoaderDropdownOpen(false);
                       }}
                       className={cn(
@@ -241,84 +220,9 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
                 </div>
               )}
             </div>
-          </div>
-
-          <div className="rounded-[8px] border border-line bg-bg-well/70 p-3.5">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[12.5px] font-medium text-ink">
-                  {loaderVersion ? `Бинарники Horizon (${loaderVersion})` : 'Обновление Horizon Nightly'}
-                </p>
-                <p className="text-[11.5px] text-muted">
-                  {horizonStatus
-                    ? !horizonStatus.installed
-                      ? 'Бинарники ещё не скачаны'
-                      : horizonStatus.updateAvailable
-                        ? `Доступна сборка ${horizonStatus.tagName}`
-                        : `Установлена актуальная сборка (${horizonStatus.tagName})`
-                    : 'Проверить свежий бинарник в GitHub Releases'}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={horizonChecking || horizonUpdating}
-                  onClick={async () => {
-                    setHorizonChecking(true);
-                    setHorizonError(null);
-                    try {
-                      const info = await api.checkHorizonUpdate(
-                        loaderVersion.trim() || undefined,
-                      );
-                      setHorizonStatus(info);
-                    } catch (err) {
-                      setHorizonError(String(err));
-                    } finally {
-                      setHorizonChecking(false);
-                    }
-                  }}
-                >
-                  <RefreshCw
-                    size={12}
-                    className={horizonChecking ? 'animate-spin' : undefined}
-                  />
-                  {horizonChecking ? 'Проверка…' : 'Проверить'}
-                </Button>
-                {horizonStatus?.updateAvailable && (
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    disabled={horizonUpdating}
-                    onClick={async () => {
-                      setHorizonUpdating(true);
-                      setHorizonError(null);
-                      try {
-                        const info = await api.updateHorizonBinaries(
-                          instance.id,
-                          loaderVersion.trim() || undefined,
-                        );
-                        setHorizonStatus(info);
-                      } catch (err) {
-                        setHorizonError(String(err));
-                      } finally {
-                        setHorizonUpdating(false);
-                      }
-                    }}
-                  >
-                    {horizonUpdating ? (
-                      <Loader2 size={12} className="animate-spin" />
-                    ) : (
-                      <Download size={12} />
-                    )}
-                    {horizonUpdating ? 'Обновление…' : 'Установить'}
-                  </Button>
-                )}
-              </div>
-            </div>
-            {horizonError && (
-              <p className="mt-2 text-xs break-all text-danger">{horizonError}</p>
-            )}
+            <p className="mt-1.5 text-[11px] text-faint">
+              Автообновление последних nightly-сборок настраивается в «Настройки → Общие».
+            </p>
           </div>
         </div>
       ) : (

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { create } from 'zustand';
 import {
   api,
+  type HorizonReleaseSummary,
   type ModLoaderKind,
   type ModrinthSearchHit,
   type VersionCatalog,
@@ -9,6 +10,7 @@ import {
 
 const CATALOG_KEY = 'hl:cache:versionCatalog:v1';
 const LOADER_MC_KEY = 'hl:cache:loaderSupportedMc:v1';
+const HORIZON_RELEASES_KEY = 'hl:cache:horizonReleases:v1';
 const MODS_SEARCH_KEY = 'hl:cache:modsSearch:v1';
 
 const CATALOG_TTL_MS = 6 * 60 * 60 * 1000; // 6 часов
@@ -24,6 +26,11 @@ interface CachedCatalog {
 
 interface CachedLoaderMc {
   versions: string[];
+  updatedAt: number;
+}
+
+interface CachedHorizonReleases {
+  releases: HorizonReleaseSummary[];
   updatedAt: number;
 }
 
@@ -59,6 +66,10 @@ function loadInitialLoaderMc(): Partial<Record<ModLoaderKind, CachedLoaderMc>> {
   return readStorage<Partial<Record<ModLoaderKind, CachedLoaderMc>>>(LOADER_MC_KEY) ?? {};
 }
 
+function loadInitialHorizonReleases(): CachedHorizonReleases | null {
+  return readStorage<CachedHorizonReleases>(HORIZON_RELEASES_KEY);
+}
+
 function loadInitialModsSearch(): Record<string, CachedModsSearch> {
   return readStorage<Record<string, CachedModsSearch>>(MODS_SEARCH_KEY) ?? {};
 }
@@ -72,9 +83,11 @@ function persistModsSearch(map: Record<string, CachedModsSearch>): void {
 
 const initialCatalog = loadInitialCatalog();
 const initialLoaderMc = loadInitialLoaderMc();
+const initialHorizonReleases = loadInitialHorizonReleases();
 const initialModsSearch = loadInitialModsSearch();
 
 const inflightCatalog = { promise: null as Promise<VersionCatalog> | null };
+const inflightHorizonReleases = { promise: null as Promise<HorizonReleaseSummary[]> | null };
 const inflightLoaderMc: Partial<Record<ModLoaderKind, Promise<string[]>>> = {};
 const inflightLoaderVersions: Record<string, Promise<string[]>> = {};
 
@@ -87,11 +100,15 @@ interface CatalogState {
   loaderSupportedMcLoading: Partial<Record<ModLoaderKind, boolean>>;
 
   loaderVersionsCache: Record<string, string[]>;
+  horizonReleases: HorizonReleaseSummary[];
+  horizonReleasesUpdatedAt: number;
+  horizonReleasesLoading: boolean;
   modsSearchCache: Record<string, CachedModsSearch>;
 
   ensureVersionCatalog: (force?: boolean) => Promise<VersionCatalog | null>;
   ensureLoaderSupportedMc: (loader: ModLoaderKind, force?: boolean) => Promise<string[]>;
   ensureLoaderVersions: (loader: ModLoaderKind, mcVersion: string) => Promise<string[]>;
+  ensureHorizonReleases: (force?: boolean) => Promise<HorizonReleaseSummary[]>;
 
   getModsSearch: (key: string) => (CachedModsSearch & { isStale: boolean }) | null;
   setModsSearch: (key: string, hits: ModrinthSearchHit[], totalHits: number) => void;
@@ -106,6 +123,9 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
   loaderSupportedMcLoading: {},
 
   loaderVersionsCache: {},
+  horizonReleases: initialHorizonReleases?.releases ?? [],
+  horizonReleasesUpdatedAt: initialHorizonReleases?.updatedAt ?? 0,
+  horizonReleasesLoading: false,
   modsSearchCache: initialModsSearch,
 
   ensureVersionCatalog: async (force = false) => {
@@ -225,6 +245,37 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     return req;
   },
 
+  ensureHorizonReleases: async (force = false) => {
+    const { horizonReleases, horizonReleasesUpdatedAt } = get();
+    const isFresh =
+      horizonReleases.length > 0 && Date.now() - horizonReleasesUpdatedAt < MODS_TTL_MS;
+    if (!force && isFresh) {
+      return horizonReleases;
+    }
+
+    if (inflightHorizonReleases.promise) {
+      return inflightHorizonReleases.promise;
+    }
+
+    set({ horizonReleasesLoading: true });
+    const req = api
+      .listHorizonReleases()
+      .then((releases) => {
+        const updatedAt = Date.now();
+        writeStorage(HORIZON_RELEASES_KEY, { releases, updatedAt });
+        set({ horizonReleases: releases, horizonReleasesUpdatedAt: updatedAt });
+        return releases;
+      })
+      .catch(() => get().horizonReleases)
+      .finally(() => {
+        inflightHorizonReleases.promise = null;
+        set({ horizonReleasesLoading: false });
+      });
+
+    inflightHorizonReleases.promise = req;
+    return req;
+  },
+
   getModsSearch: (key) => {
     const entry = get().modsSearchCache[key];
     if (!entry) return null;
@@ -259,10 +310,11 @@ export function useInitCatalogPreload() {
     // 1. Каталог версий Mojang
     void state.ensureVersionCatalog();
 
-    // 2. Совместимость модлоадеров
+    // 2. Совместимость модлоадеров и релизы Horizon
     for (const loader of PRELOAD_LOADERS) {
       void state.ensureLoaderSupportedMc(loader);
     }
+    void state.ensureHorizonReleases();
 
     // 3. Дефолтная первая страница модов Modrinth и популярные фильтры лоадеров
     const preloadQueries: Array<{ key: string; loader?: ModLoaderKind }> = [

@@ -151,6 +151,7 @@ pub async fn ensure_horizon_binaries(
     data_dir: &Path,
     instance_id: &str,
     preferred_tag: Option<&str>,
+    auto_update: bool,
 ) -> AppResult<(PathBuf, PathBuf)> {
     let requested_tag = preferred_tag
         .map(str::trim)
@@ -165,8 +166,14 @@ pub async fn ensure_horizon_binaries(
             if current_tag.as_deref() == Some(tag) {
                 return Ok(pair);
             }
-        } else {
+        } else if !auto_update {
             return Ok(pair);
+        } else {
+            match check_horizon_update(paths, data_dir, Some("nightly")).await {
+                Ok(info) if !info.update_available => return Ok(pair),
+                Err(_) => return Ok(pair),
+                _ => {}
+            }
         }
     }
     download_horizon_binaries(app, paths, data_dir, instance_id, requested_tag).await

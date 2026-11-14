@@ -55,9 +55,12 @@ export function CreateInstanceModal({
   const loading = useCatalogStore((s) => s.versionCatalogLoading);
   const loaderSupportedMc = useCatalogStore((s) => s.loaderSupportedMc);
   const loaderSupportedMcLoading = useCatalogStore((s) => s.loaderSupportedMcLoading);
+  const horizonReleases = useCatalogStore((s) => s.horizonReleases);
+  const horizonReleasesLoading = useCatalogStore((s) => s.horizonReleasesLoading);
   const ensureVersionCatalog = useCatalogStore((s) => s.ensureVersionCatalog);
   const ensureLoaderSupportedMc = useCatalogStore((s) => s.ensureLoaderSupportedMc);
   const ensureLoaderVersions = useCatalogStore((s) => s.ensureLoaderVersions);
+  const ensureHorizonReleases = useCatalogStore((s) => s.ensureHorizonReleases);
   const getModsSearch = useCatalogStore((s) => s.getModsSearch);
   const setModsSearch = useCatalogStore((s) => s.setModsSearch);
 
@@ -194,7 +197,14 @@ export function CreateInstanceModal({
   }, [open, tab, engine, loader, supportedMcSet, allVersions, showSnapshots, selectedVersion]);
 
   useEffect(() => {
-    if (!open || tab !== 'custom' || engine !== 'java' || loader === 'vanilla' || !selectedVersion) {
+    if (!open || tab !== 'custom') return;
+    if (engine === 'horizon') {
+      setLoaderVersions([]);
+      setLoaderVersion('');
+      void ensureHorizonReleases();
+      return;
+    }
+    if (loader === 'vanilla' || !selectedVersion) {
       setLoaderVersions([]);
       setLoaderVersion('');
       return;
@@ -212,7 +222,7 @@ export function CreateInstanceModal({
     return () => {
       active = false;
     };
-  }, [open, tab, engine, loader, selectedVersion, ensureLoaderVersions]);
+  }, [open, tab, engine, loader, selectedVersion, ensureLoaderVersions, ensureHorizonReleases]);
 
   useEffect(() => {
     if (!loaderDropdownOpen) return;
@@ -233,7 +243,10 @@ export function CreateInstanceModal({
         minecraftVersion: selectedVersion,
         engine,
         loader,
-        loaderVersion: loader !== 'vanilla' && loaderVersion ? loaderVersion : null,
+        loaderVersion:
+          (engine === 'horizon' || loader !== 'vanilla') && loaderVersion
+            ? loaderVersion
+            : null,
       });
       setName('');
       setVersionQuery('');
@@ -426,15 +439,85 @@ export function CreateInstanceModal({
             </div>
 
           {engine === 'horizon' ? (
-            <div className="rounded-[10px] border border-line bg-bg-well/70 p-4 text-xs leading-relaxed text-muted">
-              <div className="flex items-center justify-between text-ink">
-                <span className="font-medium">Нативный движок Horizon (Rust)</span>
-                <span className="font-mono text-[11px] text-muted">Minecraft 26.3</span>
+            <div className="space-y-3">
+              <div className="rounded-[10px] border border-line bg-bg-well/70 p-4 text-xs leading-relaxed text-muted">
+                <div className="flex items-center justify-between text-ink">
+                  <span className="font-medium">Нативный движок Horizon (Rust)</span>
+                  <span className="font-mono text-[11px] text-muted">Minecraft 26.3</span>
+                </div>
+                <p className="mt-2">
+                  Запускается нативно без JVM. После создания сборки лаунчер скачает бинарники
+                  Horizon с GitHub и подготовит ресурсы официального клиента 26.3.
+                </p>
               </div>
-              <p className="mt-2">
-                Запускается нативно без JVM. После создания сборки лаунчер скачает бинарники
-                Horizon с GitHub и подготовит ресурсы официального клиента 26.3.
-              </p>
+
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="hl-field-label mb-0">Версия бинарников Horizon</span>
+                  <span className="font-mono text-[11px] text-faint">
+                    {horizonReleasesLoading && horizonReleases.length === 0
+                      ? 'Загрузка…'
+                      : horizonReleases.length > 0
+                        ? `Доступно: ${horizonReleases.length}`
+                        : ''}
+                  </span>
+                </div>
+                <div ref={loaderDropdownRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setLoaderDropdownOpen((v) => !v)}
+                    className="hl-input flex items-center justify-between text-left text-xs"
+                  >
+                    <span className="truncate font-mono">
+                      {horizonReleasesLoading && horizonReleases.length === 0
+                        ? 'Загрузка релизов Horizon…'
+                        : loaderVersion
+                          ? horizonReleases.find((r) => r.tagName === loaderVersion)?.name ??
+                            loaderVersion
+                          : 'Авто (последний nightly)'}
+                    </span>
+                    <ChevronDown size={13} className="shrink-0 text-muted" />
+                  </button>
+                  {loaderDropdownOpen && (
+                    <div className="absolute right-0 bottom-full left-0 z-20 mb-1 max-h-44 overflow-y-auto rounded-[8px] border border-line-strong bg-surface p-1 shadow-xl">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLoaderVersion('');
+                          setLoaderDropdownOpen(false);
+                        }}
+                        className={cn(
+                          'flex w-full items-center justify-between rounded-[6px] px-2.5 py-1.5 text-left text-xs transition-colors',
+                          loaderVersion === ''
+                            ? 'bg-surface-2 font-medium text-ink'
+                            : 'text-muted hover:bg-surface-2/60 hover:text-ink',
+                        )}
+                      >
+                        <span>Авто (последний nightly)</span>
+                      </button>
+                      {horizonReleases.map((rel) => (
+                        <button
+                          key={rel.tagName}
+                          type="button"
+                          onClick={() => {
+                            setLoaderVersion(rel.tagName);
+                            setLoaderDropdownOpen(false);
+                          }}
+                          className={cn(
+                            'flex w-full items-center justify-between gap-2 rounded-[6px] px-2.5 py-1.5 text-left text-xs transition-colors',
+                            loaderVersion === rel.tagName
+                              ? 'bg-surface-2 font-medium text-ink'
+                              : 'text-muted hover:bg-surface-2/60 hover:text-ink',
+                          )}
+                        >
+                          <span className="truncate font-mono">{rel.tagName}</span>
+                          <span className="shrink-0 text-[11px] text-faint">{rel.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           ) : (
             <>

@@ -11,6 +11,7 @@ export interface AppSettings {
   maxConcurrentDownloads: number;
   closeOnLaunch: boolean;
   showSnapshots: boolean;
+  autoUpdateHorizon: boolean;
   customJavaPaths: string[];
 }
 
