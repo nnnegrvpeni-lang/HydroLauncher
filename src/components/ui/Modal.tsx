@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '../../utils/cn';
 
 interface ModalProps {
@@ -32,7 +33,7 @@ export function Modal({
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
       <div
         className="hl-backdrop-in absolute inset-0 bg-black/55 backdrop-blur-[3px]"
@@ -70,6 +71,7 @@ export function Modal({
           </footer>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

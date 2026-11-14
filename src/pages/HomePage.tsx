@@ -21,7 +21,6 @@ import { InstanceSettingsModal } from '../components/InstanceSettingsModal';
 import { VoxelEmblem } from '../components/VoxelEmblem';
 import { VoxelStageCanvas } from '../components/VoxelStageCanvas';
 import { Button } from '../components/ui/Button';
-import { EmptyState } from '../components/ui/EmptyState';
 import { useAccountsStore } from '../stores/accountsStore';
 import { useInstancesStore } from '../stores/instancesStore';
 import { useLaunchStore } from '../stores/launchStore';
@@ -55,6 +54,7 @@ interface HomePageProps {
 export function HomePage({
   selectedInstanceId,
   onSelectInstance,
+  onNavigate,
   onQuickCreateInstance,
   onQuickAddAccount,
   onOpenModsForInstance,
@@ -126,19 +126,84 @@ export function HomePage({
 
   if (!featured) {
     return (
-      <div className="flex h-full items-center justify-center p-8">
-        <EmptyState
-          className="max-w-md"
-          icon={<Layers size={18} />}
-          title="Добро пожаловать в Hydro"
-          description="Создайте первую сборку Minecraft — лаунчер скачает файлы, подберёт Java и подготовит запуск."
-          action={
+      <div className="flex min-h-full items-center justify-center p-7">
+        <div className="deck-surface hl-fade-up w-full max-w-[680px] rounded-[18px] p-7">
+          <div className="flex items-start gap-4">
+            <img
+              src="/icon.png"
+              alt="HydroLauncher"
+              className="h-12 w-12 shrink-0 rounded-[12px] border border-line-strong bg-bg-well object-contain p-1.5"
+            />
+            <div className="min-w-0">
+              <h1 className="text-[22px] font-semibold tracking-tight text-ink">
+                Добро пожаловать в HydroLauncher
+              </h1>
+              <p className="mt-1 text-[13px] leading-relaxed text-muted">
+                Чистый лаунчер для Java Edition и нативного движка Horizon (Rust) с офлайн-профилями и встроенным каталогом модов.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+            <div className="rounded-[12px] border border-line bg-bg-well/70 p-4">
+              <div className="flex items-center justify-between text-xs font-medium text-ink">
+                <span className="flex items-center gap-1.5">
+                  <UserPlus size={13.5} className="text-accent" />
+                  1. Профиль
+                </span>
+                {activeAccount && <Check size={13} className="text-led" />}
+              </div>
+              <p className="mt-2 text-[12px] leading-relaxed text-muted">
+                {activeAccount ? (
+                  <>
+                    Активный ник:{' '}
+                    <span className="font-medium text-ink">{activeAccount.username}</span>.
+                    Можно добавить ещё в меню сверху.
+                  </>
+                ) : (
+                  'Укажите офлайн-никнейм — он нужен для запуска игры и сохранений.'
+                )}
+              </p>
+            </div>
+
+            <div className="rounded-[12px] border border-line bg-bg-well/70 p-4">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-ink">
+                <Layers size={13.5} className="text-accent" />
+                2. Сборка
+              </div>
+              <p className="mt-2 text-[12px] leading-relaxed text-muted">
+                Создайте сборку с Vanilla, Fabric, Forge, NeoForge, Quilt, Horizon или импортируйте <span className="font-mono text-ink">.mrpack</span>.
+              </p>
+            </div>
+
+            <div className="rounded-[12px] border border-line bg-bg-well/70 p-4">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-ink">
+                <Play size={13.5} className="text-accent" />
+                3. Запуск
+              </div>
+              <p className="mt-2 text-[12px] leading-relaxed text-muted">
+                Лаунчер сам найдёт или скачает нужную Java, загрузит библиотеки, ассеты и запустит клиент.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-wrap items-center gap-2.5 border-t border-line pt-5">
             <Button variant="accent" size="lg" onClick={onQuickCreateInstance}>
-              <Plus size={14} />
+              <Plus size={15} />
               Создать сборку
             </Button>
-          }
-        />
+            {!activeAccount && (
+              <Button variant="secondary" size="lg" onClick={onQuickAddAccount}>
+                <UserPlus size={15} />
+                Создать профиль
+              </Button>
+            )}
+            <Button variant="ghost" size="lg" onClick={() => onNavigate('mods')}>
+              <Package size={15} />
+              Каталог модов
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }
