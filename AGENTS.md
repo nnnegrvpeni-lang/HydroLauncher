@@ -1,0 +1,26 @@
+# HydroLauncher — Руководство для разработки (AGENTS.md)
+
+## Стек и архитектура
+- **Desktop shell**: Tauri v2 (`src-tauri/`) + React 19 + TypeScript + Vite + Tailwind CSS v4 (`src/`).
+- **Аккаунты**: только офлайн (`OfflinePlayer:<name>` UUID v3).
+- **Движки**: Java Edition (Vanilla, в планах Fabric/Forge/NeoForge/Quilt) + будущая интеграция Horizon (Rust).
+
+## Критические правила
+1. **Никаких хардкодных URL и путей**:
+   - Все внешние URL централизованы в `src-tauri/src/config/endpoints.rs`.
+   - Все пути хранения централизованы в `src-tauri/src/storage/paths.rs`.
+2. **Визуальный стиль (Тактильный графит)**:
+   - Строгий десктопный интерфейс без неона, без SaaS-пилюлек (`• В игре`, `• Готова`), без рамочек вокруг каждой цифры/версии, без мигающих точек-индикаторов и без шаблонных SVG-заглушек.
+   - Шрифты: локальные `IBM Plex Sans` и `IBM Plex Mono` из `public/fonts/`.
+   - В `vite.config.ts` папка `public/fonts/**` добавлена в `server.watch.ignored` (защита от `EBUSY` на Windows).
+3. **Запуск Minecraft (`src-tauri/src/services/mojang_service.rs`, `java_rules.rs`, `launch_service.rs`)**:
+   - `collect_classpath` обязан включать и библиотеки `details.libraries`, и `versions/<id>/<id>.jar`.
+   - `rule_allows` в `java_rules.rs` обязан учитывать `rule.features`: опциональные фичи (`is_demo_user`, `has_custom_resolution`, `is_quick_play_*`) выключены, поэтому правила с `features: { ...: true }` не должны применяться.
+   - `VersionSummary` в Rust сериализует `version_type` как `"type"`, поэтому в TS (`src/api/types.ts`) поле называется `type`.
+4. **Консоль и буфер обмена**:
+   - В `theme.css` на `body` стоит `user-select: none`, поэтому все области с логами обязаны иметь `select-text cursor-text` и кнопку копирования.
+5. **Обязательная проверка после правок**:
+   - Не удалять импорт и его использование отдельными `edit`-вызовами в одном файле, чтобы Vite HMR не застревал на сломанном промежуточном состоянии.
+   - Фронтенд: `npx tsc -b` и `npm run build`.
+   - Бэкенд: `cargo check --manifest-path src-tauri/Cargo.toml` и `cargo test --manifest-path src-tauri/Cargo.toml`.
+   - Визуал и runtime: проверка в headless Edge / `tools.browser` (`errors: []` на `#home` и `#instances`).
