@@ -17,6 +17,11 @@ use tauri::{AppHandle, Emitter};
 use tokio::process::Command;
 
 #[derive(Debug, Deserialize)]
+struct MetaGameEntry {
+    version: String,
+}
+
+#[derive(Debug, Deserialize)]
 struct MetaLoaderEntry {
     loader: MetaLoaderInfo,
 }
@@ -64,6 +69,75 @@ fn emit_progress(app: &AppHandle, instance_id: &str, message: &str, current: u64
             percent,
         },
     );
+}
+
+pub async fn list_supported_mc_versions(loader: ModLoaderKind) -> AppResult<Vec<String>> {
+    if loader == ModLoaderKind::Vanilla {
+        return Ok(Vec::new());
+    }
+
+    let client = Client::new();
+    match loader {
+        ModLoaderKind::Vanilla => Ok(Vec::new()),
+        ModLoaderKind::Fabric => {
+            let url = format!("{FABRIC_META_BASE_URL}/versions/game");
+            let entries: Vec<MetaGameEntry> = downloader::get_json(&client, &url).await?;
+            Ok(entries.into_iter().map(|e| e.version).collect())
+        }
+        ModLoaderKind::Quilt => {
+            let url = format!("{QUILT_META_BASE_URL}/versions/game");
+            let entries: Vec<MetaGameEntry> = downloader::get_json(&client, &url).await?;
+            Ok(entries.into_iter().map(|e| e.version).collect())
+        }
+        ModLoaderKind::Forge => {
+            let xml_url = format!(
+                "{FORGE_MAVEN_BASE_URL}/net/minecraftforge/forge/maven-metadata.xml"
+            );
+            let xml = client
+                .get(&xml_url)
+                .header("User-Agent", "HydroLauncher/0.1")
+                .send()
+                .await?
+                .error_for_status()?
+                .text()
+                .await?;
+            let mut seen = std::collections::HashSet::new();
+            let mut versions = Vec::new();
+            for s in xml.split("<version>").skip(1) {
+                if let Some(full) = s.split("</version>").next() {
+                    if let Some((mc, _)) = full.split_once('-') {
+                        if seen.insert(mc.to_string()) {
+                            versions.push(mc.to_string());
+                        }
+                    }
+                }
+            }
+            Ok(versions)
+        }
+        ModLoaderKind::NeoForge => {
+            let data: NeoForgeVersions =
+                downloader::get_json(&client, NEOFORGE_VERSIONS_API_URL).await?;
+            let mut seen = std::collections::HashSet::new();
+            let mut versions = Vec::new();
+            for v in data.versions {
+                let parts: Vec<&str> = v.split('.').collect();
+                if parts.len() >= 3
+                    && parts[0].chars().all(|c| c.is_ascii_digit())
+                    && parts[1].chars().all(|c| c.is_ascii_digit())
+                {
+                    let mc = if parts[1] == "0" {
+                        format!("1.{}", parts[0])
+                    } else {
+                        format!("1.{}.{}", parts[0], parts[1])
+                    };
+                    if seen.insert(mc.clone()) {
+                        versions.push(mc);
+                    }
+                }
+            }
+            Ok(versions)
+        }
+    }
 }
 
 pub async fn list_loader_versions(

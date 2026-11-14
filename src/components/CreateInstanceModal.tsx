@@ -65,6 +65,9 @@ export function CreateInstanceModal({
   const [loaderVersionsLoading, setLoaderVersionsLoading] = useState(false);
   const [loaderDropdownOpen, setLoaderDropdownOpen] = useState(false);
   const loaderDropdownRef = useRef<HTMLDivElement>(null);
+  const supportedMcCacheRef = useRef<Partial<Record<ModLoaderKind, Set<string>>>>({});
+  const [supportedMcSet, setSupportedMcSet] = useState<Set<string> | null>(null);
+  const [supportedMcLoading, setSupportedMcLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -130,6 +133,64 @@ export function CreateInstanceModal({
       window.clearTimeout(timer);
     };
   }, [open, tab, packQuery]);
+
+  useEffect(() => {
+    if (!open || tab !== 'custom' || engine !== 'java' || loader === 'vanilla') {
+      setSupportedMcSet(null);
+      setSupportedMcLoading(false);
+      return;
+    }
+
+    const cached = supportedMcCacheRef.current[loader];
+    if (cached) {
+      setSupportedMcSet(cached);
+      setSupportedMcLoading(false);
+      return;
+    }
+
+    let active = true;
+    setSupportedMcLoading(true);
+    setSupportedMcSet(null);
+    api
+      .getLoaderSupportedMcVersions(loader)
+      .then((list) => {
+        if (!active) return;
+        const nextSet = new Set(list);
+        supportedMcCacheRef.current[loader] = nextSet;
+        setSupportedMcSet(nextSet);
+      })
+      .catch(() => {
+        if (active) setSupportedMcSet(null);
+      })
+      .finally(() => {
+        if (active) setSupportedMcLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [open, tab, engine, loader]);
+
+  useEffect(() => {
+    if (
+      !open ||
+      tab !== 'custom' ||
+      engine !== 'java' ||
+      loader === 'vanilla' ||
+      !supportedMcSet ||
+      supportedMcSet.size === 0 ||
+      allVersions.length === 0
+    ) {
+      return;
+    }
+    if (!supportedMcSet.has(selectedVersion)) {
+      const fallback = allVersions.find(
+        (v) => (showSnapshots || v.type === 'release') && supportedMcSet.has(v.id),
+      );
+      if (fallback) {
+        setSelectedVersion(fallback.id);
+      }
+    }
+  }, [open, tab, engine, loader, supportedMcSet, allVersions, showSnapshots, selectedVersion]);
 
   useEffect(() => {
     if (!open || tab !== 'custom' || engine !== 'java' || loader === 'vanilla' || !selectedVersion) {
@@ -486,6 +547,9 @@ export function CreateInstanceModal({
               <div className="mb-1.5 flex items-center justify-between">
                 <span className="hl-field-label mb-0">
                   Версия Minecraft ({filteredByType.length})
+                  {supportedMcLoading && (
+                    <span className="ml-2 font-normal text-faint">проверка…</span>
+                  )}
                 </span>
                 {selectedVersion && (
                   <span className="font-mono text-[11.5px] font-medium text-accent">
@@ -519,21 +583,28 @@ export function CreateInstanceModal({
                 <div className="mt-2 h-[270px] divide-y divide-line overflow-y-auto rounded-[9px] border border-line bg-bg-well">
                   {visibleVersions.map((v) => {
                     const selected = selectedVersion === v.id;
+                    const supported =
+                      loader === 'vanilla' || !supportedMcSet || supportedMcSet.has(v.id);
                     return (
                       <button
                         key={v.id}
                         type="button"
-                        onClick={() => setSelectedVersion(v.id)}
+                        disabled={!supported}
+                        onClick={() => {
+                          if (supported) setSelectedVersion(v.id);
+                        }}
                         className={cn(
                           'flex w-full items-center justify-between px-3 py-2 text-left text-xs transition-colors',
-                          selected
-                            ? 'bg-surface-2 font-medium text-ink'
-                            : 'text-muted hover:bg-surface/60 hover:text-ink',
+                          !supported
+                            ? 'cursor-not-allowed text-faint opacity-35'
+                            : selected
+                              ? 'bg-surface-2 font-medium text-ink'
+                              : 'text-muted hover:bg-surface/60 hover:text-ink',
                         )}
                       >
                         <span className="font-mono">{v.id}</span>
                         <span className="text-[11px] text-faint">
-                          {TYPE_LABEL[v.type] ?? v.type}
+                          {supported ? (TYPE_LABEL[v.type] ?? v.type) : 'Недоступно'}
                         </span>
                       </button>
                     );

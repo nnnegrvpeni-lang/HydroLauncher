@@ -63,3 +63,29 @@ pub async fn validate_data_dir(path: String) -> Result<String, AppError> {
     tokio::fs::remove_file(&test_file).await?;
     Ok(p.to_string_lossy().into_owned())
 }
+
+#[tauri::command]
+pub async fn open_data_dir(state: State<'_, AppState>) -> Result<(), AppError> {
+    let (_, data_dir) = crate::commands::shared::resolve_data_dir(&state).await?;
+    tokio::fs::create_dir_all(&data_dir).await?;
+
+    #[cfg(target_os = "windows")]
+    std::process::Command::new("explorer")
+        .arg(&data_dir)
+        .spawn()
+        .map_err(|e| AppError::Process(format!("Не удалось открыть папку: {e}")))?;
+
+    #[cfg(target_os = "macos")]
+    std::process::Command::new("open")
+        .arg(&data_dir)
+        .spawn()
+        .map_err(|e| AppError::Process(format!("Не удалось открыть папку: {e}")))?;
+
+    #[cfg(target_os = "linux")]
+    std::process::Command::new("xdg-open")
+        .arg(&data_dir)
+        .spawn()
+        .map_err(|e| AppError::Process(format!("Не удалось открыть папку: {e}")))?;
+
+    Ok(())
+}

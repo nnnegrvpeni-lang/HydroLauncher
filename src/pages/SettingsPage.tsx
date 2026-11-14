@@ -412,7 +412,7 @@ function JavaGroup() {
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
         <span className="text-[13px] text-ink">Быстрая установка Temurin</span>
         <div className="flex gap-2">
-          {[17, 21].map((major) => (
+          {[17, 21, 25].map((major) => (
             <Button
               key={major}
               size="sm"
@@ -481,12 +481,15 @@ function StorageGroup() {
       description="Корневая папка со сборками, ассетами и профилями"
     >
       <div className="px-5 py-4">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1 truncate rounded-[8px] border border-line-strong bg-bg-well px-3 py-2 font-mono text-xs text-ink">
             {settings.dataDir || systemInfo?.defaultDataDir}
           </div>
-          <Button size="md" variant="secondary" onClick={() => void pick()}>
+          <Button size="md" variant="secondary" onClick={() => void api.openDataDir()}>
             <FolderOpen size={13.5} />
+            Открыть папку
+          </Button>
+          <Button size="md" variant="secondary" onClick={() => void pick()}>
             Изменить
           </Button>
         </div>

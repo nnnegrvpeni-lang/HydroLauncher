@@ -191,6 +191,10 @@ export async function mockInvoke<T>(
       return null as T;
     case 'validate_data_dir':
       return (args?.path ?? '') as T;
+    case 'open_data_dir':
+      return undefined as T;
+    case 'get_loader_supported_mc_versions':
+      return ['1.21.4', '1.21.1', '1.20.4', '1.20.1', '1.19.4'] as T;
 
     case 'get_accounts':
       return structuredClone(accounts) as T;

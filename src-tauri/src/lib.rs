@@ -26,12 +26,14 @@ use commands::{
         search_modrinth_mods, toggle_installed_mod,
     },
     settings_cmd::{
-        get_settings, get_system_info, pick_directory, save_settings_cmd, validate_data_dir,
+        get_settings, get_system_info, open_data_dir, pick_directory, save_settings_cmd,
+        validate_data_dir,
     },
     versions::{
-        check_horizon_update, ensure_java_runtime, get_install_status, get_loader_versions,
-        get_running_instances, get_version_catalog, get_version_details, launch_instance,
-        prepare_instance, terminate_instance, update_horizon_binaries,
+        check_horizon_update, ensure_java_runtime, get_install_status,
+        get_loader_supported_mc_versions, get_loader_versions, get_running_instances,
+        get_version_catalog, get_version_details, launch_instance, prepare_instance,
+        terminate_instance, update_horizon_binaries,
     },
 };
 use state::AppState;
@@ -67,6 +69,7 @@ pub fn run() {
             get_system_info,
             pick_directory,
             validate_data_dir,
+            open_data_dir,
             // Java
             get_java_runtimes,
             download_java_runtime,
@@ -80,6 +83,7 @@ pub fn run() {
             terminate_instance,
             get_running_instances,
             get_loader_versions,
+            get_loader_supported_mc_versions,
             check_horizon_update,
             update_horizon_binaries,
             // Моды (Modrinth & Horizon)

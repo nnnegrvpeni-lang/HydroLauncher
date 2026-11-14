@@ -117,6 +117,13 @@ pub async fn get_loader_versions(
 }
 
 #[tauri::command]
+pub async fn get_loader_supported_mc_versions(
+    loader: crate::models::instance::ModLoaderKind,
+) -> Result<Vec<String>, AppError> {
+    crate::services::loader_service::list_supported_mc_versions(loader).await
+}
+
+#[tauri::command]
 pub async fn check_horizon_update(
     state: State<'_, AppState>,
 ) -> Result<crate::services::horizon_service::HorizonUpdateInfo, AppError> {

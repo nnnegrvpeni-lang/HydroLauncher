@@ -324,6 +324,7 @@ export const api = {
   getSystemInfo: () => invoke<SystemInfo>('get_system_info'),
   pickDirectory: () => invoke<string | null>('pick_directory'),
   validateDataDir: (path: string) => invoke<string>('validate_data_dir', { path }),
+  openDataDir: () => invoke<void>('open_data_dir'),
 
   // Java
   getJavaRuntimes: () => invoke<JavaRuntime[]>('get_java_runtimes'),
@@ -342,6 +343,8 @@ export const api = {
   getRunningInstances: () => invoke<string[]>('get_running_instances'),
   getLoaderVersions: (loader: ModLoaderKind, minecraftVersion: string) =>
     invoke<string[]>('get_loader_versions', { loader, minecraftVersion }),
+  getLoaderSupportedMcVersions: (loader: ModLoaderKind) =>
+    invoke<string[]>('get_loader_supported_mc_versions', { loader }),
   checkHorizonUpdate: () => invoke<HorizonUpdateInfo>('check_horizon_update'),
   updateHorizonBinaries: (instanceId?: string) =>
     invoke<HorizonUpdateInfo>('update_horizon_binaries', { instanceId }),
