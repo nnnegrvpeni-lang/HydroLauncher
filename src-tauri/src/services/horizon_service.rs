@@ -1,4 +1,6 @@
-use crate::config::endpoints::HORIZON_NIGHTLY_RELEASE_API_URL;
+use crate::config::endpoints::{
+    horizon_release_by_tag_url, HORIZON_NIGHTLY_RELEASE_API_URL, HORIZON_RELEASES_API_URL,
+};
 use crate::error::{AppError, AppResult};
 use crate::models::events::LaunchProgressEvent;
 use crate::models::mojang::{VersionDetails, VersionSummary};
@@ -13,8 +15,17 @@ use tokio::process::Command;
 #[derive(Debug, Deserialize)]
 struct GitHubRelease {
     tag_name: String,
+    name: Option<String>,
     published_at: Option<String>,
     assets: Vec<GitHubAsset>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HorizonReleaseSummary {
+    pub tag_name: String,
+    pub name: String,
+    pub published_at: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -114,21 +125,57 @@ pub fn resolve_horizon_binaries(paths: &AppPaths, data_dir: &Path) -> Option<(Pa
     Some((client, prepare))
 }
 
+pub async fn list_horizon_releases() -> AppResult<Vec<HorizonReleaseSummary>> {
+    let archive_name = expected_archive_name()?;
+    let client = reqwest::Client::builder()
+        .user_agent("HydroLauncher/0.1")
+        .build()?;
+    let releases: Vec<GitHubRelease> = get_json(&client, HORIZON_RELEASES_API_URL).await?;
+    Ok(releases
+        .into_iter()
+        .filter(|r| {
+            r.tag_name.starts_with("nightly")
+                && r.assets.iter().any(|a| a.name == archive_name)
+        })
+        .map(|r| HorizonReleaseSummary {
+            name: r.name.unwrap_or_else(|| r.tag_name.clone()),
+            tag_name: r.tag_name,
+            published_at: r.published_at,
+        })
+        .collect())
+}
+
 pub async fn ensure_horizon_binaries(
     app: &AppHandle,
     paths: &AppPaths,
     data_dir: &Path,
     instance_id: &str,
+    preferred_tag: Option<&str>,
 ) -> AppResult<(PathBuf, PathBuf)> {
+    let requested_tag = preferred_tag
+        .map(str::trim)
+        .filter(|t| !t.is_empty());
     if let Some(pair) = resolve_horizon_binaries(paths, data_dir) {
-        return Ok(pair);
+        if let Some(tag) = requested_tag {
+            let meta_path = paths.horizon_dir(data_dir).join("horizon-meta.json");
+            let current_tag = crate::storage::json_store::read_json_or_default::<HorizonMeta>(&meta_path)
+                .await
+                .ok()
+                .map(|m| m.tag_name);
+            if current_tag.as_deref() == Some(tag) {
+                return Ok(pair);
+            }
+        } else {
+            return Ok(pair);
+        }
     }
-    download_horizon_binaries(app, paths, data_dir, instance_id).await
+    download_horizon_binaries(app, paths, data_dir, instance_id, requested_tag).await
 }
 
 pub async fn check_horizon_update(
     paths: &AppPaths,
     data_dir: &Path,
+    tag: Option<&str>,
 ) -> AppResult<HorizonUpdateInfo> {
     let installed = resolve_horizon_binaries(paths, data_dir).is_some();
     let meta_path = paths.horizon_dir(data_dir).join("horizon-meta.json");
@@ -143,7 +190,12 @@ pub async fn check_horizon_update(
     let client = reqwest::Client::builder()
         .user_agent("HydroLauncher/0.1")
         .build()?;
-    let release: GitHubRelease = get_json(&client, HORIZON_NIGHTLY_RELEASE_API_URL).await?;
+    let release_url = tag
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .map(horizon_release_by_tag_url)
+        .unwrap_or_else(|| HORIZON_NIGHTLY_RELEASE_API_URL.to_string());
+    let release: GitHubRelease = get_json(&client, &release_url).await?;
     let archive_name = expected_archive_name()?;
     let asset = release.assets.iter().find(|a| a.name == archive_name);
     let latest_updated = asset
@@ -155,7 +207,9 @@ pub async fn check_horizon_update(
     let update_available = if !installed {
         true
     } else if let Some(ref meta) = local_meta {
-        meta.updated_at != latest_updated || (latest_size > 0 && meta.asset_size != latest_size)
+        meta.tag_name != release.tag_name
+            || meta.updated_at != latest_updated
+            || (latest_size > 0 && meta.asset_size != latest_size)
     } else {
         true
     };
@@ -174,9 +228,11 @@ pub async fn update_horizon_binaries(
     paths: &AppPaths,
     data_dir: &Path,
     instance_id: &str,
+    tag: Option<&str>,
 ) -> AppResult<HorizonUpdateInfo> {
-    download_horizon_binaries(app, paths, data_dir, instance_id).await?;
-    check_horizon_update(paths, data_dir).await
+    let clean_tag = tag.map(str::trim).filter(|t| !t.is_empty());
+    download_horizon_binaries(app, paths, data_dir, instance_id, clean_tag).await?;
+    check_horizon_update(paths, data_dir, clean_tag).await
 }
 
 async fn download_horizon_binaries(
@@ -184,6 +240,7 @@ async fn download_horizon_binaries(
     paths: &AppPaths,
     data_dir: &Path,
     instance_id: &str,
+    tag: Option<&str>,
 ) -> AppResult<(PathBuf, PathBuf)> {
 
     emit_progress(
@@ -199,7 +256,10 @@ async fn download_horizon_binaries(
         .user_agent("HydroLauncher/0.1")
         .build()?;
 
-    let release: GitHubRelease = get_json(&client, HORIZON_NIGHTLY_RELEASE_API_URL).await?;
+    let release_url = tag
+        .map(horizon_release_by_tag_url)
+        .unwrap_or_else(|| HORIZON_NIGHTLY_RELEASE_API_URL.to_string());
+    let release: GitHubRelease = get_json(&client, &release_url).await?;
     let archive_name = expected_archive_name()?;
     let asset = release
         .assets

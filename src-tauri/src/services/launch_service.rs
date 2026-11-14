@@ -83,6 +83,7 @@ pub async fn prepare_instance(app: AppHandle, instance: Instance) -> AppResult<(
                 &paths,
                 &data_dir,
                 &instance.id,
+                instance.loader_version.as_deref(),
             )
             .await?;
             let prepared_dir = paths.horizon_prepared_dir(&data_dir, &details.id);
@@ -286,6 +287,7 @@ pub async fn launch(
                 &paths,
                 &data_dir,
                 &instance.id,
+                instance.loader_version.as_deref(),
             )
             .await?;
             let prepared_dir_path = paths.horizon_prepared_dir(&data_dir, &details.id);

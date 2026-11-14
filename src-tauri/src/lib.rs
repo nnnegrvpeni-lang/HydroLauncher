@@ -32,8 +32,8 @@ use commands::{
     versions::{
         check_horizon_update, ensure_java_runtime, get_install_status,
         get_loader_supported_mc_versions, get_loader_versions, get_running_instances,
-        get_version_catalog, get_version_details, launch_instance, prepare_instance,
-        terminate_instance, update_horizon_binaries,
+        get_version_catalog, get_version_details, launch_instance, list_horizon_releases,
+        prepare_instance, terminate_instance, update_horizon_binaries,
     },
 };
 use state::AppState;
@@ -84,6 +84,7 @@ pub fn run() {
             get_running_instances,
             get_loader_versions,
             get_loader_supported_mc_versions,
+            list_horizon_releases,
             check_horizon_update,
             update_horizon_binaries,
             // Моды (Modrinth & Horizon)

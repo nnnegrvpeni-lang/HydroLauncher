@@ -124,11 +124,17 @@ pub async fn get_loader_supported_mc_versions(
 }
 
 #[tauri::command]
+pub async fn list_horizon_releases() -> Result<Vec<crate::services::horizon_service::HorizonReleaseSummary>, AppError> {
+    crate::services::horizon_service::list_horizon_releases().await
+}
+
+#[tauri::command]
 pub async fn check_horizon_update(
     state: State<'_, AppState>,
+    tag: Option<String>,
 ) -> Result<crate::services::horizon_service::HorizonUpdateInfo, AppError> {
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
-    crate::services::horizon_service::check_horizon_update(&paths, &data_dir).await
+    crate::services::horizon_service::check_horizon_update(&paths, &data_dir, tag.as_deref()).await
 }
 
 #[tauri::command]
@@ -136,6 +142,7 @@ pub async fn update_horizon_binaries(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
     instance_id: Option<String>,
+    tag: Option<String>,
 ) -> Result<crate::services::horizon_service::HorizonUpdateInfo, AppError> {
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
     crate::services::horizon_service::update_horizon_binaries(
@@ -143,6 +150,7 @@ pub async fn update_horizon_binaries(
         &paths,
         &data_dir,
         instance_id.as_deref().unwrap_or("horizon-update"),
+        tag.as_deref(),
     )
     .await
 }

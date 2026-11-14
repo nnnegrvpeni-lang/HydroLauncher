@@ -280,6 +280,12 @@ export interface InstanceScreenshot {
   dataUrl: string | null;
 }
 
+export interface HorizonReleaseSummary {
+  tagName: string;
+  name: string;
+  publishedAt: string | null;
+}
+
 export interface HorizonUpdateInfo {
   installed: boolean;
   updateAvailable: boolean;
@@ -345,9 +351,10 @@ export const api = {
     invoke<string[]>('get_loader_versions', { loader, minecraftVersion }),
   getLoaderSupportedMcVersions: (loader: ModLoaderKind) =>
     invoke<string[]>('get_loader_supported_mc_versions', { loader }),
-  checkHorizonUpdate: () => invoke<HorizonUpdateInfo>('check_horizon_update'),
-  updateHorizonBinaries: (instanceId?: string) =>
-    invoke<HorizonUpdateInfo>('update_horizon_binaries', { instanceId }),
+  listHorizonReleases: () => invoke<HorizonReleaseSummary[]>('list_horizon_releases'),
+  checkHorizonUpdate: (tag?: string) => invoke<HorizonUpdateInfo>('check_horizon_update', { tag }),
+  updateHorizonBinaries: (instanceId?: string, tag?: string) =>
+    invoke<HorizonUpdateInfo>('update_horizon_binaries', { instanceId, tag }),
 
   // Моды (Modrinth)
   searchModrinthMods: (request: SearchModrinthRequest) =>

@@ -14,6 +14,11 @@ pub const ADOPTIUM_API_BASE_URL: &str = "https://api.adoptium.net/v3";
 pub const MODRINTH_API_BASE_URL: &str = "https://api.modrinth.com/v2";
 pub const HORIZON_NIGHTLY_RELEASE_API_URL: &str =
     "https://api.github.com/repos/horizon-rust/horizon/releases/tags/nightly";
+pub const HORIZON_RELEASES_API_URL: &str =
+    "https://api.github.com/repos/horizon-rust/horizon/releases?per_page=50";
+pub fn horizon_release_by_tag_url(tag: &str) -> String {
+    format!("https://api.github.com/repos/horizon-rust/horizon/releases/tags/{tag}")
+}
 pub const HORIZON_MODS_INDEX_URL: &str =
     "https://horizon-rust.github.io/horizon-mods/index.json";
 pub const HORIZON_MINECRAFT_VERSION: &str = "26.3";

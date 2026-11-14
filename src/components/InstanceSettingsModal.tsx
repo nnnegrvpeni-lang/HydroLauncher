@@ -7,7 +7,7 @@ import { useInstancesStore } from '../stores/instancesStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { cn } from '../utils/cn';
 import { formatMemory } from '../utils/format';
-import { api, type HorizonUpdateInfo, type Instance } from '../api';
+import { api, type HorizonReleaseSummary, type HorizonUpdateInfo, type Instance } from '../api';
 
 interface InstanceSettingsModalProps {
   instance: Instance | null;
@@ -31,6 +31,8 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
   const loaderDropdownRef = useRef<HTMLDivElement>(null);
   const [saving, setSaving] = useState(false);
 
+  const [horizonReleases, setHorizonReleases] = useState<HorizonReleaseSummary[]>([]);
+  const [horizonReleasesLoading, setHorizonReleasesLoading] = useState(false);
   const [horizonStatus, setHorizonStatus] = useState<HorizonUpdateInfo | null>(null);
   const [horizonChecking, setHorizonChecking] = useState(false);
   const [horizonUpdating, setHorizonUpdating] = useState(false);
@@ -50,11 +52,36 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
   }, [instance, settings?.defaultMemoryMb]);
 
   useEffect(() => {
-    if (!instance || instance.engine !== 'java' || instance.loader === 'vanilla') {
+    if (!instance) {
       setLoaderVersions([]);
+      setHorizonReleases([]);
       return;
     }
     let active = true;
+    if (instance.engine === 'horizon') {
+      setLoaderVersions([]);
+      setHorizonReleasesLoading(true);
+      api
+        .listHorizonReleases()
+        .then((list) => {
+          if (active) setHorizonReleases(list);
+        })
+        .catch(() => {
+          if (active) setHorizonReleases([]);
+        })
+        .finally(() => {
+          if (active) setHorizonReleasesLoading(false);
+        });
+      return () => {
+        active = false;
+      };
+    }
+
+    setHorizonReleases([]);
+    if (instance.loader === 'vanilla') {
+      setLoaderVersions([]);
+      return;
+    }
     setLoaderVersionsLoading(true);
     api
       .getLoaderVersions(instance.loader, instance.minecraftVersion)
@@ -102,7 +129,7 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
           .map((s) => s.trim())
           .filter(Boolean),
         loaderVersion:
-          instance.engine === 'java' && instance.loader !== 'vanilla'
+          instance.engine === 'horizon' || instance.loader !== 'vanilla'
             ? loaderVersion.trim() || null
             : null,
       });
@@ -155,17 +182,80 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
             путь к Java и JVM-аргументы не используются.
           </div>
 
+          <div>
+            <span className="hl-field-label">Версия бинарников Horizon</span>
+            <div ref={loaderDropdownRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setLoaderDropdownOpen((v) => !v)}
+                className="hl-input flex items-center justify-between text-left text-xs"
+              >
+                <span className="truncate font-mono">
+                  {horizonReleasesLoading
+                    ? 'Загрузка релизов Horizon…'
+                    : loaderVersion
+                      ? horizonReleases.find((r) => r.tagName === loaderVersion)?.name ??
+                        loaderVersion
+                      : 'Авто (последний nightly)'}
+                </span>
+                <ChevronDown size={13} className="shrink-0 text-muted" />
+              </button>
+              {loaderDropdownOpen && (
+                <div className="absolute right-0 bottom-full left-0 z-20 mb-1 max-h-44 overflow-y-auto rounded-[8px] border border-line-strong bg-surface p-1 shadow-xl">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLoaderVersion('');
+                      setHorizonStatus(null);
+                      setLoaderDropdownOpen(false);
+                    }}
+                    className={cn(
+                      'flex w-full items-center justify-between rounded-[6px] px-2.5 py-1.5 text-left text-xs transition-colors',
+                      loaderVersion === ''
+                        ? 'bg-surface-2 font-medium text-ink'
+                        : 'text-muted hover:bg-surface-2/60 hover:text-ink',
+                    )}
+                  >
+                    <span>Авто (последний nightly)</span>
+                  </button>
+                  {horizonReleases.map((rel) => (
+                    <button
+                      key={rel.tagName}
+                      type="button"
+                      onClick={() => {
+                        setLoaderVersion(rel.tagName);
+                        setHorizonStatus(null);
+                        setLoaderDropdownOpen(false);
+                      }}
+                      className={cn(
+                        'flex w-full items-center justify-between gap-2 rounded-[6px] px-2.5 py-1.5 text-left text-xs transition-colors',
+                        loaderVersion === rel.tagName
+                          ? 'bg-surface-2 font-medium text-ink'
+                          : 'text-muted hover:bg-surface-2/60 hover:text-ink',
+                      )}
+                    >
+                      <span className="truncate font-mono">{rel.tagName}</span>
+                      <span className="shrink-0 text-[11px] text-faint">{rel.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="rounded-[8px] border border-line bg-bg-well/70 p-3.5">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[12.5px] font-medium text-ink">Обновление Horizon Nightly</p>
+                <p className="text-[12.5px] font-medium text-ink">
+                  {loaderVersion ? `Бинарники Horizon (${loaderVersion})` : 'Обновление Horizon Nightly'}
+                </p>
                 <p className="text-[11.5px] text-muted">
                   {horizonStatus
                     ? !horizonStatus.installed
                       ? 'Бинарники ещё не скачаны'
                       : horizonStatus.updateAvailable
-                        ? 'Доступна новая сборка Horizon Nightly'
-                        : 'Установлена актуальная сборка Horizon'
+                        ? `Доступна сборка ${horizonStatus.tagName}`
+                        : `Установлена актуальная сборка (${horizonStatus.tagName})`
                     : 'Проверить свежий бинарник в GitHub Releases'}
                 </p>
               </div>
@@ -178,7 +268,9 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
                     setHorizonChecking(true);
                     setHorizonError(null);
                     try {
-                      const info = await api.checkHorizonUpdate();
+                      const info = await api.checkHorizonUpdate(
+                        loaderVersion.trim() || undefined,
+                      );
                       setHorizonStatus(info);
                     } catch (err) {
                       setHorizonError(String(err));
@@ -202,7 +294,10 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
                       setHorizonUpdating(true);
                       setHorizonError(null);
                       try {
-                        const info = await api.updateHorizonBinaries(instance.id);
+                        const info = await api.updateHorizonBinaries(
+                          instance.id,
+                          loaderVersion.trim() || undefined,
+                        );
                         setHorizonStatus(info);
                       } catch (err) {
                         setHorizonError(String(err));
@@ -216,7 +311,7 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
                     ) : (
                       <Download size={12} />
                     )}
-                    {horizonUpdating ? 'Обновление…' : 'Обновить'}
+                    {horizonUpdating ? 'Обновление…' : 'Установить'}
                   </Button>
                 )}
               </div>
