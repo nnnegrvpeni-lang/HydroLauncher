@@ -12,10 +12,11 @@ import {
 import { AccountAvatar } from '../components/AccountAvatar';
 import { QuickAccountModal } from '../components/QuickAccountModal';
 import { Button, IconButton } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
 import { Switch } from '../components/ui/Switch';
 import { useAccountsStore } from '../stores/accountsStore';
 import { useSettingsStore } from '../stores/settingsStore';
-import { api, type JavaRuntime, type ThemeMode } from '../api';
+import { api, type JavaRuntime, type OfflineAccount, type ThemeMode } from '../api';
 import { cn } from '../utils/cn';
 import { formatMemory } from '../utils/format';
 
@@ -109,6 +110,7 @@ function AccountsGroup() {
   const setActive = useAccountsStore((s) => s.setActive);
   const remove = useAccountsStore((s) => s.remove);
   const [addOpen, setAddOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<OfflineAccount | null>(null);
 
   const accounts = store?.accounts ?? [];
 
@@ -165,7 +167,7 @@ function AccountsGroup() {
               )}
 
               <IconButton
-                onClick={() => void remove(account.id)}
+                onClick={() => setPendingDelete(account)}
                 title="Удалить профиль"
                 className="text-muted hover:bg-danger/12 hover:text-danger"
               >
@@ -177,6 +179,35 @@ function AccountsGroup() {
       )}
 
       <QuickAccountModal open={addOpen} onClose={() => setAddOpen(false)} />
+
+      <Modal
+        open={pendingDelete !== null}
+        title="Удалить профиль?"
+        subtitle={pendingDelete?.username}
+        onClose={() => setPendingDelete(null)}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setPendingDelete(null)}>
+              Отмена
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                if (pendingDelete) {
+                  void remove(pendingDelete.id);
+                  setPendingDelete(null);
+                }
+              }}
+            >
+              Удалить
+            </Button>
+          </>
+        }
+      >
+        <p className="text-[13px] leading-relaxed text-muted">
+          Профиль будет удалён из списка лаунчера. Миры и файлы сборок останутся на месте.
+        </p>
+      </Modal>
     </Group>
   );
 }

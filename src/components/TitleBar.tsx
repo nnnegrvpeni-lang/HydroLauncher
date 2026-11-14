@@ -10,13 +10,17 @@ import {
   Plus,
   Settings,
   Square,
+  Trash2,
   UserPlus,
   X,
 } from 'lucide-react';
+import type { OfflineAccount } from '../api';
 import { isMockEnabled } from '../api/mock';
 import { useAccountsStore } from '../stores/accountsStore';
 import { cn } from '../utils/cn';
 import { AccountAvatar } from './AccountAvatar';
+import { Button } from './ui/Button';
+import { Modal } from './ui/Modal';
 
 export type PageId = 'home' | 'instances' | 'mods' | 'settings';
 
@@ -38,8 +42,10 @@ export function TitleBar({ page, onNavigate, onQuickAddAccount }: TitleBarProps)
   const store = useAccountsStore((s) => s.store);
   const activeAccount = useAccountsStore((s) => s.activeAccount);
   const setActiveAccount = useAccountsStore((s) => s.setActive);
+  const removeAccount = useAccountsStore((s) => s.remove);
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<OfflineAccount | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -139,40 +145,56 @@ export function TitleBar({ page, onNavigate, onQuickAddAccount }: TitleBarProps)
           </button>
 
           {menuOpen && (
-            <div className="deck-surface absolute top-full right-0 mt-1.5 w-60 rounded-[9px] p-1.5">
-              <div className="px-2 py-1 text-[10.5px] font-medium tracking-wider text-faint uppercase">
+            <div className="absolute top-full right-0 mt-1.5 w-64 rounded-[11px] border border-line-strong bg-surface/96 p-1.5 shadow-[0_24px_48px_-12px_rgba(0,0,0,0.65)] backdrop-blur-2xl">
+              <div className="px-2 py-1 text-[11px] font-medium text-faint">
                 Офлайн-профили
               </div>
               {accounts.length === 0 ? (
                 <p className="px-2 py-2 text-xs text-muted">Профилей пока нет</p>
               ) : (
-                <div className="max-h-48 space-y-0.5 overflow-y-auto">
+                <div className="max-h-52 space-y-0.5 overflow-y-auto">
                   {accounts.map((account) => {
                     const isCurrent = activeAccount?.id === account.id;
                     return (
-                      <button
+                      <div
                         key={account.id}
-                        onClick={() => {
-                          void setActiveAccount(account.id);
-                          setMenuOpen(false);
-                        }}
                         className={cn(
-                          'flex w-full items-center gap-2.5 rounded-[6px] px-2 py-1.5 text-left transition-colors',
+                          'group flex items-center gap-1 rounded-[7px] pr-1 transition-colors',
                           isCurrent
                             ? 'bg-surface-2 text-ink'
-                            : 'text-muted hover:bg-surface-2/60 hover:text-ink',
+                            : 'text-muted hover:bg-surface-2/65 hover:text-ink',
                         )}
                       >
-                        <AccountAvatar
-                          username={account.username}
-                          active={isCurrent}
-                          size={20}
-                        />
-                        <span className="min-w-0 flex-1 truncate text-xs font-medium">
-                          {account.username}
-                        </span>
-                        {isCurrent && <Check size={12} className="shrink-0 text-led" />}
-                      </button>
+                        <button
+                          onClick={() => {
+                            void setActiveAccount(account.id);
+                            setMenuOpen(false);
+                          }}
+                          className="flex min-w-0 flex-1 items-center gap-2.5 px-2 py-1.5 text-left"
+                        >
+                          <AccountAvatar
+                            username={account.username}
+                            active={isCurrent}
+                            size={20}
+                          />
+                          <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                            {account.username}
+                          </span>
+                          {isCurrent && <Check size={12} className="shrink-0 text-led" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMenuOpen(false);
+                            setPendingDelete(account);
+                          }}
+                          title="Удалить профиль"
+                          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[5px] text-faint opacity-0 transition-all hover:bg-danger/15 hover:text-danger group-hover:opacity-100"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -211,6 +233,34 @@ export function TitleBar({ page, onNavigate, onQuickAddAccount }: TitleBarProps)
           </WindowButton>
         </div>
       </div>
+      <Modal
+        open={pendingDelete !== null}
+        title="Удалить профиль?"
+        subtitle={pendingDelete?.username}
+        onClose={() => setPendingDelete(null)}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setPendingDelete(null)}>
+              Отмена
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                if (pendingDelete) {
+                  void removeAccount(pendingDelete.id);
+                  setPendingDelete(null);
+                }
+              }}
+            >
+              Удалить
+            </Button>
+          </>
+        }
+      >
+        <p className="text-[13px] leading-relaxed text-muted">
+          Профиль будет удалён из списка лаунчера. Миры и файлы сборок останутся на месте.
+        </p>
+      </Modal>
     </header>
   );
 }
