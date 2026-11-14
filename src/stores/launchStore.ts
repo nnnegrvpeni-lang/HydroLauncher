@@ -1,5 +1,11 @@
 import { create } from 'zustand';
-import { listenLaunchLog, listenLaunchProgress, type GameLog, type LaunchProgress } from '../api';
+import {
+  listenLaunchLog,
+  listenLaunchProgress,
+  listenLaunchState,
+  type GameLog,
+  type LaunchProgress,
+} from '../api';
 import { useEffectSync } from './useEffectSync';
 
 interface LaunchState {
@@ -59,6 +65,11 @@ export function useInitLaunchListeners() {
     const unlisteners = [
       listenLaunchProgress((p) => useLaunchStore.getState().setProgress(p)),
       listenLaunchLog((log) => useLaunchStore.getState().appendLog(log)),
+      listenLaunchState(({ instanceId, state }) => {
+        if (state === 'running' || state === 'exited') {
+          useLaunchStore.getState().clearProgress(instanceId);
+        }
+      }),
     ];
     return () => {
       for (const promise of unlisteners) {

@@ -268,13 +268,6 @@ async fn install_fabric_or_quilt(
     {
         v.to_string()
     } else {
-        emit_progress(
-            app,
-            &instance.id,
-            &format!("Поиск версии {label} для {mc_ver}…"),
-            0,
-            1,
-        );
         let url = format!("{meta_base}/versions/loader/{mc_ver}");
         let entries: Vec<MetaLoaderEntry> = downloader::get_json(&client, &url).await?;
         entries
@@ -358,13 +351,6 @@ async fn install_forge(
     {
         v.to_string()
     } else {
-        emit_progress(
-            app,
-            &instance.id,
-            &format!("Поиск версии Forge для {mc_ver}…"),
-            0,
-            1,
-        );
         let promos: ForgePromotions = downloader::get_json(&client, FORGE_PROMOTIONS_URL).await?;
         promos
             .promos
@@ -430,13 +416,6 @@ async fn install_neoforge(
     {
         v.to_string()
     } else {
-        emit_progress(
-            app,
-            &instance.id,
-            &format!("Поиск версии NeoForge для {mc_ver}…"),
-            0,
-            1,
-        );
         let data: NeoForgeVersions =
             downloader::get_json(&client, NEOFORGE_VERSIONS_API_URL).await?;
         let prefix = neoforge_prefix_for_mc(mc_ver).ok_or_else(|| {
