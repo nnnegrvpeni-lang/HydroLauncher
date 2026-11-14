@@ -1320,7 +1320,7 @@ export function ModsPage({
             )}
           >
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {hits.map((hit, idx) => {
+              {hits.map((hit) => {
                 const hitLoaders = hit.categories.filter((c) =>
                   (KNOWN_LOADERS as readonly string[]).includes(c),
                 );
@@ -1331,8 +1331,7 @@ export function ModsPage({
                 return (
                   <article
                     key={hit.projectId}
-                    style={{ animationDelay: `${Math.min(idx * 15, 160)}ms` }}
-                    className="deck-surface hl-fade-up group flex items-start justify-between gap-3.5 rounded-[13px] p-4 transition-all duration-150 hover:-translate-y-0.5"
+                    className="deck-surface group flex items-start justify-between gap-3.5 rounded-[13px] p-4 transition-all duration-150 hover:-translate-y-0.5"
                   >
                     <button
                       type="button"
