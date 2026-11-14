@@ -17,7 +17,6 @@ import { isMockEnabled } from '../api/mock';
 import { useAccountsStore } from '../stores/accountsStore';
 import { cn } from '../utils/cn';
 import { AccountAvatar } from './AccountAvatar';
-import { VoxelEmblem } from './VoxelEmblem';
 
 export type PageId = 'home' | 'instances' | 'mods' | 'settings';
 
@@ -82,7 +81,7 @@ export function TitleBar({ page, onNavigate, onQuickAddAccount }: TitleBarProps)
       <div className="flex items-center gap-3.5">
         <div data-tauri-drag-region className="flex items-center gap-2.5 pr-1">
           <div className="flex h-7 w-7 items-center justify-center rounded-[8px] border border-line-strong bg-surface-2/80 shadow-[inset_0_1px_0_var(--rim)]">
-            <VoxelEmblem engine="java" loader="vanilla" size={18} />
+            <img src="/icon.png" alt="" className="h-5 w-5 object-contain" />
           </div>
           <span className="text-[13.5px] font-semibold tracking-tight text-ink">
             Hydro
