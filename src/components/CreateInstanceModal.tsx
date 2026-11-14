@@ -242,12 +242,19 @@ export function CreateInstanceModal({
     .filter((v) => v.id.toLowerCase().includes(versionQuery.trim().toLowerCase()))
     .slice(0, 80);
 
+  const loaderUnavailable =
+    engine === 'java' &&
+    loader !== 'vanilla' &&
+    !loaderVersionsLoading &&
+    loaderVersions.length === 0;
+
   return (
     <Modal
       open={open}
       title="Новая сборка"
       subtitle="Кастомная конфигурация, модпак Modrinth или импорт .mrpack"
       onClose={onClose}
+      className="max-w-[780px]"
       footer={
         tab === 'custom' ? (
           <>
@@ -255,9 +262,9 @@ export function CreateInstanceModal({
               Отмена
             </Button>
             <Button
-              variant="primary"
+              variant="accent"
               onClick={() => void submitCustom()}
-              disabled={!name.trim() || !selectedVersion}
+              disabled={!name.trim() || !selectedVersion || loaderUnavailable}
             >
               Создать
             </Button>
@@ -268,7 +275,7 @@ export function CreateInstanceModal({
               Отмена
             </Button>
             <Button
-              variant="primary"
+              variant="accent"
               onClick={() => void handleImportMrpack()}
               disabled={!mrpackPath.trim() || importing}
             >
@@ -283,7 +290,7 @@ export function CreateInstanceModal({
         )
       }
     >
-      <div className="grid grid-cols-3 gap-1 rounded-[8px] border border-line bg-bg-well p-1">
+      <div className="grid grid-cols-3 gap-1 rounded-[9px] border border-line bg-bg-well p-1">
         {(
           [
             { id: 'custom', label: 'Кастомная' },
@@ -299,10 +306,10 @@ export function CreateInstanceModal({
               setTab(item.id);
             }}
             className={cn(
-              'h-8 rounded-[6px] px-2.5 text-xs font-medium transition-colors',
+              'h-8 rounded-[7px] border px-2.5 text-xs font-medium transition-colors duration-150',
               tab === item.id
                 ? 'keycap-surface text-ink'
-                : 'text-muted hover:text-ink',
+                : 'border-transparent text-muted hover:text-ink',
             )}
           >
             {item.label}
@@ -311,62 +318,63 @@ export function CreateInstanceModal({
       </div>
 
       {tab === 'custom' && (
-        <>
-          <div>
-            <label className="hl-field-label" htmlFor="instance-name">
-              Название
-            </label>
-            <input
-              id="instance-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Например, Survival 26.3"
-              autoComplete="off"
-              spellCheck={false}
-              className="hl-input"
-              autoFocus
-            />
-          </div>
-
-          <div>
-            <span className="hl-field-label">Движок</span>
-            <div className="grid grid-cols-2 gap-1.5 rounded-[8px] border border-line bg-bg-well p-1">
-              {ENGINE_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => {
-                    setEngine(option.value);
-                    if (option.value === 'horizon') {
-                      setLoader('vanilla');
-                      setSelectedVersion('26.3');
-                    } else if (selectedVersion === '26.3' && allVersions.length > 0) {
-                      setSelectedVersion(
-                        allVersions.find((v) => v.type === 'release')?.id ?? allVersions[0].id,
-                      );
-                    }
-                  }}
-                  className={cn(
-                    'flex h-8 items-center justify-center gap-2 rounded-[6px] px-3 text-xs font-medium transition-colors',
-                    engine === option.value
-                      ? 'keycap-surface text-ink'
-                      : 'text-muted hover:text-ink',
-                  )}
-                >
-                  {option.label}
-                </button>
-              ))}
+        <div className={cn(engine === 'java' ? 'grid grid-cols-1 gap-5 md:grid-cols-2' : 'space-y-4')}>
+          <div className="space-y-4">
+            <div>
+              <label className="hl-field-label" htmlFor="instance-name">
+                Название
+              </label>
+              <input
+                id="instance-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Например, Survival 26.3"
+                autoComplete="off"
+                spellCheck={false}
+                className="hl-input"
+                autoFocus
+              />
             </div>
-          </div>
+
+            <div>
+              <span className="hl-field-label">Движок</span>
+              <div className="grid grid-cols-2 gap-1.5 rounded-[9px] border border-line bg-bg-well p-1">
+                {ENGINE_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => {
+                      setEngine(option.value);
+                      if (option.value === 'horizon') {
+                        setLoader('vanilla');
+                        setSelectedVersion('26.3');
+                      } else if (selectedVersion === '26.3' && allVersions.length > 0) {
+                        setSelectedVersion(
+                          allVersions.find((v) => v.type === 'release')?.id ?? allVersions[0].id,
+                        );
+                      }
+                    }}
+                    className={cn(
+                      'flex h-8 items-center justify-center gap-2 rounded-[7px] border px-3 text-xs font-medium transition-colors duration-150',
+                      engine === option.value
+                        ? 'keycap-surface text-ink'
+                        : 'border-transparent text-muted hover:text-ink',
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
           {engine === 'horizon' ? (
-            <div className="rounded-[8px] border border-line bg-bg-well/70 p-3.5 text-xs leading-relaxed text-muted">
+            <div className="rounded-[10px] border border-line bg-bg-well/70 p-4 text-xs leading-relaxed text-muted">
               <div className="flex items-center justify-between text-ink">
                 <span className="font-medium">Нативный движок Horizon (Rust)</span>
                 <span className="font-mono text-[11px] text-muted">Minecraft 26.3</span>
               </div>
-              <p className="mt-1.5">
-                Запус��ается нативно без JVM. После создания сборки лаунчер скачает бинарники
+              <p className="mt-2">
+                Запускается нативно без JVM. После создания сборки лаунчер скачает бинарники
                 Horizon с GitHub и подготовит ресурсы официального клиента 26.3.
               </p>
             </div>
@@ -381,7 +389,7 @@ export function CreateInstanceModal({
                       type="button"
                       onClick={() => setLoader(option.value)}
                       className={cn(
-                        'flex h-8 items-center justify-center rounded-[6px] border px-3 text-xs font-medium transition-colors',
+                        'flex h-8 items-center justify-center rounded-[7px] border px-3 text-xs font-medium transition-colors duration-150',
                         loader === option.value
                           ? 'keycap-surface text-ink'
                           : 'border-line bg-bg-well text-muted hover:border-line-strong hover:text-ink',
@@ -393,82 +401,39 @@ export function CreateInstanceModal({
                 </div>
               </div>
 
-              <div>
-                <div className="mb-1.5 flex items-center justify-between">
-                  <span className="hl-field-label mb-0">
-                    Версия Minecraft ({filteredByType.length})
-                  </span>
-                  {selectedVersion && (
-                    <span className="font-mono text-[11.5px] font-medium text-ink">
-                      {selectedVersion}
-                    </span>
-                  )}
-                </div>
-
-                <input
-                  value={versionQuery}
-                  onChange={(e) => setVersionQuery(e.target.value)}
-                  placeholder={loading ? 'Загрузка версий…' : 'Поиск версии…'}
-                  autoComplete="off"
-                  spellCheck={false}
-                  className="hl-input"
-                  disabled={loading}
-                />
-
-                {loading ? (
-                  <div className="mt-3 flex items-center gap-2 text-xs text-muted">
-                    <Loader2 size={13} className="animate-spin" />
-                    Загружаем каталог версий Mojang…
-                  </div>
-                ) : visibleVersions.length > 0 ? (
-                  <div className="mt-2 max-h-44 divide-y divide-line overflow-y-auto rounded-[8px] border border-line bg-bg-well">
-                    {visibleVersions.map((v) => {
-                      const selected = selectedVersion === v.id;
-                      return (
-                        <button
-                          key={v.id}
-                          type="button"
-                          onClick={() => setSelectedVersion(v.id)}
-                          className={cn(
-                            'flex w-full items-center justify-between px-3 py-1.5 text-left text-xs transition-colors',
-                            selected
-                              ? 'bg-surface-2 font-medium text-ink'
-                              : 'text-muted hover:bg-surface/60 hover:text-ink',
-                          )}
-                        >
-                          <span className="font-mono">{v.id}</span>
-                          <span className="text-[11px] text-faint">
-                            {TYPE_LABEL[v.type] ?? v.type}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  !error && (
-                    <p className="mt-2 text-xs text-muted">Подходящих версий не найдено.</p>
-                  )
-                )}
-              </div>
-
               {loader !== 'vanilla' && (
                 <div>
-                  <span className="hl-field-label">Версия модлоадера</span>
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <span className="hl-field-label mb-0">Версия модлоадера</span>
+                    <span className="font-mono text-[11px] text-faint">
+                      {loaderVersionsLoading
+                        ? 'Проверка…'
+                        : loaderVersions.length > 0
+                          ? `Доступно: ${loaderVersions.length}`
+                          : 'Недоступно'}
+                    </span>
+                  </div>
                   <div ref={loaderDropdownRef} className="relative">
                     <button
                       type="button"
+                      disabled={loaderVersionsLoading || loaderVersions.length === 0}
                       onClick={() => setLoaderDropdownOpen((v) => !v)}
-                      className="hl-input flex items-center justify-between text-left text-xs"
+                      className={cn(
+                        'hl-input flex items-center justify-between text-left text-xs',
+                        loaderUnavailable && 'border-danger/60 text-danger',
+                      )}
                     >
                       <span className="truncate font-mono">
                         {loaderVersionsLoading
-                          ? 'Загрузка версий л��адера…'
-                          : loaderVersion || 'Авто (последняя стабильная)'}
+                          ? 'Загрузка версий лоадера…'
+                          : loaderVersions.length === 0
+                            ? `Нет версий для ${selectedVersion}`
+                            : loaderVersion || `Авто (${loaderVersions[0]})`}
                       </span>
                       <ChevronDown size={13} className="shrink-0 text-muted" />
                     </button>
-                    {loaderDropdownOpen && (
-                      <div className="absolute right-0 bottom-full left-0 z-20 mb-1 max-h-44 overflow-y-auto rounded-[8px] border border-line-strong bg-surface p-1 shadow-xl">
+                    {loaderDropdownOpen && loaderVersions.length > 0 && (
+                      <div className="absolute right-0 bottom-full left-0 z-20 mb-1 max-h-48 overflow-y-auto rounded-[9px] border border-line-strong bg-surface/96 p-1 shadow-xl backdrop-blur-2xl">
                         <button
                           type="button"
                           onClick={() => {
@@ -482,7 +447,7 @@ export function CreateInstanceModal({
                               : 'text-muted hover:bg-surface-2/60 hover:text-ink',
                           )}
                         >
-                          <span>Авто (последняя стабильная)</span>
+                          <span>Авто (последняя: {loaderVersions[0]})</span>
                         </button>
                         {loaderVersions.map((lv) => (
                           <button
@@ -505,11 +470,85 @@ export function CreateInstanceModal({
                       </div>
                     )}
                   </div>
+                  {loaderUnavailable && (
+                    <p className="mt-1.5 text-[11px] text-danger">
+                      Для Minecraft {selectedVersion} нет сборок этого модлоадера. Выберите другой лоадер или версию игры.
+                    </p>
+                  )}
                 </div>
               )}
             </>
           )}
-        </>
+          </div>
+
+          {engine === 'java' && (
+            <div className="flex flex-col">
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="hl-field-label mb-0">
+                  Версия Minecraft ({filteredByType.length})
+                </span>
+                {selectedVersion && (
+                  <span className="font-mono text-[11.5px] font-medium text-accent">
+                    {selectedVersion}
+                  </span>
+                )}
+              </div>
+
+              <div className="relative">
+                <Search
+                  size={13}
+                  className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-faint"
+                />
+                <input
+                  value={versionQuery}
+                  onChange={(e) => setVersionQuery(e.target.value)}
+                  placeholder={loading ? 'Загрузка версий…' : 'Поиск версии…'}
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="hl-input pl-8"
+                  disabled={loading}
+                />
+              </div>
+
+              {loading ? (
+                <div className="mt-3 flex h-[270px] items-center justify-center gap-2 rounded-[9px] border border-line bg-bg-well text-xs text-muted">
+                  <Loader2 size={14} className="animate-spin" />
+                  Загружаем каталог версий Mojang…
+                </div>
+              ) : visibleVersions.length > 0 ? (
+                <div className="mt-2 h-[270px] divide-y divide-line overflow-y-auto rounded-[9px] border border-line bg-bg-well">
+                  {visibleVersions.map((v) => {
+                    const selected = selectedVersion === v.id;
+                    return (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => setSelectedVersion(v.id)}
+                        className={cn(
+                          'flex w-full items-center justify-between px-3 py-2 text-left text-xs transition-colors',
+                          selected
+                            ? 'bg-surface-2 font-medium text-ink'
+                            : 'text-muted hover:bg-surface/60 hover:text-ink',
+                        )}
+                      >
+                        <span className="font-mono">{v.id}</span>
+                        <span className="text-[11px] text-faint">
+                          {TYPE_LABEL[v.type] ?? v.type}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                !error && (
+                  <div className="mt-2 flex h-[270px] items-center justify-center rounded-[9px] border border-line bg-bg-well text-xs text-muted">
+                    Подходящих версий не найдено.
+                  </div>
+                )
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {tab === 'modpack' && (
@@ -531,46 +570,54 @@ export function CreateInstanceModal({
           </div>
 
           {packsLoading ? (
-            <div className="flex items-center justify-center gap-2 py-10 text-xs text-muted">
+            <div className="flex h-[340px] items-center justify-center gap-2 rounded-[9px] border border-line bg-bg-well text-xs text-muted">
               <Loader2 size={14} className="animate-spin" />
               Поиск модпаков Modrinth…
             </div>
           ) : packHits.length === 0 ? (
-            <p className="py-8 text-center text-xs text-muted">Модпаки не найдены</p>
+            <div className="flex h-[340px] items-center justify-center rounded-[9px] border border-line bg-bg-well text-xs text-muted">
+              Модпаки не найдены
+            </div>
           ) : (
-            <div className="max-h-72 divide-y divide-line overflow-y-auto rounded-[8px] border border-line bg-bg-well">
+            <div className="h-[340px] divide-y divide-line overflow-y-auto rounded-[9px] border border-line bg-bg-well">
               {packHits.map((hit) => {
                 const busy = installingPackId === hit.projectId;
                 return (
                   <div
                     key={hit.projectId}
-                    className="flex items-center justify-between gap-3 px-3 py-2.5"
+                    className="flex items-center justify-between gap-4 px-3.5 py-3 transition-colors hover:bg-surface/40"
                   >
-                    <div className="flex min-w-0 items-center gap-2.5">
+                    <div className="flex min-w-0 items-start gap-3">
                       {hit.iconUrl ? (
                         <img
                           src={hit.iconUrl}
                           alt=""
-                          className="h-9 w-9 shrink-0 rounded-[6px] border border-line bg-surface object-cover"
+                          className="h-11 w-11 shrink-0 rounded-[8px] border border-line bg-surface object-cover"
                         />
                       ) : (
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[6px] border border-line bg-surface text-xs text-faint">
-                          <FileArchive size={14} />
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] border border-line bg-surface text-xs text-faint">
+                          <FileArchive size={16} />
                         </div>
                       )}
                       <div className="min-w-0">
-                        <p className="truncate text-xs font-semibold text-ink">
-                          {hit.title}
-                        </p>
-                        <p className="truncate text-[11px] text-muted">
-                          {hit.author} · {formatCompactNumber(hit.downloads)} скачиваний
+                        <div className="flex items-baseline gap-2">
+                          <p className="truncate text-[13px] font-semibold text-ink">
+                            {hit.title}
+                          </p>
+                          <span className="shrink-0 text-[11px] text-faint">
+                            {hit.author} · {formatCompactNumber(hit.downloads)} скачиваний
+                          </span>
+                        </div>
+                        <p className="mt-0.5 line-clamp-1 text-xs text-muted">
+                          {hit.description}
                         </p>
                       </div>
                     </div>
 
                     <Button
                       size="sm"
-                      variant="primary"
+                      variant="accent"
+                      className="shrink-0"
                       disabled={Boolean(installingPackId)}
                       onClick={() => void handleInstallModpack(hit)}
                     >
