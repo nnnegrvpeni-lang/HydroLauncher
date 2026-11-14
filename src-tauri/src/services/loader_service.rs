@@ -313,10 +313,12 @@ async fn install_fabric_or_quilt(
 
     let libs_dir = paths.libraries_dir(data_dir);
     let total = profile.libraries.len() as u64;
+    let mut downloaded_any = false;
     for (idx, lib) in profile.libraries.iter().enumerate() {
         let rel = maven_artifact_path(&lib.name);
         let dest = libs_dir.join(&rel);
         if !dest.exists() {
+            downloaded_any = true;
             let base = lib.url.as_deref().unwrap_or(MAVEN_CENTRAL_URL);
             let url = format!("{}{}", base.trim_end_matches('/'), format!("/{rel}"));
             emit_progress(
@@ -331,7 +333,9 @@ async fn install_fabric_or_quilt(
     }
 
     merge_loader_profile(details, profile);
-    emit_progress(app, &instance.id, &format!("{label} готов"), 1, 1);
+    if downloaded_any {
+        emit_progress(app, &instance.id, &format!("{label} готов"), 1, 1);
+    }
     Ok(())
 }
 
@@ -377,7 +381,8 @@ async fn install_forge(
         .version_dir(data_dir, &version_id)
         .join(format!("{version_id}.json"));
 
-    if !profile_path.exists() {
+    let needs_install = !profile_path.exists();
+    if needs_install {
         let installer_url = format!(
             "{FORGE_MAVEN_BASE_URL}/net/minecraftforge/forge/{mc_ver}-{forge_ver}/forge-{mc_ver}-{forge_ver}-installer.jar"
         );
@@ -400,7 +405,9 @@ async fn install_forge(
     })?;
     let profile: LoaderProfileJson = serde_json::from_slice(&bytes)?;
     merge_loader_profile(details, profile);
-    emit_progress(app, &instance.id, "Forge готов", 1, 1);
+    if needs_install {
+        emit_progress(app, &instance.id, "Forge готов", 1, 1);
+    }
     Ok(())
 }
 
@@ -450,7 +457,8 @@ async fn install_neoforge(
         .version_dir(data_dir, &version_id)
         .join(format!("{version_id}.json"));
 
-    if !profile_path.exists() {
+    let needs_install = !profile_path.exists();
+    if needs_install {
         let installer_url = format!(
             "{NEOFORGE_MAVEN_BASE_URL}/net/neoforged/neoforge/{nf_ver}/neoforge-{nf_ver}-installer.jar"
         );
@@ -473,7 +481,9 @@ async fn install_neoforge(
     })?;
     let profile: LoaderProfileJson = serde_json::from_slice(&bytes)?;
     merge_loader_profile(details, profile);
-    emit_progress(app, &instance.id, "NeoForge готов", 1, 1);
+    if needs_install {
+        emit_progress(app, &instance.id, "NeoForge готов", 1, 1);
+    }
     Ok(())
 }
 
