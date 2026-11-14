@@ -13,7 +13,7 @@ const MODS_SEARCH_KEY = 'hl:cache:modsSearch:v1';
 
 const CATALOG_TTL_MS = 6 * 60 * 60 * 1000; // 6 часов
 const MODS_TTL_MS = 15 * 60 * 1000; // 15 минут
-const MAX_PERSISTED_SEARCHES = 12;
+const MAX_PERSISTED_SEARCHES = 32;
 
 const PRELOAD_LOADERS: ModLoaderKind[] = ['fabric', 'forge', 'neoforge', 'quilt'];
 
@@ -264,24 +264,34 @@ export function useInitCatalogPreload() {
       void state.ensureLoaderSupportedMc(loader);
     }
 
-    // 3. Дефолтная первая страница модов Modrinth (если отсутствует или устарела)
-    const defaultModsKey = 'modrinth||mod|all|all|all|0';
-    const cachedMods = state.getModsSearch(defaultModsKey);
-    if (!cachedMods || cachedMods.isStale) {
-      void api
-        .searchModrinthMods({
-          query: '',
-          projectType: 'mod',
-          category: 'all',
-          limit: 24,
-          offset: 0,
-        })
-        .then((res) => {
-          useCatalogStore.getState().setModsSearch(defaultModsKey, res.hits, res.totalHits);
-        })
-        .catch(() => {
-          // Тихо игнорируем ошибку фонового прогрева
-        });
+    // 3. Дефолтная первая страница модов Modrinth и популярные фильтры лоадеров
+    const preloadQueries: Array<{ key: string; loader?: ModLoaderKind }> = [
+      { key: 'modrinth||mod|all|all|all|0' },
+      ...PRELOAD_LOADERS.map((loader) => ({
+        key: `modrinth||mod|all|${loader}|all|0`,
+        loader,
+      })),
+    ];
+
+    for (const item of preloadQueries) {
+      const cachedMods = state.getModsSearch(item.key);
+      if (!cachedMods || cachedMods.isStale) {
+        void api
+          .searchModrinthMods({
+            query: '',
+            projectType: 'mod',
+            category: 'all',
+            loader: item.loader,
+            limit: 24,
+            offset: 0,
+          })
+          .then((res) => {
+            useCatalogStore.getState().setModsSearch(item.key, res.hits, res.totalHits);
+          })
+          .catch(() => {
+            // Тихо игнорируем ошибку фонового прогрева
+          });
+      }
     }
   }, []);
 }

@@ -285,17 +285,26 @@ export function ModsPage({
   const [loaderFilter, setLoaderFilter] = useState<ModLoaderKind | 'all'>('all');
   const [gameVersionFilter, setGameVersionFilter] = useState<string>('all');
   const versionCatalog = useCatalogStore((s) => s.versionCatalog);
+  const loaderSupportedMc = useCatalogStore((s) => s.loaderSupportedMc);
   const ensureVersionCatalog = useCatalogStore((s) => s.ensureVersionCatalog);
+  const ensureLoaderSupportedMc = useCatalogStore((s) => s.ensureLoaderSupportedMc);
   const getModsSearch = useCatalogStore((s) => s.getModsSearch);
   const setModsSearch = useCatalogStore((s) => s.setModsSearch);
-  const releaseVersions = useMemo(
-    () =>
-      (versionCatalog?.manifest.versions ?? [])
-        .filter((v) => v.type === 'release')
-        .slice(0, 40)
-        .map((v) => v.id),
-    [versionCatalog],
-  );
+  const releaseVersions = useMemo(() => {
+    const allReleases = (versionCatalog?.manifest.versions ?? [])
+      .filter((v) => v.type === 'release')
+      .map((v) => v.id);
+
+    if (loaderFilter !== 'all') {
+      const supported = loaderSupportedMc[loaderFilter]?.versions;
+      if (supported && supported.length > 0) {
+        const supportedSet = new Set(supported);
+        return allReleases.filter((id) => supportedSet.has(id)).slice(0, 40);
+      }
+    }
+
+    return allReleases.slice(0, 40);
+  }, [versionCatalog, loaderFilter, loaderSupportedMc]);
   const [versionMenuOpen, setVersionMenuOpen] = useState(false);
   const versionMenuRef = useRef<HTMLDivElement>(null);
   const [horizonKindFilter, setHorizonKindFilter] = useState<string>('all');
@@ -348,6 +357,22 @@ export function ModsPage({
       void ensureVersionCatalog().catch(() => {});
     }
   }, [versionCatalog, ensureVersionCatalog]);
+
+  // Подгружаем поддерживаемые версии выбранного модлоадера и сбрасываем несовместимую версию игры
+  useEffect(() => {
+    if (loaderFilter === 'all') return;
+    if (!loaderSupportedMc[loaderFilter]) {
+      void ensureLoaderSupportedMc(loaderFilter);
+    }
+  }, [loaderFilter, loaderSupportedMc, ensureLoaderSupportedMc]);
+
+  useEffect(() => {
+    if (loaderFilter === 'all' || gameVersionFilter === 'all') return;
+    const supported = loaderSupportedMc[loaderFilter]?.versions;
+    if (supported && supported.length > 0 && !supported.includes(gameVersionFilter)) {
+      setGameVersionFilter('all');
+    }
+  }, [loaderFilter, gameVersionFilter, loaderSupportedMc]);
 
   useEffect(() => {
     if (!versionMenuOpen) return;
@@ -1274,7 +1299,7 @@ export function ModsPage({
       )}
 
       <div className="mt-5">
-        {loading ? (
+        {loading && hits.length === 0 ? (
           <div className="flex items-center justify-center gap-2 rounded-[10px] border border-line bg-surface py-16 text-xs text-muted">
             <Loader2 size={15} className="animate-spin" />
             Загрузка каталога Modrinth…
@@ -1288,7 +1313,12 @@ export function ModsPage({
             </p>
           </div>
         ) : (
-          <>
+          <div
+            className={cn(
+              'transition-opacity duration-150',
+              loading && 'pointer-events-none opacity-55',
+            )}
+          >
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {hits.map((hit, idx) => {
                 const hitLoaders = hit.categories.filter((c) =>
@@ -1417,7 +1447,7 @@ export function ModsPage({
                 </div>
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
 
