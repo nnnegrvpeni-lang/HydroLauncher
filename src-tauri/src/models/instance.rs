@@ -18,6 +18,10 @@ pub enum ModLoaderKind {
     Quilt,
 }
 
+fn default_true() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Instance {
@@ -27,6 +31,8 @@ pub struct Instance {
     pub engine: EngineKind,
     pub loader: ModLoaderKind,
     pub loader_version: Option<String>,
+    #[serde(default = "default_true")]
+    pub auto_update_horizon: bool,
     pub memory_mb_override: Option<u64>,
     pub java_path_override: Option<String>,
     pub jvm_args: Vec<String>,
@@ -63,4 +69,6 @@ pub struct UpdateInstanceRequest {
     pub jvm_args: Vec<String>,
     #[serde(default)]
     pub loader_version: Option<String>,
+    #[serde(default = "default_true")]
+    pub auto_update_horizon: bool,
 }

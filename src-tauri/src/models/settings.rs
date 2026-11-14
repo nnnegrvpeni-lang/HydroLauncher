@@ -9,10 +9,6 @@ pub enum ThemeMode {
     Light,
 }
 
-fn default_true() -> bool {
-    true
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
@@ -22,8 +18,6 @@ pub struct AppSettings {
     pub max_concurrent_downloads: usize,
     pub close_on_launch: bool,
     pub show_snapshots: bool,
-    #[serde(default = "default_true")]
-    pub auto_update_horizon: bool,
     pub custom_java_paths: Vec<String>,
 }
 

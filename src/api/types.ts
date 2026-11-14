@@ -11,7 +11,6 @@ export interface AppSettings {
   maxConcurrentDownloads: number;
   closeOnLaunch: boolean;
   showSnapshots: boolean;
-  autoUpdateHorizon: boolean;
   customJavaPaths: string[];
 }
 
@@ -34,6 +33,7 @@ export interface Instance {
   engine: EngineKind;
   loader: ModLoaderKind;
   loaderVersion: string | null;
+  autoUpdateHorizon: boolean;
   memoryMbOverride: number | null;
   javaPathOverride: string | null;
   jvmArgs: string[];
@@ -58,6 +58,7 @@ export interface UpdateInstanceRequest {
   javaPathOverride: string | null;
   jvmArgs: string[];
   loaderVersion?: string | null;
+  autoUpdateHorizon?: boolean;
 }
 
 export interface OfflineAccount {

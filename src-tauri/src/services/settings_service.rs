@@ -51,7 +51,6 @@ pub async fn load_or_init_settings(paths: &AppPaths) -> AppResult<AppSettings> {
         max_concurrent_downloads: DEFAULT_CONCURRENT_DOWNLOADS,
         close_on_launch: false,
         show_snapshots: false,
-        auto_update_horizon: true,
         custom_java_paths: Vec::new(),
     };
 

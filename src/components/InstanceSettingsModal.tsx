@@ -26,6 +26,7 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
   const [javaPath, setJavaPath] = useState('');
   const [jvmArgsText, setJvmArgsText] = useState('');
   const [loaderVersion, setLoaderVersion] = useState('');
+  const [autoUpdateHorizon, setAutoUpdateHorizon] = useState(true);
   const [loaderVersions, setLoaderVersions] = useState<string[]>([]);
   const [loaderVersionsLoading, setLoaderVersionsLoading] = useState(false);
   const [loaderDropdownOpen, setLoaderDropdownOpen] = useState(false);
@@ -44,6 +45,7 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
     setJavaPath(instance.javaPathOverride ?? '');
     setJvmArgsText(instance.jvmArgs.join(' '));
     setLoaderVersion(instance.loaderVersion ?? '');
+    setAutoUpdateHorizon(instance.autoUpdateHorizon ?? true);
     setLoaderDropdownOpen(false);
   }, [instance, settings?.defaultMemoryMb]);
 
@@ -100,6 +102,11 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
   const submit = async () => {
     if (!name.trim()) return;
     setSaving(true);
+    const nextLoaderVersion =
+      instance.engine === 'horizon' || instance.loader !== 'vanilla'
+        ? loaderVersion.trim() || null
+        : null;
+    const prevLoaderVersion = instance.loaderVersion ?? null;
     try {
       await update(instance.id, {
         name: name.trim(),
@@ -109,12 +116,13 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
           .split(/\s+/)
           .map((s) => s.trim())
           .filter(Boolean),
-        loaderVersion:
-          instance.engine === 'horizon' || instance.loader !== 'vanilla'
-            ? loaderVersion.trim() || null
-            : null,
+        loaderVersion: nextLoaderVersion,
+        autoUpdateHorizon,
       });
       onClose();
+      if (instance.engine === 'horizon' && nextLoaderVersion !== prevLoaderVersion) {
+        void api.updateHorizonBinaries(instance.id, nextLoaderVersion ?? undefined);
+      }
     } finally {
       setSaving(false);
     }
@@ -220,9 +228,27 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
                 </div>
               )}
             </div>
-            <p className="mt-1.5 text-[11px] text-faint">
-              Автообновление последних nightly-сборок настраивается в «Настройки → Общие».
-            </p>
+          </div>
+
+          <div className="rounded-[8px] border border-line bg-bg-well/70 p-3.5">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-[12.5px] font-medium text-ink">
+                  Автообновление Horizon (Rust)
+                </p>
+                <p className="text-[11.5px] text-muted">
+                  {loaderVersion
+                    ? 'Фиксированная версия — автообновление отключено'
+                    : 'Скачивать свежий nightly-билд при запуске сборки'}
+                </p>
+              </div>
+              <Switch
+                checked={loaderVersion ? false : autoUpdateHorizon}
+                disabled={Boolean(loaderVersion)}
+                onChange={setAutoUpdateHorizon}
+                label="Автообновление Horizon (Rust)"
+              />
+            </div>
           </div>
         </div>
       ) : (

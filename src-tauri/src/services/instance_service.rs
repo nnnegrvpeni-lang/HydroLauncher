@@ -41,6 +41,7 @@ pub async fn create_instance(
         engine: req.engine,
         loader: req.loader,
         loader_version: req.loader_version,
+        auto_update_horizon: true,
         memory_mb_override: None,
         java_path_override: None,
         jvm_args: Vec::new(),
@@ -90,6 +91,7 @@ pub async fn update_instance(
         .loader_version
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty());
+    instance.auto_update_horizon = req.auto_update_horizon;
 
     let updated = instance.clone();
     write_json_atomic(&paths.instances_file(data_dir), &store).await?;
