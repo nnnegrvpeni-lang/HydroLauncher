@@ -45,7 +45,7 @@ pub async fn load_or_init_settings(paths: &AppPaths) -> AppResult<AppSettings> {
 
     let sys_info = collect_system_info(paths);
     let defaults = AppSettings {
-        theme: ThemeMode::System,
+        theme: ThemeMode::Dark,
         data_dir: sys_info.default_data_dir,
         default_memory_mb: compute_recommended_memory_mb(sys_info.total_memory_mb),
         max_concurrent_downloads: DEFAULT_CONCURRENT_DOWNLOADS,

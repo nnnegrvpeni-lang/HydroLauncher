@@ -17,6 +17,7 @@ import { useInitSettings, useSettingsStore } from './stores/settingsStore';
 function WorldBackdrop() {
   return (
     <div className="hl-world" aria-hidden>
+      <div className="hl-stars" />
       <div className="hl-sun" />
       <div className="hl-cloud" style={{ left: '18%', top: '14%', width: 200 }} />
       <div

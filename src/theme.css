@@ -121,27 +121,52 @@
   --danger: #e5958c;
 }
 
+:root[data-theme='night'] {
+  --bg: #000000;
+  --bg-well: #050608;
+  --surface: #0a0b0e;
+  --surface-2: #121418;
+  --surface-3: #1b1e24;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.14);
+  --rim: rgba(255, 255, 255, 0.12);
+  --deck-shadow: 0 28px 60px -24px rgba(0, 0, 0, 0.85);
+  --text: #eef1f5;
+  --muted: #98a1ad;
+  --faint: #626b77;
+  --cta-bg: #eef1f5;
+  --cta-hover: #ffffff;
+  --cta-ink: #08090c;
+  --accent: #b8cde0;
+  --accent-hover: #ccddf0;
+  --accent-ink: #0a1017;
+  --led: #94d3a2;
+  --led-soft: rgba(148, 211, 162, 0.14);
+  --warn: #d8c9a3;
+  --danger: #e5958c;
+}
+
 :root[data-theme='light'] {
-  --bg: #e8ebe5;
-  --bg-well: #dde2db;
-  --surface: #f5f7f2;
+  --bg: #eef2ec;
+  --bg-well: #dfe6dc;
+  --surface: #f8faf6;
   --surface-2: #ffffff;
-  --surface-3: #ecefe8;
-  --line: rgba(0, 0, 0, 0.09);
-  --line-strong: rgba(0, 0, 0, 0.17);
-  --rim: rgba(255, 255, 255, 0.78);
-  --deck-shadow: 0 20px 44px -22px rgba(16, 18, 22, 0.18);
-  --text: #1a201d;
-  --muted: #566058;
-  --faint: #86908a;
-  --cta-bg: #1a201d;
+  --surface-3: #e8eee5;
+  --line: rgba(18, 26, 20, 0.09);
+  --line-strong: rgba(18, 26, 20, 0.16);
+  --rim: rgba(255, 255, 255, 0.88);
+  --deck-shadow: 0 20px 44px -22px rgba(24, 38, 28, 0.16);
+  --text: #161e19;
+  --muted: #4d5b51;
+  --faint: #7c8b80;
+  --cta-bg: #18221c;
   --cta-hover: #000000;
-  --cta-ink: #f5f7f2;
-  --accent: #3f6b4a;
-  --accent-hover: #2f5639;
+  --cta-ink: #f8faf6;
+  --accent: #2f6b43;
+  --accent-hover: #255736;
   --accent-ink: #ffffff;
-  --led: #2c8647;
-  --led-soft: rgba(44, 134, 71, 0.12);
+  --led: #257a40;
+  --led-soft: rgba(37, 122, 64, 0.12);
   --warn: #86691a;
   --danger: #b3392e;
 }
@@ -402,7 +427,7 @@ a:focus:not(:focus-visible) {
   }
 }
 
-/* Фон мира: ступенчатые холмы и квадратное солнце */
+/* Фон мира: ступенчатые холмы, квадратное солнце/луна и звёзды */
 .hl-world {
   position: fixed;
   inset: 0;
@@ -410,10 +435,37 @@ a:focus:not(:focus-visible) {
   overflow: hidden;
   pointer-events: none;
   background: linear-gradient(#171d20, #2d3834 64%, #4a5249);
+  transition: background 0.35s ease;
+}
+
+:root[data-theme='night'] .hl-world {
+  background: linear-gradient(#000000 0%, #030508 58%, #070b11 100%);
 }
 
 :root[data-theme='light'] .hl-world {
-  background: linear-gradient(#cfd8d4, #e3e6dc 64%, #eeeee4);
+  background: linear-gradient(#9ec5db 0%, #c8e0e6 55%, #e4ece0 100%);
+}
+
+.hl-stars {
+  position: absolute;
+  inset: 0 0 42% 0;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  background-image:
+    radial-gradient(1.5px 1.5px at 8% 18%, rgb(255 255 255 / 0.7), transparent),
+    radial-gradient(1px 1px at 16% 38%, rgb(255 255 255 / 0.45), transparent),
+    radial-gradient(1.5px 1.5px at 24% 12%, rgb(220 232 255 / 0.65), transparent),
+    radial-gradient(1px 1px at 34% 29%, rgb(255 255 255 / 0.4), transparent),
+    radial-gradient(1.5px 1.5px at 45% 15%, rgb(255 255 255 / 0.6), transparent),
+    radial-gradient(1px 1px at 53% 34%, rgb(210 226 255 / 0.5), transparent),
+    radial-gradient(1.5px 1.5px at 66% 19%, rgb(255 255 255 / 0.65), transparent),
+    radial-gradient(1px 1px at 74% 41%, rgb(255 255 255 / 0.38), transparent),
+    radial-gradient(1.5px 1.5px at 88% 26%, rgb(220 232 255 / 0.55), transparent),
+    radial-gradient(1px 1px at 93% 14%, rgb(255 255 255 / 0.5), transparent);
+}
+
+:root[data-theme='night'] .hl-stars {
+  opacity: 1;
 }
 
 .hl-sun {
@@ -424,6 +476,19 @@ a:focus:not(:focus-visible) {
   height: 72px;
   background: #e6dcc3;
   opacity: 0.72;
+  transition: background 0.35s ease, opacity 0.35s ease, box-shadow 0.35s ease;
+}
+
+:root[data-theme='night'] .hl-sun {
+  background: #dce6f5;
+  opacity: 0.85;
+  box-shadow: 0 0 36px 4px rgb(190 212 245 / 0.16);
+}
+
+:root[data-theme='light'] .hl-sun {
+  background: #fff1b8;
+  opacity: 0.95;
+  box-shadow: 0 0 42px 8px rgb(255 238 170 / 0.35);
 }
 
 .hl-cloud {
@@ -434,11 +499,20 @@ a:focus:not(:focus-visible) {
   animation: hl-drift 46s ease-in-out infinite alternate;
 }
 
+:root[data-theme='night'] .hl-cloud {
+  background: rgb(255 255 255 / 0.03);
+}
+
+:root[data-theme='light'] .hl-cloud {
+  background: rgb(255 255 255 / 0.52);
+}
+
 .hl-hill {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
+  transition: background 0.35s ease;
 }
 
 .hl-hill.a {
@@ -470,14 +544,26 @@ a:focus:not(:focus-visible) {
   );
 }
 
+:root[data-theme='night'] .hl-hill.a {
+  background: #0d1117;
+}
+
+:root[data-theme='night'] .hl-hill.b {
+  background: #070a0e;
+}
+
+:root[data-theme='night'] .hl-hill.c {
+  background: #020305;
+}
+
 :root[data-theme='light'] .hl-hill.a {
-  background: #b9c4bb;
+  background: #89b08e;
 }
 
 :root[data-theme='light'] .hl-hill.b {
-  background: #a3b0a6;
+  background: #6f9975;
 }
 
 :root[data-theme='light'] .hl-hill.c {
-  background: #8e9d92;
+  background: #57805d;
 }

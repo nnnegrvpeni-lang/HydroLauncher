@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub enum ThemeMode {
     System,
     Dark,
+    Night,
     Light,
 }
 

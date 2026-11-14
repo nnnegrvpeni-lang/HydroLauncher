@@ -2,7 +2,7 @@ import { invoke } from './invoke';
 
 export const THEME_CHANNEL = 'hydro://theme-changed';
 
-export type ThemeMode = 'system' | 'dark' | 'light';
+export type ThemeMode = 'system' | 'dark' | 'night' | 'light';
 
 export interface AppSettings {
   theme: ThemeMode;

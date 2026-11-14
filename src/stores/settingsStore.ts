@@ -12,10 +12,8 @@ interface SettingsState {
   applyTheme: (mode: ThemeMode) => void;
 }
 
-function resolveTheme(mode: ThemeMode): 'dark' | 'light' {
-  if (mode === 'system') {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  }
+function resolveTheme(mode: ThemeMode): 'dark' | 'night' | 'light' {
+  if (mode === 'system') return 'dark';
   return mode;
 }
 

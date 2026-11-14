@@ -186,18 +186,20 @@ function AppearanceGroup() {
   const save = useSettingsStore((s) => s.save);
 
   const options: Array<{ value: ThemeMode; label: string }> = [
-    { value: 'system', label: 'Системная' },
-    { value: 'dark', label: 'Графит' },
-    { value: 'light', label: 'Светлая' },
+    { value: 'dark', label: 'Сумерки' },
+    { value: 'night', label: 'Ночь' },
+    { value: 'light', label: 'День' },
   ];
 
+  const currentTheme = settings?.theme === 'system' ? 'dark' : settings?.theme;
+
   return (
-    <Group title="Оформление" description="Тема поверхности окна">
+    <Group title="Оформление" description="Тема поверхности окна и мира на фоне">
       <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-3.5">
         <span className="text-[13px] text-ink">Цветовая тема</span>
         <div className="inline-flex rounded-[7px] border border-line bg-bg-well p-0.5">
           {options.map((option) => {
-            const active = settings?.theme === option.value;
+            const active = currentTheme === option.value;
             return (
               <button
                 key={option.value}
@@ -205,8 +207,10 @@ function AppearanceGroup() {
                   if (settings) void save({ ...settings, theme: option.value });
                 }}
                 className={cn(
-                  'rounded-[5px] px-3 py-1 text-xs font-medium transition-colors',
-                  active ? 'keycap-surface text-ink' : 'text-muted hover:text-ink',
+                  'rounded-[5px] border px-3 py-1 text-xs font-medium transition-colors duration-150',
+                  active
+                    ? 'keycap-surface text-ink'
+                    : 'border-transparent text-muted hover:text-ink',
                 )}
               >
                 {option.label}
