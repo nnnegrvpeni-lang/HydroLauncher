@@ -315,6 +315,25 @@ fn extract_archive(archive_path: &Path, dest_dir: &Path) -> AppResult<()> {
     Ok(())
 }
 
+pub async fn is_horizon_prepared(prepare_bin: &Path, prepared_dir: &Path) -> bool {
+    if !prepared_dir.exists() {
+        return false;
+    }
+    let prepare_root = prepare_bin
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| prepared_dir.to_path_buf());
+    Command::new(prepare_bin)
+        .arg("--check")
+        .arg("--output")
+        .arg(prepared_dir)
+        .current_dir(&prepare_root)
+        .output()
+        .await
+        .map(|out| out.status.success())
+        .unwrap_or(false)
+}
+
 pub async fn ensure_horizon_prepared(
     app: &AppHandle,
     paths: &AppPaths,

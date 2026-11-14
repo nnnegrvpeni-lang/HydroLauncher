@@ -78,9 +78,15 @@ impl JavaService {
         let mut result = Vec::new();
         let mut entries = tokio::fs::read_dir(&runtimes_dir).await?;
         while let Some(entry) = entries.next_entry().await? {
-            let exec = entry.path().join("bin").join(java_exec_name());
+            let entry_path = entry.path();
+            if !entry_path.is_dir() {
+                continue;
+            }
+            let home_dir = find_java_home_dir(&entry_path).unwrap_or(entry_path);
+            let exec = home_dir.join("bin").join(java_exec_name());
             if exec.is_file() {
-                if let Ok(runtime) = probe_java(&exec).await {
+                if let Ok(mut runtime) = probe_java(&exec).await {
+                    runtime.is_managed = true;
                     result.push(runtime);
                 }
             }

@@ -77,24 +77,6 @@ pub async fn prepare_instance(app: AppHandle, instance: Instance) -> AppResult<(
             install_version_files(&ctx, &details).await?;
         }
 
-        let required_major = details
-            .java_version
-            .as_ref()
-            .map(|j| j.major_version)
-            .unwrap_or(8);
-        let java_service = crate::services::java_service::JavaService::new();
-        let java_exec = resolve_java_exec(
-            &app,
-            &instance.id,
-            &java_service,
-            &paths,
-            &data_dir,
-            &settings,
-            required_major,
-            instance.java_path_override.as_deref(),
-        )
-        .await?;
-
         if instance.engine == EngineKind::Horizon {
             let (_client_bin, prepare_bin) = horizon_service::ensure_horizon_binaries(
                 &app,
@@ -103,6 +85,28 @@ pub async fn prepare_instance(app: AppHandle, instance: Instance) -> AppResult<(
                 &instance.id,
             )
             .await?;
+            let prepared_dir = paths.horizon_prepared_dir(&data_dir, &details.id);
+            let java_exec = if horizon_service::is_horizon_prepared(&prepare_bin, &prepared_dir).await {
+                String::new()
+            } else {
+                let required_major = details
+                    .java_version
+                    .as_ref()
+                    .map(|j| j.major_version)
+                    .unwrap_or(8);
+                let java_service = crate::services::java_service::JavaService::new();
+                resolve_java_exec(
+                    &app,
+                    &instance.id,
+                    &java_service,
+                    &paths,
+                    &data_dir,
+                    &settings,
+                    required_major,
+                    instance.java_path_override.as_deref(),
+                )
+                .await?
+            };
             horizon_service::ensure_horizon_prepared(
                 &app,
                 &paths,
@@ -115,6 +119,23 @@ pub async fn prepare_instance(app: AppHandle, instance: Instance) -> AppResult<(
             )
             .await?;
         } else {
+            let required_major = details
+                .java_version
+                .as_ref()
+                .map(|j| j.major_version)
+                .unwrap_or(8);
+            let java_service = crate::services::java_service::JavaService::new();
+            let java_exec = resolve_java_exec(
+                &app,
+                &instance.id,
+                &java_service,
+                &paths,
+                &data_dir,
+                &settings,
+                required_major,
+                instance.java_path_override.as_deref(),
+            )
+            .await?;
             crate::services::loader_service::apply_modloader(
                 &app,
                 &paths,
@@ -175,26 +196,7 @@ pub async fn launch(
         install_version_files(&ctx, &details).await?;
     }
 
-    // 3. Java совместимой версии (системная или управляемая, при отсутствии — скачивается)
-    let required_major = details
-        .java_version
-        .as_ref()
-        .map(|j| j.major_version)
-        .unwrap_or(8);
-    let java_service = crate::services::java_service::JavaService::new();
-    let java_exec = resolve_java_exec(
-        &app,
-        &instance.id,
-        &java_service,
-        &paths,
-        &data_dir,
-        &settings,
-        required_major,
-        instance.java_path_override.as_deref(),
-    )
-    .await?;
-
-    // 4. Активный офлайн-аккаунт
+    // 3. Активный офлайн-аккаунт
     let accounts = account_service::load_accounts(&paths, &data_dir).await?;
     let account = accounts
         .accounts
@@ -204,12 +206,29 @@ pub async fn launch(
         .ok_or_else(|| AppError::Validation("Не найдено ни одного офлайн-аккаунта".into()))?
         .clone();
 
-    // 5. Запуск процесса в зависимости от движка
+    // 4. Запуск процесса в зависимости от движка
     let game_dir = paths.instance_game_dir(&data_dir, &instance.id);
     tokio::fs::create_dir_all(&game_dir).await?;
 
     let mut child = match instance.engine {
         EngineKind::Java => {
+            let required_major = details
+                .java_version
+                .as_ref()
+                .map(|j| j.major_version)
+                .unwrap_or(8);
+            let java_service = crate::services::java_service::JavaService::new();
+            let java_exec = resolve_java_exec(
+                &app,
+                &instance.id,
+                &java_service,
+                &paths,
+                &data_dir,
+                &settings,
+                required_major,
+                instance.java_path_override.as_deref(),
+            )
+            .await?;
             crate::services::loader_service::apply_modloader(
                 &app,
                 &paths,
@@ -269,6 +288,29 @@ pub async fn launch(
                 &instance.id,
             )
             .await?;
+            let prepared_dir_path = paths.horizon_prepared_dir(&data_dir, &details.id);
+            let java_exec =
+                if horizon_service::is_horizon_prepared(&prepare_bin, &prepared_dir_path).await {
+                    String::new()
+                } else {
+                    let required_major = details
+                        .java_version
+                        .as_ref()
+                        .map(|j| j.major_version)
+                        .unwrap_or(8);
+                    let java_service = crate::services::java_service::JavaService::new();
+                    resolve_java_exec(
+                        &app,
+                        &instance.id,
+                        &java_service,
+                        &paths,
+                        &data_dir,
+                        &settings,
+                        required_major,
+                        instance.java_path_override.as_deref(),
+                    )
+                    .await?
+                };
             let prepared_dir = horizon_service::ensure_horizon_prepared(
                 &app,
                 &paths,
