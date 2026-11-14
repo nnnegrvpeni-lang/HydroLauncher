@@ -10,6 +10,7 @@ import { InstancesPage } from './pages/InstancesPage';
 import { ModsPage } from './pages/ModsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { useInitAccounts } from './stores/accountsStore';
+import { useInitCatalogPreload } from './stores/catalogStore';
 import { useInitInstances } from './stores/instancesStore';
 import { useInitLaunchListeners } from './stores/launchStore';
 import { useInitSettings, useSettingsStore } from './stores/settingsStore';
@@ -43,6 +44,7 @@ export default function App() {
   useInitAccounts();
   useInitInstances();
   useInitLaunchListeners();
+  useInitCatalogPreload();
 
   // Отключаем стандартное браузерное контекстное меню на ПКМ
   useEffect(() => {

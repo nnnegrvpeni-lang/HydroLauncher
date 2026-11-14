@@ -30,6 +30,7 @@ import {
 import { VoxelEmblem } from '../components/VoxelEmblem';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
+import { useCatalogStore } from '../stores/catalogStore';
 import { useInstancesStore } from '../stores/instancesStore';
 import { cn } from '../utils/cn';
 import { formatLoaderLabel } from '../utils/format';
@@ -283,7 +284,18 @@ export function ModsPage({
   const [modrinthTypeFilter, setModrinthTypeFilter] = useState<string>('mod');
   const [loaderFilter, setLoaderFilter] = useState<ModLoaderKind | 'all'>('all');
   const [gameVersionFilter, setGameVersionFilter] = useState<string>('all');
-  const [releaseVersions, setReleaseVersions] = useState<string[]>([]);
+  const versionCatalog = useCatalogStore((s) => s.versionCatalog);
+  const ensureVersionCatalog = useCatalogStore((s) => s.ensureVersionCatalog);
+  const getModsSearch = useCatalogStore((s) => s.getModsSearch);
+  const setModsSearch = useCatalogStore((s) => s.setModsSearch);
+  const releaseVersions = useMemo(
+    () =>
+      (versionCatalog?.manifest.versions ?? [])
+        .filter((v) => v.type === 'release')
+        .slice(0, 40)
+        .map((v) => v.id),
+    [versionCatalog],
+  );
   const [versionMenuOpen, setVersionMenuOpen] = useState(false);
   const versionMenuRef = useRef<HTMLDivElement>(null);
   const [horizonKindFilter, setHorizonKindFilter] = useState<string>('all');
@@ -330,26 +342,12 @@ export function ModsPage({
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailTab, setDetailTab] = useState<'description' | 'versions' | 'gallery'>('description');
 
-  // Подгружаем список релизных версий Minecraft для фильтра
+  // Подгружаем каталог версий, если он ещё не в кэше
   useEffect(() => {
-    let cancelled = false;
-    api
-      .getVersionCatalog()
-      .then((catalog) => {
-        if (cancelled) return;
-        const releases = catalog.manifest.versions
-          .filter((v) => v.type === 'release')
-          .slice(0, 40)
-          .map((v) => v.id);
-        setReleaseVersions(releases);
-      })
-      .catch(() => {
-        // Не критично, фильтр просто останется со значением "Все версии"
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (!versionCatalog) {
+      void ensureVersionCatalog().catch(() => {});
+    }
+  }, [versionCatalog, ensureVersionCatalog]);
 
   useEffect(() => {
     if (!versionMenuOpen) return;
@@ -409,59 +407,100 @@ export function ModsPage({
   }, [targetInstalledMods]);
 
   const searchMods = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      if (catalogSource === 'horizon') {
+    const trimmedQuery = query.trim();
+
+    if (catalogSource === 'horizon') {
+      const cacheKey = ['horizon', trimmedQuery, horizonKindFilter, category, page].join('|');
+      const cached = getModsSearch(cacheKey);
+      if (cached) {
+        setHits(cached.hits);
+        setTotalHits(cached.totalHits);
+        setLoading(false);
+        if (!cached.isStale) return;
+      } else {
+        setLoading(true);
+      }
+
+      setError(null);
+      try {
         const res = await api.searchHorizonMods({
-          query,
+          query: trimmedQuery,
           kind: horizonKindFilter,
           category,
           limit: PAGE_SIZE,
           offset: page * PAGE_SIZE,
         });
-        setHits(
-          res.hits.map((h) => ({
-            projectId: h.id,
-            slug: h.id,
-            title: h.name,
-            description: h.summary,
-            author: h.author || 'Horizon',
-            iconUrl: h.icon,
-            downloads: h.downloads,
-            categories: [HORIZON_KIND_LABEL[h.kind] ?? h.kind, ...h.categories],
-            versions: h.latestVersion ? [h.latestVersion] : [],
-          })),
-        );
+        const mapped: ModrinthSearchHit[] = res.hits.map((h) => ({
+          projectId: h.id,
+          slug: h.id,
+          title: h.name,
+          description: h.summary,
+          author: h.author || 'Horizon',
+          iconUrl: h.icon,
+          downloads: h.downloads,
+          categories: [HORIZON_KIND_LABEL[h.kind] ?? h.kind, ...h.categories],
+          versions: h.latestVersion ? [h.latestVersion] : [],
+        }));
+        setHits(mapped);
         setTotalHits(res.totalHits);
-      } else {
-        const effectiveLoader =
-          modrinthTypeFilter === 'shader' || modrinthTypeFilter === 'resourcepack'
-            ? undefined
-            : targetInstance && targetInstance.loader !== 'vanilla'
-              ? targetInstance.loader
-              : loaderFilter === 'all'
-                ? undefined
-                : loaderFilter;
-
-        const effectiveGameVersion =
-          targetInstance?.minecraftVersion ??
-          (gameVersionFilter === 'all' ? undefined : gameVersionFilter);
-
-        const res = await api.searchModrinthMods({
-          query,
-          projectType: modrinthTypeFilter,
-          category,
-          loader: effectiveLoader,
-          gameVersion: effectiveGameVersion,
-          limit: PAGE_SIZE,
-          offset: page * PAGE_SIZE,
-        });
-        setHits(res.hits);
-        setTotalHits(res.totalHits);
+        setModsSearch(cacheKey, mapped, res.totalHits);
+      } catch (err) {
+        if (!cached) setError(String(err));
+      } finally {
+        setLoading(false);
       }
+      return;
+    }
+
+    const effectiveLoader =
+      modrinthTypeFilter === 'shader' || modrinthTypeFilter === 'resourcepack'
+        ? undefined
+        : targetInstance && targetInstance.loader !== 'vanilla'
+          ? targetInstance.loader
+          : loaderFilter === 'all'
+            ? undefined
+            : loaderFilter;
+
+    const effectiveGameVersion =
+      targetInstance?.minecraftVersion ??
+      (gameVersionFilter === 'all' ? undefined : gameVersionFilter);
+
+    const cacheKey = [
+      'modrinth',
+      trimmedQuery,
+      modrinthTypeFilter,
+      category,
+      effectiveLoader ?? 'all',
+      effectiveGameVersion ?? 'all',
+      page,
+    ].join('|');
+
+    const cached = getModsSearch(cacheKey);
+    if (cached) {
+      setHits(cached.hits);
+      setTotalHits(cached.totalHits);
+      setLoading(false);
+      if (!cached.isStale) return;
+    } else {
+      setLoading(true);
+    }
+
+    setError(null);
+    try {
+      const res = await api.searchModrinthMods({
+        query: trimmedQuery,
+        projectType: modrinthTypeFilter,
+        category,
+        loader: effectiveLoader,
+        gameVersion: effectiveGameVersion,
+        limit: PAGE_SIZE,
+        offset: page * PAGE_SIZE,
+      });
+      setHits(res.hits);
+      setTotalHits(res.totalHits);
+      setModsSearch(cacheKey, res.hits, res.totalHits);
     } catch (err) {
-      setError(String(err));
+      if (!cached) setError(String(err));
     } finally {
       setLoading(false);
     }
@@ -475,14 +514,17 @@ export function ModsPage({
     horizonKindFilter,
     page,
     targetInstance,
+    getModsSearch,
+    setModsSearch,
   ]);
 
   useEffect(() => {
+    const delay = query.trim() ? 180 : 0;
     const timer = window.setTimeout(() => {
       void searchMods();
-    }, 180);
+    }, delay);
     return () => window.clearTimeout(timer);
-  }, [searchMods]);
+  }, [searchMods, query]);
 
   const totalPages = Math.max(1, Math.ceil(totalHits / PAGE_SIZE));
 

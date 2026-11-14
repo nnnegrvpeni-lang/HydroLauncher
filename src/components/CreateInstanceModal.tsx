@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Download, FileArchive, FolderOpen, Loader2, Search } from 'lucide-react';
 import {
   api,
   type EngineKind,
   type ModLoaderKind,
   type ModrinthSearchHit,
-  type VersionSummary,
 } from '../api';
+import { useCatalogStore } from '../stores/catalogStore';
 import { useInstancesStore } from '../stores/instancesStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { cn } from '../utils/cn';
@@ -51,11 +51,25 @@ export function CreateInstanceModal({
   const loadInstances = useInstancesStore((s) => s.load);
   const showSnapshots = useSettingsStore((s) => s.settings?.showSnapshots ?? false);
 
+  const versionCatalog = useCatalogStore((s) => s.versionCatalog);
+  const loading = useCatalogStore((s) => s.versionCatalogLoading);
+  const loaderSupportedMc = useCatalogStore((s) => s.loaderSupportedMc);
+  const loaderSupportedMcLoading = useCatalogStore((s) => s.loaderSupportedMcLoading);
+  const ensureVersionCatalog = useCatalogStore((s) => s.ensureVersionCatalog);
+  const ensureLoaderSupportedMc = useCatalogStore((s) => s.ensureLoaderSupportedMc);
+  const ensureLoaderVersions = useCatalogStore((s) => s.ensureLoaderVersions);
+  const getModsSearch = useCatalogStore((s) => s.getModsSearch);
+  const setModsSearch = useCatalogStore((s) => s.setModsSearch);
+
+  const allVersions = useMemo(
+    () => versionCatalog?.manifest.versions ?? [],
+    [versionCatalog],
+  );
+
   const [tab, setTab] = useState<CreateTab>('custom');
 
   // Кастомная сборка
   const [name, setName] = useState('');
-  const [allVersions, setAllVersions] = useState<VersionSummary[]>([]);
   const [versionQuery, setVersionQuery] = useState('');
   const [selectedVersion, setSelectedVersion] = useState<string>('');
   const [engine, setEngine] = useState<EngineKind>('java');
@@ -65,11 +79,16 @@ export function CreateInstanceModal({
   const [loaderVersionsLoading, setLoaderVersionsLoading] = useState(false);
   const [loaderDropdownOpen, setLoaderDropdownOpen] = useState(false);
   const loaderDropdownRef = useRef<HTMLDivElement>(null);
-  const supportedMcCacheRef = useRef<Partial<Record<ModLoaderKind, Set<string>>>>({});
-  const [supportedMcSet, setSupportedMcSet] = useState<Set<string> | null>(null);
-  const [supportedMcLoading, setSupportedMcLoading] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const supportedMcSet = useMemo(() => {
+    if (engine !== 'java' || loader === 'vanilla') return null;
+    const entry = loaderSupportedMc[loader];
+    return entry ? new Set(entry.versions) : null;
+  }, [engine, loader, loaderSupportedMc]);
+
+  const supportedMcLoading =
+    engine === 'java' && loader !== 'vanilla' && Boolean(loaderSupportedMcLoading[loader]);
 
   // Готовые сборки Modrinth
   const [packQuery, setPackQuery] = useState('');
@@ -83,92 +102,74 @@ export function CreateInstanceModal({
   const [importing, setImporting] = useState(false);
 
   useEffect(() => {
-    if (!open || allVersions.length > 0) return;
+    if (!open) return;
+    if (versionCatalog) {
+      setSelectedVersion((prev) => prev || versionCatalog.manifest.latest.release);
+      return;
+    }
     let active = true;
-    setLoading(true);
     setError(null);
-    api
-      .getVersionCatalog()
+    ensureVersionCatalog()
       .then((catalog) => {
-        if (!active) return;
-        setAllVersions(catalog.manifest.versions);
+        if (!active || !catalog) return;
         setSelectedVersion((prev) => prev || catalog.manifest.latest.release);
       })
       .catch((err) => {
         if (active) setError(String(err));
-      })
-      .finally(() => {
-        if (active) setLoading(false);
       });
     return () => {
       active = false;
     };
-  }, [open, allVersions.length]);
+  }, [open, versionCatalog, ensureVersionCatalog]);
 
   useEffect(() => {
     if (!open || tab !== 'modpack') return;
+    const trimmed = packQuery.trim();
+    const cacheKey = `modpack|${trimmed}`;
+    const cached = getModsSearch(cacheKey);
+    if (cached) {
+      setPackHits(cached.hits);
+      setPacksLoading(false);
+      if (!cached.isStale) return;
+    } else {
+      setPacksLoading(true);
+    }
+
     let active = true;
-    setPacksLoading(true);
     setError(null);
+    const delay = cached ? 0 : trimmed ? 220 : 0;
     const timer = window.setTimeout(() => {
       api
         .searchModrinthMods({
-          query: packQuery.trim(),
+          query: trimmed,
           projectType: 'modpack',
           limit: 16,
           offset: 0,
         })
         .then((res) => {
-          if (active) setPackHits(res.hits);
+          if (!active) return;
+          setPackHits(res.hits);
+          setModsSearch(cacheKey, res.hits, res.totalHits);
         })
         .catch((err) => {
-          if (active) setError(String(err));
+          if (active && !cached) setError(String(err));
         })
         .finally(() => {
           if (active) setPacksLoading(false);
         });
-    }, 220);
+    }, delay);
     return () => {
       active = false;
       window.clearTimeout(timer);
     };
-  }, [open, tab, packQuery]);
+  }, [open, tab, packQuery, getModsSearch, setModsSearch]);
 
   useEffect(() => {
     if (!open || tab !== 'custom' || engine !== 'java' || loader === 'vanilla') {
-      setSupportedMcSet(null);
-      setSupportedMcLoading(false);
       return;
     }
-
-    const cached = supportedMcCacheRef.current[loader];
-    if (cached) {
-      setSupportedMcSet(cached);
-      setSupportedMcLoading(false);
-      return;
-    }
-
-    let active = true;
-    setSupportedMcLoading(true);
-    setSupportedMcSet(null);
-    api
-      .getLoaderSupportedMcVersions(loader)
-      .then((list) => {
-        if (!active) return;
-        const nextSet = new Set(list);
-        supportedMcCacheRef.current[loader] = nextSet;
-        setSupportedMcSet(nextSet);
-      })
-      .catch(() => {
-        if (active) setSupportedMcSet(null);
-      })
-      .finally(() => {
-        if (active) setSupportedMcLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [open, tab, engine, loader]);
+    void ensureLoaderSupportedMc(loader);
+  }, [open, tab, engine, loader, ensureLoaderSupportedMc]);
 
   useEffect(() => {
     if (
@@ -201,13 +202,9 @@ export function CreateInstanceModal({
     let active = true;
     setLoaderVersionsLoading(true);
     setLoaderVersion('');
-    api
-      .getLoaderVersions(loader, selectedVersion)
+    ensureLoaderVersions(loader, selectedVersion)
       .then((list) => {
         if (active) setLoaderVersions(list);
-      })
-      .catch(() => {
-        if (active) setLoaderVersions([]);
       })
       .finally(() => {
         if (active) setLoaderVersionsLoading(false);
@@ -215,7 +212,7 @@ export function CreateInstanceModal({
     return () => {
       active = false;
     };
-  }, [open, tab, engine, loader, selectedVersion]);
+  }, [open, tab, engine, loader, selectedVersion, ensureLoaderVersions]);
 
   useEffect(() => {
     if (!loaderDropdownOpen) return;
