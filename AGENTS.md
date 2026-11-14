@@ -3,14 +3,17 @@
 ## Стек и архитектура
 - **Desktop shell**: Tauri v2 (`src-tauri/`) + React 19 + TypeScript + Vite + Tailwind CSS v4 (`src/`).
 - **Аккаунты**: только офлайн (`OfflinePlayer:<name>` UUID v3).
-- **Движки**: Java Edition (Vanilla, в планах Fabric/Forge/NeoForge/Quilt) + будущая интеграция Horizon (Rust).
+- **Движки**: Java Edition (Vanilla, Fabric, Forge, NeoForge, Quilt) + нативный движок Horizon (Rust).
 
 ## Критические правила
-1. **Никаких хардкодных URL и путей**:
+1. **Никаких хардкодных URL, путей и личных данных**:
    - Все внешние URL централизованы в `src-tauri/src/config/endpoints.rs`.
    - Все пути хранения централизованы в `src-tauri/src/storage/paths.rs`.
-2. **Визуальный стиль (Тактильный графит)**:
-   - Строгий десктопный интерфейс без неона, без SaaS-пилюлек (`• В игре`, `• Готова`), без рамочек вокруг каждой цифры/версии, без мигающих точек-индикаторов и без шаблонных SVG-заглушек.
+   - Даже в `src/api/mock.ts` не использовать реальные имена пользователей или локальные пути разработчика.
+2. **Визуальный стиль (Жидкое стекло)**:
+   - Приглушённая палитра (`#121618` / `#1a2123`, акцент `#b4cdb0`) и фон `WorldBackdrop` (`.hl-world`) со стеклянными панелями `.deck-surface`.
+   - Без неона, без SaaS-пилюлек (`• В игре`, `• Готова`), без рамочек вокруг каждой цифры/версии, без мигающих точек-индикаторов, без шаблонных SVG-заглушек и без сдвигов макета при переключении вкладок/фильтров.
+   - Уведомления о прогрессе и ошибках — через `ToastHost.tsx` (правый верхний угол), без смещения контента.
    - Шрифты: локальные `IBM Plex Sans` и `IBM Plex Mono` из `public/fonts/`.
    - В `vite.config.ts` папка `public/fonts/**` добавлена в `server.watch.ignored` (защита от `EBUSY` на Windows).
 3. **Запуск Minecraft (`src-tauri/src/services/mojang_service.rs`, `java_rules.rs`, `launch_service.rs`)**:
