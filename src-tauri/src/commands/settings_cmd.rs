@@ -117,6 +117,22 @@ pub fn get_app_links() -> AppLinks {
     }
 }
 
+/// Выход из лаунчера: по желанию сначала останавливает запущенные игры.
+#[tauri::command]
+pub async fn quit_app(
+    app: tauri::AppHandle,
+    registry: State<'_, crate::services::launch_service::LaunchRegistry>,
+    stop_games: bool,
+) -> Result<(), AppError> {
+    if stop_games {
+        registry.stop_all().await;
+        // Даём watcher-задачам убить процессы и записать сессию.
+        tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+    }
+    app.exit(0);
+    Ok(())
+}
+
 /// Открывает внешнюю ссылку в системном браузере. Разрешены только https-URL.
 #[tauri::command]
 pub async fn open_external_url(url: String) -> Result<(), AppError> {

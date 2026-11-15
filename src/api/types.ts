@@ -391,6 +391,7 @@ export const api = {
   checkLauncherUpdate: () => invoke<LauncherUpdateInfo>('check_launcher_update'),
   getAppLinks: () => invoke<AppLinks>('get_app_links'),
   openExternalUrl: (url: string) => invoke<void>('open_external_url', { url }),
+  quitApp: (stopGames: boolean) => invoke<void>('quit_app', { stopGames }),
 
   // Java
   getJavaRuntimes: () => invoke<JavaRuntime[]>('get_java_runtimes'),

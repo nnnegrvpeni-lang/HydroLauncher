@@ -674,6 +674,8 @@ export async function mockInvoke<T>(
       } as T;
     case 'open_external_url':
       return undefined as T;
+    case 'quit_app':
+      return undefined as T;
 
     default:
       throw `Неизвестная команда: ${command}`;

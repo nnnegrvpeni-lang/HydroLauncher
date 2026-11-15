@@ -177,6 +177,14 @@ export const en: Record<string, string> = {
   'Отчёт скопирован в буфер обмена': 'Report copied to clipboard',
   'Не удалось скопировать отчёт': 'Failed to copy the report',
 
+  // Выход при запущенной игре
+  'Игра ещё запущена': 'The game is still running',
+  'Если выйти сейчас, Minecraft продолжит работать, но лаунчер про него забудет — остановить игру можно будет только через диспетчер задач.':
+    'If you quit now, Minecraft keeps running, but the launcher will forget about it — you will have to stop the game from Task Manager.',
+  'Выйти, игра останется': 'Quit and keep the game running',
+  'Остановить игру и выйти': 'Stop the game and quit',
+  'Остановите игру перед установкой модов': 'Stop the game before installing mods',
+
   // Главная: быстрый запуск и док
   'Войти на {address}': 'Join {address}',
   'Удалить сервер': 'Remove server',
@@ -238,6 +246,7 @@ export const en: Record<string, string> = {
   'от {author}': 'by {author}',
   'Открыть на {source}': 'Open on {source}',
   'Несовместима': 'Incompatible',
+  'Сборка запущена': 'Instance is running',
   'Только для Horizon (Rust)': 'Horizon (Rust) only',
   'Только для Java Edition': 'Java Edition only',
   'Vanilla не поддерживает моды': 'Vanilla does not support mods',

@@ -279,6 +279,7 @@ export function ModsPage({
   onQuickCreateInstance,
 }: ModsPageProps) {
   const instances = useInstancesStore((s) => s.instances);
+  const running = useInstancesStore((s) => s.running);
   const topRef = useRef<HTMLDivElement>(null);
 
   const [manualSource, setManualSource] = useState<'modrinth' | 'horizon'>('modrinth');
@@ -571,6 +572,10 @@ export function ModsPage({
   ) => {
     // Если открыт каталог для конкретной сборки — ставим сразу в неё в 1 клик
     if (targetInstance) {
+      if (running.get(targetInstance.id)) {
+        setError(t('Остановите игру перед установкой модов'));
+        return;
+      }
       const busyKey = version?.id ?? hit.projectId;
       if (directInstallingIds.has(busyKey)) return;
       setDirectInstallingIds((prev) => new Set(prev).add(busyKey));
@@ -680,6 +685,10 @@ export function ModsPage({
 
   const handleInstallIntoInstance = async (instanceId: string) => {
     if (!installTarget || installingInstanceIds.has(instanceId)) return;
+    if (running.get(instanceId)) {
+      setInstallError(t('Остановите игру перед установкой модов'));
+      return;
+    }
     setInstallingInstanceIds((prev) => new Set(prev).add(instanceId));
     setInstallError(null);
     try {
@@ -715,6 +724,10 @@ export function ModsPage({
     const incompatible: Array<{ instance: Instance; reason: string }> = [];
 
     for (const inst of instances) {
+      if (running.get(inst.id)) {
+        incompatible.push({ instance: inst, reason: 'Сборка запущена' });
+        continue;
+      }
       const check = isInstanceCompatible(
         inst,
         installTarget.loaders,
@@ -732,7 +745,7 @@ export function ModsPage({
       }
     }
     return { compatible, incompatible };
-  }, [installTarget, instances]);
+  }, [installTarget, instances, running]);
 
   // Полноэкранная карточка мода (как на Modrinth)
   if (detailHit) {

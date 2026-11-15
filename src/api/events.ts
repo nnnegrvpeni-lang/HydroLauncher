@@ -6,6 +6,7 @@ export const EVENTS = {
   launchProgress: 'launch://progress',
   launchLog: 'launch://log',
   launchState: 'launch://state',
+  quitRequested: 'app://quit-requested',
 } as const;
 
 function safeListen<T>(
@@ -26,3 +27,6 @@ export const listenLaunchLog = (handler: (payload: GameLog) => void) =>
 
 export const listenLaunchState = (handler: (payload: GameState) => void) =>
   safeListen<GameState>(EVENTS.launchState, handler);
+
+export const listenQuitRequested = (handler: () => void) =>
+  safeListen<null>(EVENTS.quitRequested, () => handler());

@@ -60,10 +60,12 @@ pub async fn get_modrinth_versions(
 #[tauri::command]
 pub async fn install_modrinth_mod(
     state: State<'_, AppState>,
+    registry: State<'_, crate::services::launch_service::LaunchRegistry>,
     instance_id: String,
     project_id: String,
     version_id: Option<String>,
 ) -> Result<InstalledModFile, AppError> {
+    shared::ensure_instance_idle(&registry, &instance_id).await?;
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
     let instances = instance_service::load_instances(&paths, &data_dir).await?;
     let instance = instances
@@ -87,9 +89,11 @@ pub async fn get_installed_mods(
 #[tauri::command]
 pub async fn remove_installed_mod(
     state: State<'_, AppState>,
+    registry: State<'_, crate::services::launch_service::LaunchRegistry>,
     instance_id: String,
     file_name: String,
 ) -> Result<(), AppError> {
+    shared::ensure_instance_idle(&registry, &instance_id).await?;
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
     modrinth_service::remove_installed_mod(&paths, &data_dir, &instance_id, &file_name).await
 }
@@ -115,10 +119,12 @@ pub async fn get_horizon_mod_details(
 #[tauri::command]
 pub async fn install_horizon_mod(
     state: State<'_, AppState>,
+    registry: State<'_, crate::services::launch_service::LaunchRegistry>,
     instance_id: String,
     project_id: String,
     version: Option<String>,
 ) -> Result<InstalledModFile, AppError> {
+    shared::ensure_instance_idle(&registry, &instance_id).await?;
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
     horizon_mods_service::install_mod(&paths, &data_dir, &instance_id, &project_id, version.as_deref())
         .await
@@ -127,9 +133,11 @@ pub async fn install_horizon_mod(
 #[tauri::command]
 pub async fn toggle_installed_mod(
     state: State<'_, AppState>,
+    registry: State<'_, crate::services::launch_service::LaunchRegistry>,
     instance_id: String,
     file_name: String,
 ) -> Result<String, AppError> {
+    shared::ensure_instance_idle(&registry, &instance_id).await?;
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
     modrinth_service::toggle_installed_mod(&paths, &data_dir, &instance_id, &file_name).await
 }
@@ -193,8 +201,10 @@ pub async fn pick_mrpack_file() -> Result<Option<String>, AppError> {
 #[tauri::command]
 pub async fn export_instance_mrpack(
     state: State<'_, AppState>,
+    registry: State<'_, crate::services::launch_service::LaunchRegistry>,
     instance_id: String,
 ) -> Result<Option<modrinth_service::ExportedMrpack>, AppError> {
+    shared::ensure_instance_idle(&registry, &instance_id).await?;
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
     let instance = instance_service::load_instances(&paths, &data_dir)
         .await?

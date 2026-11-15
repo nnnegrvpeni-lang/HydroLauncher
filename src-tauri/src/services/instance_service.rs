@@ -104,19 +104,19 @@ pub async fn delete_instance(
     instance_id: &str,
 ) -> AppResult<()> {
     let mut store: InstancesStore = read_json_or_default(&paths.instances_file(data_dir)).await?;
-    let initial_len = store.instances.len();
-    store.instances.retain(|i| i.id != instance_id);
-
-    if store.instances.len() == initial_len {
+    if !store.instances.iter().any(|i| i.id == instance_id) {
         return Err(AppError::NotFound("Сборка не найдена".into()));
     }
 
-    write_json_atomic(&paths.instances_file(data_dir), &store).await?;
-
+    // Сначала удаляем папку: если файлы заняты (игра/антивирус), запись в
+    // instances.json останется нетронутой и сборка не «исчезнет» из списка.
     let inst_dir = paths.instance_dir(data_dir, instance_id);
     if tokio::fs::try_exists(&inst_dir).await? {
         tokio::fs::remove_dir_all(&inst_dir).await?;
     }
+
+    store.instances.retain(|i| i.id != instance_id);
+    write_json_atomic(&paths.instances_file(data_dir), &store).await?;
 
     Ok(())
 }

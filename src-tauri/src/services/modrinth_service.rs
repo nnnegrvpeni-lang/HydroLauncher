@@ -5,7 +5,6 @@ use crate::services::downloader;
 use crate::storage::paths::AppPaths;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
-use sha1::{Digest, Sha1};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -565,10 +564,7 @@ struct ApiProjectSummary {
 }
 
 async fn compute_sha1_hex(path: &Path) -> Option<String> {
-    let bytes = tokio::fs::read(path).await.ok()?;
-    let mut hasher = Sha1::new();
-    hasher.update(&bytes);
-    Some(hex::encode(hasher.finalize()))
+    downloader::hash_file_sha1(path).await.ok()
 }
 
 pub async fn list_installed_mods(

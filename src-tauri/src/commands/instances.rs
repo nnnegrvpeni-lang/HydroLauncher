@@ -36,8 +36,10 @@ pub async fn update_instance(
 #[tauri::command]
 pub async fn delete_instance(
     state: State<'_, AppState>,
+    registry: State<'_, crate::services::launch_service::LaunchRegistry>,
     instance_id: String,
 ) -> Result<(), AppError> {
+    shared::ensure_instance_idle(&registry, &instance_id).await?;
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
     instance_service::delete_instance(&paths, &data_dir, &instance_id).await
 }
@@ -45,8 +47,10 @@ pub async fn delete_instance(
 #[tauri::command]
 pub async fn duplicate_instance(
     state: State<'_, AppState>,
+    registry: State<'_, crate::services::launch_service::LaunchRegistry>,
     instance_id: String,
 ) -> Result<Instance, AppError> {
+    shared::ensure_instance_idle(&registry, &instance_id).await?;
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
     instance_service::duplicate_instance(&paths, &data_dir, &instance_id).await
 }
@@ -497,9 +501,11 @@ pub async fn list_instance_worlds(
 #[tauri::command]
 pub async fn backup_instance_world(
     state: State<'_, AppState>,
+    registry: State<'_, crate::services::launch_service::LaunchRegistry>,
     instance_id: String,
     folder_name: String,
 ) -> Result<WorldBackup, AppError> {
+    shared::ensure_instance_idle(&registry, &instance_id).await?;
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
     let saves_dir = paths.instance_game_dir(&data_dir, &instance_id).join("saves");
     let source = world_dir(&saves_dir, &folder_name)?;
@@ -575,9 +581,11 @@ fn zip_directory(source: &Path, target: &Path) -> Result<(), AppError> {
 #[tauri::command]
 pub async fn delete_instance_world(
     state: State<'_, AppState>,
+    registry: State<'_, crate::services::launch_service::LaunchRegistry>,
     instance_id: String,
     folder_name: String,
 ) -> Result<(), AppError> {
+    shared::ensure_instance_idle(&registry, &instance_id).await?;
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
     let saves_dir = paths.instance_game_dir(&data_dir, &instance_id).join("saves");
     let target = world_dir(&saves_dir, &folder_name)?;

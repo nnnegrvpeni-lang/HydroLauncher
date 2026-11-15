@@ -3,8 +3,10 @@ import { Loader2 } from 'lucide-react';
 import { CreateInstanceModal } from './components/CreateInstanceModal';
 import { CrashReportModal } from './components/CrashReportModal';
 import { QuickAccountModal } from './components/QuickAccountModal';
+import { QuitConfirmModal } from './components/QuitConfirmModal';
 import { TitleBar } from './components/TitleBar';
 import { ToastHost } from './components/ToastHost';
+import { listenQuitRequested } from './api';
 import { useHashRoute } from './hooks/useHashRoute';
 import { HomePage } from './pages/HomePage';
 import { InstancesPage } from './pages/InstancesPage';
@@ -41,6 +43,7 @@ export default function App() {
   const [modsTargetInstanceId, setModsTargetInstanceId] = useState<string | null>(null);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [quickAccountOpen, setQuickAccountOpen] = useState(false);
+  const [quitPromptOpen, setQuitPromptOpen] = useState(false);
   const loading = useSettingsStore((s) => s.loading);
 
   useInitSettings();
@@ -58,6 +61,20 @@ export default function App() {
     };
     window.addEventListener('contextmenu', preventContextMenu);
     return () => window.removeEventListener('contextmenu', preventContextMenu);
+  }, []);
+
+  // Бэкенд просит подтвердить выход, если игра ещё работает
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void listenQuitRequested(() => setQuitPromptOpen(true)).then((fn) => {
+      if (disposed) fn();
+      else unlisten = fn;
+    });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
   }, []);
 
   if (loading) {
@@ -130,6 +147,7 @@ export default function App() {
 
       <ToastHost />
       <CrashReportModal />
+      <QuitConfirmModal open={quitPromptOpen} onClose={() => setQuitPromptOpen(false)} />
     </div>
   );
 }

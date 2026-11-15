@@ -333,6 +333,7 @@ export function InstancesPage({
 
                       <IconButton
                         onClick={() => setPendingDelete(instance)}
+                        disabled={state !== undefined}
                         title={t('Удалить сборку')}
                         className="hover:bg-danger/12 hover:text-danger"
                       >

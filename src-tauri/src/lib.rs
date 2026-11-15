@@ -28,7 +28,7 @@ use commands::{
     },
     settings_cmd::{
         check_launcher_update, get_app_links, get_settings, get_system_info, open_data_dir,
-        open_external_url, pick_directory, save_settings_cmd, validate_data_dir,
+        open_external_url, pick_directory, quit_app, save_settings_cmd, validate_data_dir,
     },
     versions::{
         check_horizon_update, cleanup_horizon_cache, ensure_java_runtime, get_install_status,
@@ -41,7 +41,9 @@ use commands::{
 use state::AppState;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
+
+pub const QUIT_REQUESTED_EVENT: &str = "app://quit-requested";
 
 /// Показывает главное окно из трея и переводит фокус на него.
 fn show_main_window(app: &tauri::AppHandle) {
@@ -50,6 +52,12 @@ fn show_main_window(app: &tauri::AppHandle) {
         let _ = window.unminimize();
         let _ = window.set_focus();
     }
+}
+
+/// Просит интерфейс подтвердить выход, потому что игра ещё запущена.
+fn request_quit(app: &tauri::AppHandle) {
+    show_main_window(app);
+    let _ = app.emit(QUIT_REQUESTED_EVENT, ());
 }
 
 fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
@@ -64,7 +72,16 @@ fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "open" => show_main_window(app),
-            "quit" => app.exit(0),
+            "quit" => {
+                if app
+                    .state::<services::launch_service::LaunchRegistry>()
+                    .has_running()
+                {
+                    request_quit(app);
+                } else {
+                    app.exit(0);
+                }
+            }
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
@@ -111,6 +128,13 @@ pub fn run() {
                 if app.state::<AppState>().close_to_tray() {
                     api.prevent_close();
                     let _ = window.hide();
+                } else if app
+                    .state::<services::launch_service::LaunchRegistry>()
+                    .has_running()
+                {
+                    // Игра запущена: не закрываемся молча, а спрашиваем.
+                    api.prevent_close();
+                    request_quit(&app);
                 }
             }
         })
@@ -148,6 +172,7 @@ pub fn run() {
             check_launcher_update,
             get_app_links,
             open_external_url,
+            quit_app,
             // Java
             get_java_runtimes,
             download_java_runtime,

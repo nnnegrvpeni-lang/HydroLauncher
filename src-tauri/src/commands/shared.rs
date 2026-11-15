@@ -1,8 +1,19 @@
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
+use crate::services::launch_service::LaunchRegistry;
 use crate::state::AppState;
 use crate::storage::paths::AppPaths;
 use std::path::PathBuf;
 use tauri::State;
+
+/// Не даёт менять файлы сборки, пока игра пишет в них.
+pub async fn ensure_instance_idle(registry: &LaunchRegistry, instance_id: &str) -> AppResult<()> {
+    if registry.contains(instance_id).await {
+        return Err(AppError::Validation(
+            "Остановите игру перед этим действием".into(),
+        ));
+    }
+    Ok(())
+}
 
 pub async fn resolve_data_dir(
     state: &State<'_, AppState>,

@@ -12,6 +12,7 @@ use crate::storage::paths::AppPaths;
 use chrono::Utc;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
@@ -22,21 +23,31 @@ type KillHandle = tokio::sync::oneshot::Sender<()>;
 /// Реестр запущенных игровых процессов, доступный из state Tauri.
 pub struct LaunchRegistry {
     processes: Mutex<HashMap<String, KillHandle>>,
+    /// Дублирует размер карты для синхронной проверки в обработчике окна.
+    running: AtomicUsize,
 }
 
 impl LaunchRegistry {
     pub fn new() -> Self {
         Self {
             processes: Mutex::new(HashMap::new()),
+            running: AtomicUsize::new(0),
         }
     }
 
     pub async fn insert(&self, instance_id: String, kill_tx: KillHandle) {
-        self.processes.lock().await.insert(instance_id, kill_tx);
+        let mut processes = self.processes.lock().await;
+        if processes.insert(instance_id, kill_tx).is_none() {
+            self.running.fetch_add(1, Ordering::Relaxed);
+        }
     }
 
     pub async fn remove(&self, instance_id: &str) -> Option<KillHandle> {
-        self.processes.lock().await.remove(instance_id)
+        let removed = self.processes.lock().await.remove(instance_id);
+        if removed.is_some() {
+            self.running.fetch_sub(1, Ordering::Relaxed);
+        }
+        removed
     }
 
     pub async fn contains(&self, instance_id: &str) -> bool {
@@ -45,6 +56,20 @@ impl LaunchRegistry {
 
     pub async fn ids(&self) -> Vec<String> {
         self.processes.lock().await.keys().cloned().collect()
+    }
+
+    /// Синхронная проверка для CloseRequested: ждать мьютекс там нельзя.
+    pub fn has_running(&self) -> bool {
+        self.running.load(Ordering::Relaxed) > 0
+    }
+
+    /// Останавливает все запущенные игры (сигнал watcher-задачам).
+    pub async fn stop_all(&self) {
+        let mut processes = self.processes.lock().await;
+        for (_, kill_tx) in processes.drain() {
+            let _ = kill_tx.send(());
+            self.running.fetch_sub(1, Ordering::Relaxed);
+        }
     }
 }
 
@@ -581,7 +606,7 @@ fn restore_main_window(app: &AppHandle) {
 
 #[cfg(test)]
 mod tests {
-    use super::classify_exit;
+    use super::{classify_exit, LaunchRegistry};
 
     #[test]
     fn normal_exit_is_not_a_crash() {
@@ -599,5 +624,25 @@ mod tests {
     fn manual_stop_is_reported_as_exit() {
         assert_eq!(classify_exit(true, None), "exited");
         assert_eq!(classify_exit(true, Some(1)), "exited");
+    }
+
+    #[tokio::test]
+    async fn registry_tracks_running_processes_synchronously() {
+        let registry = LaunchRegistry::new();
+        assert!(!registry.has_running());
+
+        let (tx, _rx) = tokio::sync::oneshot::channel();
+        registry.insert("inst-1".to_string(), tx).await;
+        assert!(registry.has_running());
+        assert!(registry.contains("inst-1").await);
+
+        registry.remove("inst-1").await;
+        assert!(!registry.has_running());
+
+        let (tx, _rx) = tokio::sync::oneshot::channel();
+        registry.insert("inst-2".to_string(), tx).await;
+        registry.stop_all().await;
+        assert!(!registry.has_running());
+        assert!(registry.ids().await.is_empty());
     }
 }

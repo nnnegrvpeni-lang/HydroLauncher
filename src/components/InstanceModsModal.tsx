@@ -407,6 +407,7 @@ export function InstanceModsModal({
   if (!instance) return null;
 
   const runtimeState = running.get(instance.id);
+  const runtimeLocked = Boolean(runtimeState);
   const isRunning = runtimeState === 'running';
   const isBusy = runtimeState === 'preparing' || runtimeState === 'launching';
   const canLaunch = Boolean(activeAccount);
@@ -890,7 +891,7 @@ export function InstanceModsModal({
                           <Button
                             size="sm"
                             variant="danger"
-                            disabled={busyWorld !== null}
+                            disabled={busyWorld !== null || runtimeLocked}
                             onClick={() => void handleDeleteWorld(world.folderName)}
                           >
                             {t('Удалить')}
@@ -908,7 +909,7 @@ export function InstanceModsModal({
                           <button
                             type="button"
                             onClick={() => void handleBackupWorld(world.folderName)}
-                            disabled={busyWorld !== null}
+                            disabled={busyWorld !== null || runtimeLocked}
                             title={t('Создать резервную копию')}
                             className="rounded-[6px] p-1.5 text-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-40"
                           >
@@ -921,7 +922,7 @@ export function InstanceModsModal({
                           <button
                             type="button"
                             onClick={() => setPendingWorldDelete(world.folderName)}
-                            disabled={busyWorld !== null}
+                            disabled={busyWorld !== null || runtimeLocked}
                             title={t('Удалить мир')}
                             className="rounded-[6px] p-1.5 text-muted transition-colors hover:bg-danger/15 hover:text-danger disabled:opacity-40"
                           >
@@ -1097,6 +1098,7 @@ export function InstanceModsModal({
                         <div className="flex min-w-0 items-center gap-3.5">
                           <Switch
                             checked={!isDisabled}
+                            disabled={runtimeLocked}
                             onChange={() => void handleToggleMod(mod.fileName)}
                             label={isDisabled ? t('Включить мод') : t('Отключить мод')}
                           />
@@ -1137,7 +1139,7 @@ export function InstanceModsModal({
                             <Button
                               size="sm"
                               variant="primary"
-                              disabled={isUpdating}
+                              disabled={isUpdating || runtimeLocked}
                               onClick={() => void handleApplyUpdate(upd)}
                             >
                               {isUpdating ? (
@@ -1154,6 +1156,7 @@ export function InstanceModsModal({
                             <Button
                               size="sm"
                               variant="secondary"
+                              disabled={runtimeLocked}
                               onClick={() => void openVersionPicker(mod)}
                             >
                               <History size={13} />
@@ -1163,6 +1166,7 @@ export function InstanceModsModal({
                           <Button
                             size="sm"
                             variant="ghost"
+                            disabled={runtimeLocked}
                             onClick={() => void handleRemove(mod.fileName)}
                             title={t('Удалить мод')}
                           >
