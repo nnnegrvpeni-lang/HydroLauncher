@@ -51,6 +51,7 @@ pub async fn load_or_init_settings(paths: &AppPaths) -> AppResult<AppSettings> {
         max_concurrent_downloads: DEFAULT_CONCURRENT_DOWNLOADS,
         close_on_launch: false,
         close_to_tray: false,
+        language: crate::models::settings::Language::Ru,
         show_snapshots: false,
         custom_java_paths: Vec::new(),
     };

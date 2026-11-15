@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Check, Copy, RotateCcw } from 'lucide-react';
 import type { GameLog } from '../api';
+import { useI18n } from '../i18n';
 import { useInstancesStore } from '../stores/instancesStore';
 import { useLaunchStore } from '../stores/launchStore';
 import { useNotifyStore } from '../stores/notifyStore';
@@ -21,11 +22,12 @@ export function CrashReportModal() {
     s.instances.find((item) => item.id === crash?.instanceId),
   );
   const notify = useNotifyStore((s) => s.push);
+  const { t, language } = useI18n();
   const [copied, setCopied] = useState(false);
 
   const report = useMemo(
-    () => (crash ? formatCrashReport(instance, crash, logs) : ''),
-    [crash, instance, logs],
+    () => (crash ? formatCrashReport(instance, crash, logs, language) : ''),
+    [crash, instance, logs, language],
   );
 
   if (!crash) return null;
@@ -35,9 +37,9 @@ export function CrashReportModal() {
       await navigator.clipboard.writeText(report);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1600);
-      notify('Отчёт скопирован в буфер обмена');
+      notify(t('Отчёт скопирован в буфер обмена'));
     } catch {
-      notify('Не удалось скопировать отчёт', 'error');
+      notify(t('Не удалось скопировать отчёт'), 'error');
     }
   };
 
@@ -46,50 +48,51 @@ export function CrashReportModal() {
   return (
     <Modal
       open
-      title="Игра завершилась с ошибкой"
-      subtitle={instance?.name ?? 'Сборка'}
+      title={t('Игра завершилась с ошибкой')}
+      subtitle={instance?.name ?? t('Сборка')}
       onClose={clearCrash}
       className="max-w-[620px]"
       footer={
         <>
           <Button variant="ghost" onClick={clearCrash}>
-            Закрыть
+            {t('Закрыть')}
           </Button>
           <Button variant="secondary" onClick={() => void copyReport()}>
             {copied ? <Check size={13} className="text-led" /> : <Copy size={13} />}
-            Скопировать отчёт
+            {t('Скопировать отчёт')}
           </Button>
         </>
       }
     >
       <div className="grid grid-cols-2 gap-2.5">
         <div className="rounded-[9px] border border-line bg-bg-well/70 px-3.5 py-2.5">
-          <p className="text-[11px] text-muted">Код завершения</p>
+          <p className="text-[11px] text-muted">{t('Код завершения')}</p>
           <p className="mt-0.5 font-mono text-[15px] text-ink tabular-nums">
             {crash.exitCode === null ? '—' : crash.exitCode}
           </p>
         </div>
         <div className="rounded-[9px] border border-line bg-bg-well/70 px-3.5 py-2.5">
-          <p className="text-[11px] text-muted">Время</p>
+          <p className="text-[11px] text-muted">{t('Время')}</p>
           <p className="mt-0.5 font-mono text-[12px] text-ink">
-            {new Date(crash.at).toLocaleTimeString('ru-RU')}
+            {new Date(crash.at).toLocaleTimeString(language === 'en' ? 'en-US' : 'ru-RU')}
           </p>
         </div>
       </div>
 
       <p className="flex items-start gap-2 rounded-[9px] border border-line bg-surface px-3.5 py-3 text-xs leading-relaxed text-muted">
         <RotateCcw size={13} className="mt-0.5 shrink-0" />
-        Частые причины: несовместимый мод, нехватка памяти или устаревшая Java. Скопируйте
-        отчёт и приложите его к обращению — там есть версия сборки и хвост лога.
+        {t(
+          'Частые причины: несовместимый мод, нехватка памяти или устаревшая Java. Скопируйте отчёт и приложите его к обращению — там есть версия сборки и хвост лога.',
+        )}
       </p>
 
       <div className="overflow-hidden rounded-[10px] border border-line bg-bg-well">
         <div className="flex items-center justify-between border-b border-line px-3.5 py-2">
-          <span className="text-xs font-medium text-ink">Последние строки лога</span>
+          <span className="text-xs font-medium text-ink">{t('Последние строки лога')}</span>
           <span className="font-mono text-[11px] text-faint">({tail.length})</span>
         </div>
         <pre className="max-h-[240px] overflow-auto px-3.5 py-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-muted select-text cursor-text">
-          {tail.length > 0 ? tail.map((log) => log.line).join('\n') : 'Лог пуст'}
+          {tail.length > 0 ? tail.map((log) => log.line).join('\n') : t('Лог пуст')}
         </pre>
       </div>
     </Modal>

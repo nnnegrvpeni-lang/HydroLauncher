@@ -40,6 +40,7 @@ let settings: AppSettings = {
   maxConcurrentDownloads: 8,
   closeOnLaunch: false,
   closeToTray: false,
+  language: 'ru',
   showSnapshots: false,
   customJavaPaths: [],
 };

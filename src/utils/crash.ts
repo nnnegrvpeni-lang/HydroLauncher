@@ -1,4 +1,5 @@
 import type { GameLog, Instance } from '../api';
+import type { Language } from '../i18n/translate';
 
 export interface CrashInfo {
   instanceId: string;
@@ -11,25 +12,37 @@ export function formatCrashReport(
   instance: Instance | undefined,
   crash: CrashInfo,
   logs: GameLog[],
+  language: Language = 'ru',
 ): string {
+  const english = language === 'en';
   const header = [
-    'HydroLauncher — отчёт о завершении игры',
-    `Время: ${new Date(crash.at).toLocaleString('ru-RU')}`,
-    `Сборка: ${instance?.name ?? crash.instanceId}`,
+    english
+      ? 'HydroLauncher — game exit report'
+      : 'HydroLauncher — отчёт о завершении игры',
+    `${english ? 'Time' : 'Время'}: ${new Date(crash.at).toLocaleString(english ? 'en-US' : 'ru-RU')}`,
+    `${english ? 'Instance' : 'Сборка'}: ${instance?.name ?? crash.instanceId}`,
   ];
 
   if (instance) {
-    header.push(`Версия: Minecraft ${instance.minecraftVersion}`);
     header.push(
-      `Движок: ${
-        instance.engine === 'horizon' ? 'Horizon (Rust)' : `${instance.loader} ${instance.loaderVersion ?? ''}`.trim()
+      `${english ? 'Version' : 'Версия'}: Minecraft ${instance.minecraftVersion}`,
+    );
+    header.push(
+      `${english ? 'Engine' : 'Движок'}: ${
+        instance.engine === 'horizon'
+          ? 'Horizon (Rust)'
+          : `${instance.loader} ${instance.loaderVersion ?? ''}`.trim()
       }`,
     );
   }
 
   header.push(
-    `Код завершения: ${
-      crash.exitCode === null ? 'нет данных (процесс прерван)' : crash.exitCode
+    `${english ? 'Exit code' : 'Код завершения'}: ${
+      crash.exitCode === null
+        ? english
+          ? 'no data (process interrupted)'
+          : 'нет данных (процесс прерван)'
+        : crash.exitCode
     }`,
   );
 
@@ -38,7 +51,7 @@ export function formatCrashReport(
   return [
     ...header,
     '',
-    '--- Последние строки лога ---',
-    ...(tail.length > 0 ? tail : ['(лог пуст)']),
+    english ? '--- Last log lines ---' : '--- Последние строки лога ---',
+    ...(tail.length > 0 ? tail : [english ? '(log is empty)' : '(лог пуст)']),
   ].join('\n');
 }

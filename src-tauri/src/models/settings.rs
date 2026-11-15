@@ -9,6 +9,17 @@ pub enum ThemeMode {
     Light,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Language {
+    Ru,
+    En,
+}
+
+fn default_language() -> Language {
+    Language::Ru
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
@@ -20,6 +31,8 @@ pub struct AppSettings {
     /// Сворачивать окно в трей при нажатии на крестик вместо выхода.
     #[serde(default)]
     pub close_to_tray: bool,
+    #[serde(default = "default_language")]
+    pub language: Language,
     pub show_snapshots: bool,
     pub custom_java_paths: Vec<String>,
 }

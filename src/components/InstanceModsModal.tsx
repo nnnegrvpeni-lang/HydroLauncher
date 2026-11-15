@@ -39,6 +39,7 @@ import { useAccountsStore } from '../stores/accountsStore';
 import { useInstancesStore } from '../stores/instancesStore';
 import { useLaunchStore } from '../stores/launchStore';
 import { useNotifyStore } from '../stores/notifyStore';
+import { useI18n } from '../i18n';
 import { cn } from '../utils/cn';
 import { formatLoaderLabel } from '../utils/format';
 import { VoxelEmblem } from './VoxelEmblem';
@@ -61,9 +62,9 @@ function formatBytes(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1024))} КБ`;
 }
 
-function formatWorldDate(ms: number): string {
+function formatWorldDate(ms: number, language: 'ru' | 'en' = 'ru'): string {
   if (!ms) return '—';
-  return new Date(ms).toLocaleDateString('ru-RU', {
+  return new Date(ms).toLocaleDateString(language === 'en' ? 'en-US' : 'ru-RU', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -91,6 +92,7 @@ export function InstanceModsModal({
   const activeAccount = useAccountsStore((s) => s.activeAccount);
   const logsByInstance = useLaunchStore((s) => s.logsByInstance);
   const clearLogs = useLaunchStore((s) => s.clearLogs);
+  const { t, tf, language } = useI18n();
 
   const [renaming, setRenaming] = useState(false);
   const [draftName, setDraftName] = useState('');
@@ -190,7 +192,7 @@ export function InstanceModsModal({
       const backup = await api.backupInstanceWorld(instance.id, folderName);
       useNotifyStore
         .getState()
-        .push(`Резервная копия мира создана: ${backup.fileName}`);
+        .push(tf('Резервная копия мира создана: {file}', { file: backup.fileName }));
     } catch (err) {
       setError(String(err));
     } finally {
@@ -443,7 +445,7 @@ export function InstanceModsModal({
               className="inline-flex h-8 items-center gap-1.5 rounded-[9px] border border-line-strong bg-surface/65 px-3 text-xs font-medium text-muted backdrop-blur-md transition-colors hover:bg-surface-2 hover:text-ink"
             >
               <ArrowLeft size={13} />
-              Назад
+              {t('Назад')}
             </button>
 
             <div className="flex items-center gap-3">
@@ -503,7 +505,7 @@ export function InstanceModsModal({
                         setDraftName(instance.name);
                         setRenaming(true);
                       }}
-                      title="Переименовать сборку"
+                      title={t('Переименовать сборку')}
                       className="flex h-6 w-6 items-center justify-center rounded-[6px] text-faint opacity-0 transition-all hover:bg-surface-2 hover:text-ink group-hover:opacity-100"
                     >
                       <Pencil size={12} />
@@ -511,7 +513,8 @@ export function InstanceModsModal({
                   </div>
                 )}
                 <p className="font-mono text-[11.5px] text-muted">
-                  {instance.minecraftVersion} · {engineOrLoaderLabel} · {mods.length} модов
+                  {instance.minecraftVersion} · {engineOrLoaderLabel} ·{' '}
+                  {tf('{count} модов', { count: mods.length })}
                 </p>
               </div>
             </div>
@@ -525,25 +528,25 @@ export function InstanceModsModal({
                 onClick={() => void terminate(instance.id)}
               >
                 <Square size={11} fill="currentColor" />
-                Остановить
+                {t('Остановить')}
               </Button>
             ) : (
               <Button
                 size="sm"
                 variant="accent"
                 disabled={isBusy || !canLaunch}
-                title={canLaunch ? 'Запустить сборку' : 'Сначала создайте профиль'}
+                title={canLaunch ? t('Запустить сборку') : t('Сначала создайте профиль')}
                 onClick={() => void launch(instance.id)}
               >
                 {isBusy ? (
                   <>
                     <Loader2 size={12} className="animate-spin" />
-                    {runtimeState === 'preparing' ? 'Загрузка…' : 'Запуск…'}
+                    {runtimeState === 'preparing' ? t('Загрузка…') : t('Запуск…')}
                   </>
                 ) : (
                   <>
                     <Play size={11} fill="currentColor" />
-                    Играть
+                    {t('Играть')}
                   </>
                 )}
               </Button>
@@ -591,7 +594,7 @@ export function InstanceModsModal({
                 }}
               >
                 <Plus size={13} />
-                Установить моды
+                {t('Установить моды')}
               </Button>
             )}
           </div>
@@ -610,7 +613,7 @@ export function InstanceModsModal({
             )}
           >
             <Package size={13} />
-            Моды ({modItems.length})
+            {t('Моды')} ({modItems.length})
           </button>
           <button
             type="button"
@@ -624,7 +627,7 @@ export function InstanceModsModal({
             )}
           >
             <Sparkles size={13} />
-            Шейдеры ({shaderItems.length})
+            {t('Шейдеры')} ({shaderItems.length})
           </button>
           <button
             type="button"
@@ -638,7 +641,7 @@ export function InstanceModsModal({
             )}
           >
             <Layers size={13} />
-            Ресурспаки ({resourcepackItems.length})
+            {t('Ресурспаки')} ({resourcepackItems.length})
           </button>
           <button
             type="button"
@@ -652,7 +655,7 @@ export function InstanceModsModal({
             )}
           >
             <Globe size={13} />
-            Миры{worlds.length > 0 && tab === 'worlds' ? ` (${worlds.length})` : ''}
+            {t('Миры')}{worlds.length > 0 && tab === 'worlds' ? ` (${worlds.length})` : ''}
           </button>
           <button
             type="button"
@@ -666,7 +669,7 @@ export function InstanceModsModal({
             )}
           >
             <Camera size={13} />
-            Скриншоты
+            {t('Скриншоты')}
           </button>
           <button
             type="button"
@@ -680,22 +683,25 @@ export function InstanceModsModal({
             )}
           >
             <Terminal size={13} />
-            Логи{instanceLogs.length > 0 ? ` (${instanceLogs.length})` : ''}
+            {t('Логи')}{instanceLogs.length > 0 ? ` (${instanceLogs.length})` : ''}
           </button>
         </div>
 
         {tab === 'mods' && !supportsMods && (
           <div className="mt-5 rounded-[9px] border border-line bg-surface px-4 py-3 text-xs text-muted">
-            Эта сборка использует Vanilla и не загружает моды. Для установки модов создайте
-            сборку с Fabric, Forge, NeoForge или Quilt.
+            {t(
+              'Эта сборка использует Vanilla и не загружает моды. Для установки модов создайте сборку с Fabric, Forge, NeoForge или Quilt.',
+            )}
           </div>
         )}
 
         {tab === 'mods' && updatesCheckedOnce && !checkingUpdates && (
           <div className="mt-4 rounded-[9px] border border-line bg-surface px-4 py-2.5 text-xs text-muted">
             {updatesCount > 0
-              ? `Найдено обновлений: ${updatesCount}. Нажмите «Обновить» рядом с модом.`
-              : 'Все распознанные моды Modrinth актуальны.'}
+              ? tf('Найдено обновлений: {count}. Нажмите «Обновить» рядом с модом.', {
+                  count: updatesCount,
+                })
+              : t('Все распознанные моды Modrinth актуальны.')}
           </div>
         )}
 
@@ -711,7 +717,7 @@ export function InstanceModsModal({
             <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-2.5">
               <div className="flex items-center gap-2">
                 <Terminal size={13} className="text-muted" />
-                <span className="text-xs font-medium text-ink">Консоль сборки</span>
+                <span className="text-xs font-medium text-ink">{t('Консоль сборки')}</span>
                 <span className="font-mono text-[11px] text-faint">
                   ({instanceLogs.length})
                 </span>
@@ -771,14 +777,14 @@ export function InstanceModsModal({
             {screenshotsLoading ? (
               <div className="flex items-center justify-center gap-2 rounded-[10px] border border-line bg-surface py-16 text-xs text-muted">
                 <Loader2 size={15} className="animate-spin" />
-                Загрузка скриншотов…
+                {t('Загрузка скриншотов…')}
               </div>
             ) : screenshots.length === 0 ? (
               <div className="rounded-[10px] border border-line bg-surface px-6 py-14 text-center">
                 <Camera size={22} className="mx-auto text-faint" strokeWidth={1.6} />
-                <p className="mt-2.5 text-sm font-medium text-ink">Скриншотов пока нет</p>
+                <p className="mt-2.5 text-sm font-medium text-ink">{t('Скриншотов пока нет')}</p>
                 <p className="mt-1 text-xs text-muted">
-                  Нажмите F2 в игре — снимки появятся здесь из папки{' '}
+                  {t('Нажмите F2 в игре — снимки появятся здесь из папки')}{' '}
                   <code className="font-mono text-ink">screenshots/</code>
                 </p>
               </div>
@@ -799,7 +805,7 @@ export function InstanceModsModal({
                         />
                       ) : (
                         <div className="flex h-full items-center justify-center text-xs text-faint">
-                          Предпросмотр недоступен
+                          {t('Предпросмотр недоступен')}
                         </div>
                       )}
                     </div>
@@ -841,14 +847,14 @@ export function InstanceModsModal({
             {worldsLoading ? (
               <div className="flex items-center justify-center gap-2 rounded-[10px] border border-line bg-surface py-16 text-xs text-muted">
                 <Loader2 size={15} className="animate-spin" />
-                Загрузка миров…
+                {t('Загрузка миров…')}
               </div>
             ) : worlds.length === 0 ? (
               <div className="rounded-[10px] border border-line bg-surface px-6 py-14 text-center">
                 <Globe size={22} className="mx-auto text-faint" strokeWidth={1.6} />
-                <p className="mt-2.5 text-sm font-medium text-ink">Миров пока нет</p>
+                <p className="mt-2.5 text-sm font-medium text-ink">{t('Миров пока нет')}</p>
                 <p className="mt-1 text-xs text-muted">
-                  Создайте мир в игре — он появится здесь. Резервные копии сохраняются в
+                  {t('Создайте мир в игре — он появится здесь. Резервные копии сохраняются в')}{' '}
                   <code className="font-mono text-ink"> backups/</code>
                 </p>
               </div>
@@ -875,7 +881,7 @@ export function InstanceModsModal({
                         {world.folderName}
                       </p>
                       <p className="mt-0.5 font-mono text-[11px] text-muted">
-                        {formatBytes(world.sizeBytes)} · {formatWorldDate(world.modifiedMs)}
+                        {formatBytes(world.sizeBytes)} · {formatWorldDate(world.modifiedMs, language)}
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
@@ -887,14 +893,14 @@ export function InstanceModsModal({
                             disabled={busyWorld !== null}
                             onClick={() => void handleDeleteWorld(world.folderName)}
                           >
-                            Удалить
+                            {t('Удалить')}
                           </Button>
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={() => setPendingWorldDelete(null)}
                           >
-                            Отмена
+                            {t('Отмена')}
                           </Button>
                         </>
                       ) : (
@@ -903,7 +909,7 @@ export function InstanceModsModal({
                             type="button"
                             onClick={() => void handleBackupWorld(world.folderName)}
                             disabled={busyWorld !== null}
-                            title="Создать резервную копию"
+                            title={t('Создать резервную копию')}
                             className="rounded-[6px] p-1.5 text-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-40"
                           >
                             {busyWorld === world.folderName ? (
@@ -916,7 +922,7 @@ export function InstanceModsModal({
                             type="button"
                             onClick={() => setPendingWorldDelete(world.folderName)}
                             disabled={busyWorld !== null}
-                            title="Удалить мир"
+                            title={t('Удалить мир')}
                             className="rounded-[6px] p-1.5 text-muted transition-colors hover:bg-danger/15 hover:text-danger disabled:opacity-40"
                           >
                             <Trash2 size={13} />
@@ -964,14 +970,14 @@ export function InstanceModsModal({
                 onClick={() => setVersionPickerMod(null)}
               >
                 <ArrowLeft size={13} />
-                К списку модов
+                {t('К списку модов')}
               </Button>
             </div>
 
             {versionsLoading ? (
               <div className="flex items-center justify-center gap-2 py-12 text-xs text-muted">
                 <Loader2 size={15} className="animate-spin" />
-                Загрузка версий с Modrinth…
+                {t('Загрузка версий с Modrinth…')}
               </div>
             ) : versions.length === 0 ? (
               <p className="py-10 text-center text-xs text-muted">
@@ -1007,7 +1013,7 @@ export function InstanceModsModal({
                         ) : isCurrent ? (
                           <Check size={12} className="text-led" />
                         ) : null}
-                        {isCurrent ? 'Текущая' : busy ? 'Установка…' : 'Выбрать'}
+                        {isCurrent ? t('Текущая') : busy ? t('Установка…') : t('Выбрать')}
                       </Button>
                     </div>
                   );
@@ -1020,19 +1026,26 @@ export function InstanceModsModal({
             {loading ? (
               <div className="flex items-center justify-center gap-2 rounded-[10px] border border-line bg-surface py-16 text-xs text-muted">
                 <Loader2 size={15} className="animate-spin" />
-                Загрузка и распознавание…
+                {t('Загрузка и распознавание…')}
               </div>
             ) : visibleItems.length === 0 ? (
               <div className="rounded-[10px] border border-line bg-surface px-6 py-14 text-center">
                 <Package size={22} className="mx-auto text-faint" strokeWidth={1.6} />
                 <p className="mt-2.5 text-sm font-medium text-ink">
-                  В сборке «{instance.name}» пока нет {emptyLabel}
+                  {tf('В сборке «{name}» пока нет {label}', {
+                    name: instance.name,
+                    label: t(emptyLabel),
+                  })}
                 </p>
                 {(supportsMods || tab === 'shaders' || tab === 'resourcepacks') && (
                   <>
                     <p className="mt-1 text-xs text-muted">
-                      Нажмите «Открыть каталог», чтобы скачать их из{' '}
-                      {instance.engine === 'horizon' ? 'Horizon' : 'Modrinth'} в один клик
+                      {tf(
+                        'Нажмите «Открыть каталог», чтобы скачать их из {source} в один клик',
+                        {
+                          source: instance.engine === 'horizon' ? 'Horizon' : 'Modrinth',
+                        },
+                      )}
                     </p>
                     <Button
                       className="mt-4"
@@ -1044,7 +1057,7 @@ export function InstanceModsModal({
                       }}
                     >
                       <Plus size={13} />
-                      Открыть каталог
+                      {t('Открыть каталог')}
                     </Button>
                   </>
                 )}
@@ -1055,12 +1068,14 @@ export function InstanceModsModal({
                   instance.engine === 'horizon' &&
                   visibleItems.some((m) => m.fileName.toLowerCase().endsWith('.hnmod')) && (
                     <div className="mb-3 rounded-[9px] border border-warn/30 bg-warn/8 px-4 py-2.5 text-xs leading-relaxed text-muted">
-                      <span className="font-medium text-warn">Внимание по .hnmod:</span>{' '}
-                      нативные моды сохранены в{' '}
-                      <code className="font-mono text-ink">horizon-native-mods/</code>, но
-                      готовый клиент Horizon Nightly не загружает их без пересборки движка из
-                      исходников Rust. Контент-моды (<code className="font-mono text-ink">.hmod</code>),
-                      шейдеры и ресурспаки работают сразу.
+                      <span className="font-medium text-warn">{t('Внимание по .hnmod:')}</span>{' '}
+                      {t('нативные моды сохранены в')}{' '}
+                      <code className="font-mono text-ink">horizon-native-mods/</code>
+                      {t(
+                        ', но готовый клиент Horizon Nightly не загружает их без пересборки движка из исходников Rust. Контент-моды (',
+                      )}
+                      <code className="font-mono text-ink">.hmod</code>
+                      {t('), шейдеры и ресурспаки работают сразу.')}
                     </div>
                   )}
                 <div className="divide-y divide-line rounded-[10px] border border-line bg-surface">
@@ -1083,7 +1098,7 @@ export function InstanceModsModal({
                           <Switch
                             checked={!isDisabled}
                             onChange={() => void handleToggleMod(mod.fileName)}
-                            label={isDisabled ? 'Включить мод' : 'Отключить мод'}
+                            label={isDisabled ? t('Включить мод') : t('Отключить мод')}
                           />
 
                           {mod.iconUrl ? (
@@ -1104,14 +1119,14 @@ export function InstanceModsModal({
                               {displayTitle}
                               {isDisabled && (
                                 <span className="ml-2 font-mono text-[11px] font-normal text-faint">
-                                  выкл.
+                                  {t('выкл.')}
                                 </span>
                               )}
                             </p>
                             <p className="mt-0.5 truncate font-mono text-[11px] text-muted">
                               {mod.versionNumber ?? mod.fileName} · {formatBytes(mod.sizeBytes)}
                               {isNativeHorizonMod && (
-                                <span className="text-warn"> · требует пересборки (.hnmod)</span>
+                                <span className="text-warn"> · {t('требует пересборки (.hnmod)')}</span>
                               )}
                             </p>
                           </div>
@@ -1130,7 +1145,9 @@ export function InstanceModsModal({
                               ) : (
                                 <ArrowUpCircle size={13} />
                               )}
-                              Обновить до {upd.latestVersionNumber}
+                              {tf('Обновить до {version}', {
+                                version: upd.latestVersionNumber,
+                              })}
                             </Button>
                           )}
                           {mod.projectId && supportsMods && (
@@ -1140,14 +1157,14 @@ export function InstanceModsModal({
                               onClick={() => void openVersionPicker(mod)}
                             >
                               <History size={13} />
-                              Версия
+                              {t('Версия')}
                             </Button>
                           )}
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={() => void handleRemove(mod.fileName)}
-                            title="Удалить мод"
+                            title={t('Удалить мод')}
                           >
                             <Trash2 size={13} />
                           </Button>

@@ -6,6 +6,7 @@ import { Switch } from './ui/Switch';
 import { useCatalogStore } from '../stores/catalogStore';
 import { useInstancesStore } from '../stores/instancesStore';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useI18n } from '../i18n';
 import { cn } from '../utils/cn';
 import { formatMemory } from '../utils/format';
 import { api, type InstalledHorizonBinary, type Instance } from '../api';
@@ -19,6 +20,7 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
   const update = useInstancesStore((s) => s.update);
   const settings = useSettingsStore((s) => s.settings);
   const systemInfo = useSettingsStore((s) => s.systemInfo);
+  const { t, tf, language } = useI18n();
 
   const [name, setName] = useState('');
   const [customMemory, setCustomMemory] = useState(false);
@@ -122,12 +124,16 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
   const horizonTag = loaderVersion.trim() || 'nightly';
   const installedForTag = installedHorizon.find((bin) => bin.tagName === horizonTag);
   const installedLabel = installedForTag
-    ? `Установлено: ${installedForTag.tagName}${
-        installedForTag.updatedAt
-          ? ` · ${new Date(installedForTag.updatedAt).toLocaleDateString('ru-RU')}`
-          : ''
-      }`
-    : 'Не установлено — бинарники скачаются при первом запуске';
+    ? tf('Установлено: {tag}', {
+        tag: `${installedForTag.tagName}${
+          installedForTag.updatedAt
+            ? ` · ${new Date(installedForTag.updatedAt).toLocaleDateString(
+                language === 'en' ? 'en-US' : 'ru-RU',
+              )}`
+            : ''
+        }`,
+      })
+    : t('Не установлено — бинарники скачаются при первом запуске');
 
   const submit = async () => {
     if (!name.trim()) return;
@@ -161,27 +167,27 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
   return (
     <Modal
       open={Boolean(instance)}
-      title="Параметры сборки"
+      title={t('Параметры сборки')}
       subtitle={`${instance.minecraftVersion} · ${instance.engine === 'horizon' ? 'Rust' : instance.loader}`}
       onClose={onClose}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            Отмена
+            {t('Отмена')}
           </Button>
           <Button
             variant="primary"
             onClick={() => void submit()}
             disabled={!name.trim() || saving}
           >
-            Сохранить
+            {t('Сохранить')}
           </Button>
         </>
       }
     >
       <div>
         <label className="hl-field-label" htmlFor="edit-instance-name">
-          Название сборки
+          {t('Название сборки')}
         </label>
         <input
           id="edit-instance-name"
@@ -196,13 +202,13 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
       {instance.engine === 'horizon' ? (
         <div className="space-y-3">
           <div className="rounded-[8px] border border-line bg-bg-well/70 p-3.5 text-xs leading-relaxed text-muted">
-            Эта сборка работает на нативном движке{' '}
-            <span className="font-medium text-ink">Horizon (Rust)</span>. Лимиты памяти JVM,
-            путь к Java и JVM-аргументы не используются.
+            {t('Эта сборка работает на нативном движке')}{' '}
+            <span className="font-medium text-ink">Horizon (Rust)</span>
+            {t('. Лимиты памяти JVM, путь к Java и JVM-аргументы не используются.')}
           </div>
 
           <div>
-            <span className="hl-field-label">Версия бинарников Horizon</span>
+            <span className="hl-field-label">{t('Версия бинарников Horizon')}</span>
             <div ref={loaderDropdownRef} className="relative">
               <button
                 type="button"
@@ -211,11 +217,11 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
               >
                 <span className="truncate font-mono">
                   {horizonReleasesLoading
-                    ? 'Загрузка релизов Horizon…'
+                    ? t('Загрузка релизов Horizon…')
                     : loaderVersion
                       ? horizonReleases.find((r) => r.tagName === loaderVersion)?.name ??
                         loaderVersion
-                      : 'Авто (последний nightly)'}
+                      : t('Авто (последний nightly)')}
                 </span>
                 <ChevronDown size={13} className="shrink-0 text-muted" />
               </button>
@@ -234,7 +240,7 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
                         : 'text-muted hover:bg-surface-2/60 hover:text-ink',
                     )}
                   >
-                    <span>Авто (последний nightly)</span>
+                    <span>{t('Авто (последний nightly)')}</span>
                   </button>
                   {horizonReleases.map((rel) => (
                     <button
@@ -265,19 +271,19 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-[12.5px] font-medium text-ink">
-                  Автообновление Horizon (Rust)
+                  {t('Автообновление Horizon (Rust)')}
                 </p>
                 <p className="text-[11.5px] text-muted">
                   {loaderVersion
-                    ? 'Фиксированная версия — автообновление отключено'
-                    : 'Скачивать свежий nightly-билд при запуске сборки'}
+                    ? t('Фиксированная версия — автообновление отключено')
+                    : t('Скачивать свежий nightly-билд при запуске сборки')}
                 </p>
               </div>
               <Switch
                 checked={loaderVersion ? false : autoUpdateHorizon}
                 disabled={Boolean(loaderVersion)}
                 onChange={setAutoUpdateHorizon}
-                label="Автообновление Horizon (Rust)"
+                label={t('Автообновление Horizon (Rust)')}
               />
             </div>
           </div>
@@ -287,22 +293,24 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
           <div className="rounded-[8px] border border-line bg-bg-well/70 p-3.5">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-[12.5px] font-medium text-ink">Свой лимит памяти (RAM)</p>
+                <p className="text-[12.5px] font-medium text-ink">{t('Свой лимит памяти (RAM)')}</p>
                 <p className="text-[11.5px] text-muted">
-                  По умолчанию: {formatMemory(settings?.defaultMemoryMb ?? 4096)}
+                  {tf('По умолчанию: {memory}', {
+                    memory: formatMemory(settings?.defaultMemoryMb ?? 4096),
+                  })}
                 </p>
               </div>
               <Switch
                 checked={customMemory}
                 onChange={setCustomMemory}
-                label="Свой лимит памяти"
+                label={t('Свой лимит памяти')}
               />
             </div>
 
             {customMemory && (
               <div className="mt-3.5 border-t border-line pt-3">
                 <div className="mb-1 flex items-center justify-between text-xs">
-                  <span className="text-muted">Выделено</span>
+                  <span className="text-muted">{t('Выделено')}</span>
                   <span className="font-mono font-medium text-ink tabular-nums">
                     {formatMemory(memoryMb)}
                   </span>
@@ -322,13 +330,13 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
 
           <div>
             <label className="hl-field-label" htmlFor="edit-instance-java">
-              Путь к Java (необязательно)
+              {t('Путь к Java (необязательно)')}
             </label>
             <input
               id="edit-instance-java"
               value={javaPath}
               onChange={(e) => setJavaPath(e.target.value)}
-              placeholder="Автоматический выбор"
+              placeholder={t('Автоматический выбор')}
               autoComplete="off"
               spellCheck={false}
               className="hl-input font-mono text-xs"
@@ -337,7 +345,7 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
 
           <div>
             <label className="hl-field-label" htmlFor="edit-instance-jvm">
-              Аргументы JVM (через пробел)
+              {t('Аргументы JVM (через пробел)')}
             </label>
             <input
               id="edit-instance-jvm"
@@ -352,7 +360,9 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
 
           {instance.loader !== 'vanilla' && (
             <div>
-              <span className="hl-field-label">Версия модлоадера ({instance.loader})</span>
+              <span className="hl-field-label">
+                {tf('Версия модлоадера ({loader})', { loader: instance.loader })}
+              </span>
               <div ref={loaderDropdownRef} className="relative">
                 <button
                   type="button"
@@ -361,8 +371,8 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
                 >
                   <span className="truncate font-mono">
                     {loaderVersionsLoading
-                      ? 'Загрузка версий лоадера…'
-                      : loaderVersion || 'Авто (последняя стабильная)'}
+                      ? t('Загрузка версий лоадера…')
+                      : loaderVersion || t('Авто (последняя стабильная)')}
                   </span>
                   <ChevronDown size={13} className="shrink-0 text-muted" />
                 </button>
@@ -381,7 +391,7 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
                           : 'text-muted hover:bg-surface-2/60 hover:text-ink',
                       )}
                     >
-                      <span>Авто (последняя стабильная)</span>
+                      <span>{t('Авто (последняя стабильная)')}</span>
                     </button>
                     {loaderVersions.map((lv) => (
                       <button

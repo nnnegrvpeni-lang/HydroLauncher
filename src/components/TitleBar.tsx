@@ -19,6 +19,7 @@ import { api } from '../api';
 import { isMockEnabled } from '../api/mock';
 import { useAccountsStore } from '../stores/accountsStore';
 import { useLauncherUpdate } from '../stores/updateStore';
+import { useI18n } from '../i18n';
 import { cn } from '../utils/cn';
 import { AccountAvatar } from './AccountAvatar';
 import { Button } from './ui/Button';
@@ -46,6 +47,7 @@ export function TitleBar({ page, onNavigate, onQuickAddAccount }: TitleBarProps)
   const setActiveAccount = useAccountsStore((s) => s.setActive);
   const removeAccount = useAccountsStore((s) => s.remove);
   const launcherUpdate = useLauncherUpdate();
+  const { t, tf } = useI18n();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<OfflineAccount | null>(null);
@@ -96,7 +98,7 @@ export function TitleBar({ page, onNavigate, onQuickAddAccount }: TitleBarProps)
         </div>
 
         <nav
-          aria-label="Разделы"
+          aria-label={t('Разделы')}
           className="flex items-center gap-1 rounded-[10px] border border-line bg-bg-well/80 p-1 backdrop-blur-md"
         >
           {NAV_TABS.map((tab) => {
@@ -117,7 +119,7 @@ export function TitleBar({ page, onNavigate, onQuickAddAccount }: TitleBarProps)
                   size={13}
                   className={cn('transition-colors', active ? 'text-accent' : 'text-faint')}
                 />
-                {tab.label}
+                {t(tab.label)}
               </button>
             );
           })}
@@ -131,10 +133,12 @@ export function TitleBar({ page, onNavigate, onQuickAddAccount }: TitleBarProps)
             onClick={() => {
               void api.openExternalUrl(launcherUpdate.releaseUrl).catch(() => undefined);
             }}
-            title={`HydroLauncher ${launcherUpdate.latestVersion} — открыть страницу релиза`}
+            title={tf('HydroLauncher {version} — открыть страницу релиза', {
+              version: launcherUpdate.latestVersion,
+            })}
             className="text-[11.5px] text-faint transition-colors hover:text-muted"
           >
-            доступно {launcherUpdate.latestVersion}
+            {tf('доступно {version}', { version: launcherUpdate.latestVersion })}
           </button>
         )}
         <div ref={menuRef} className="relative">
@@ -152,7 +156,7 @@ export function TitleBar({ page, onNavigate, onQuickAddAccount }: TitleBarProps)
             ) : (
               <>
                 <UserPlus size={12} className="text-warn" />
-                <span className="text-muted">Профиль</span>
+                <span className="text-muted">{t('Профиль')}</span>
               </>
             )}
             <ChevronDown size={12} className="text-faint" />
@@ -161,10 +165,10 @@ export function TitleBar({ page, onNavigate, onQuickAddAccount }: TitleBarProps)
           {menuOpen && (
             <div className="absolute top-full right-0 mt-1.5 w-64 rounded-[11px] border border-line-strong bg-surface/96 p-1.5 shadow-[0_24px_48px_-12px_rgba(0,0,0,0.65)] backdrop-blur-2xl">
               <div className="px-2 py-1 text-[11px] font-medium text-faint">
-                Офлайн-профили
+                {t('Офлайн-профили')}
               </div>
               {accounts.length === 0 ? (
-                <p className="px-2 py-2 text-xs text-muted">Профилей пока нет</p>
+                <p className="px-2 py-2 text-xs text-muted">{t('Профилей пока нет')}</p>
               ) : (
                 <div className="max-h-52 space-y-0.5 overflow-y-auto">
                   {accounts.map((account) => {
@@ -203,7 +207,7 @@ export function TitleBar({ page, onNavigate, onQuickAddAccount }: TitleBarProps)
                             setMenuOpen(false);
                             setPendingDelete(account);
                           }}
-                          title="Удалить профиль"
+                          title={t('Удалить профиль')}
                           className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[5px] text-faint opacity-0 transition-all hover:bg-danger/15 hover:text-danger group-hover:opacity-100"
                         >
                           <Trash2 size={12} />
@@ -223,7 +227,7 @@ export function TitleBar({ page, onNavigate, onQuickAddAccount }: TitleBarProps)
                   className="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-surface-2"
                 >
                   <Plus size={12} className="text-muted" />
-                  Добавить профиль
+                  {t('Добавить профиль')}
                 </button>
               </div>
             </div>
@@ -233,29 +237,29 @@ export function TitleBar({ page, onNavigate, onQuickAddAccount }: TitleBarProps)
         <span className="h-3.5 w-px bg-line" aria-hidden />
 
         <div className="flex items-center gap-0.5">
-          <WindowButton onClick={() => void controlWindow('minimize')} label="Свернуть">
+          <WindowButton onClick={() => void controlWindow('minimize')} label={t('Свернуть')}>
             <Minus size={12} strokeWidth={1.75} />
           </WindowButton>
           <WindowButton
             onClick={() => void controlWindow('toggle-maximize')}
-            label="Развернуть"
+            label={t('Развернуть')}
           >
             <Square size={9.5} strokeWidth={1.75} />
           </WindowButton>
-          <WindowButton onClick={() => void controlWindow('close')} label="Закрыть" danger>
+          <WindowButton onClick={() => void controlWindow('close')} label={t('Закрыть')} danger>
             <X size={12.5} strokeWidth={1.75} />
           </WindowButton>
         </div>
       </div>
       <Modal
         open={pendingDelete !== null}
-        title="Удалить профиль?"
+        title={t('Удалить профиль?')}
         subtitle={pendingDelete?.username}
         onClose={() => setPendingDelete(null)}
         footer={
           <>
             <Button variant="ghost" onClick={() => setPendingDelete(null)}>
-              Отмена
+              {t('Отмена')}
             </Button>
             <Button
               variant="danger"
@@ -266,13 +270,15 @@ export function TitleBar({ page, onNavigate, onQuickAddAccount }: TitleBarProps)
                 }
               }}
             >
-              Удалить
+              {t('Удалить')}
             </Button>
           </>
         }
       >
         <p className="text-[13px] leading-relaxed text-muted">
-          Профиль будет удалён из списка лаунчера. Миры и файлы сборок останутся на месте.
+          {t(
+            'Профиль будет удалён из списка лаунчера. Миры и файлы сборок останутся на месте.',
+          )}
         </p>
       </Modal>
     </header>

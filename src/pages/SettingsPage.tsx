@@ -14,6 +14,7 @@ import { QuickAccountModal } from '../components/QuickAccountModal';
 import { Button, IconButton } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Switch } from '../components/ui/Switch';
+import { LANGUAGE_OPTIONS, useI18n, type Language } from '../i18n';
 import { useAccountsStore } from '../stores/accountsStore';
 import { useInstancesStore } from '../stores/instancesStore';
 import { useNotifyStore } from '../stores/notifyStore';
@@ -34,26 +35,27 @@ const TABS: Array<{ id: TabId; label: string }> = [
 
 export function SettingsPage() {
   const [tab, setTab] = useState<TabId>('profiles');
+  const { t } = useI18n();
 
   return (
     <div className="mx-auto max-w-[780px] px-8 py-7">
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line pb-5">
         <div>
           <h1 className="text-[22px] font-semibold tracking-tight text-ink">
-            Настройки
+            {t('Настройки')}
           </h1>
           <p className="mt-0.5 text-xs text-muted">
-            Профили игроков, тема оформления, память и файлы лаунчера
+            {t('Профили игроков, тема оформления, память и файлы лаунчера')}
           </p>
         </div>
 
         <div className="inline-flex gap-1 rounded-[10px] border border-line bg-surface/55 p-1 backdrop-blur-xl">
-          {TABS.map((t) => {
-            const active = tab === t.id;
+          {TABS.map((tabItem) => {
+            const active = tab === tabItem.id;
             return (
               <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
+                key={tabItem.id}
+                onClick={() => setTab(tabItem.id)}
                 className={cn(
                   'rounded-[7px] border px-3 py-1 text-xs font-medium transition-colors duration-150',
                   active
@@ -61,7 +63,7 @@ export function SettingsPage() {
                     : 'border-transparent text-muted hover:text-ink',
                 )}
               >
-                {t.label}
+                {t(tabItem.label)}
               </button>
             );
           })}
@@ -113,6 +115,7 @@ function AccountsGroup() {
   const store = useAccountsStore((s) => s.store);
   const setActive = useAccountsStore((s) => s.setActive);
   const remove = useAccountsStore((s) => s.remove);
+  const { t } = useI18n();
   const [addOpen, setAddOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<OfflineAccount | null>(null);
 
@@ -120,18 +123,18 @@ function AccountsGroup() {
 
   return (
     <Group
-      title="Офлайн-профили"
-      description="Локальные профили без внешней авторизации"
+      title={t('Офлайн-профили')}
+      description={t('Локальные профили без внешней авторизации')}
       action={
         <Button size="sm" variant="secondary" onClick={() => setAddOpen(true)}>
           <Plus size={13} />
-          Добавить
+          {t('Добавить')}
         </Button>
       }
     >
       {accounts.length === 0 ? (
         <p className="px-5 py-6 text-center text-xs text-muted">
-          Нет созданных профилей.
+          {t('Нет созданных профилей.')}
         </p>
       ) : (
         accounts.map((account) => {
@@ -156,7 +159,7 @@ function AccountsGroup() {
                   </span>
                   {isActive && (
                     <span className="text-[11px] font-medium text-muted">
-                      · текущий
+                      {t('· текущий')}
                     </span>
                   )}
                 </div>
@@ -166,13 +169,13 @@ function AccountsGroup() {
               {!isActive && (
                 <Button size="sm" variant="ghost" onClick={() => void setActive(account.id)}>
                   <Check size={12} />
-                  Выбрать
+                  {t('Выбрать')}
                 </Button>
               )}
 
               <IconButton
                 onClick={() => setPendingDelete(account)}
-                title="Удалить профиль"
+                title={t('Удалить профиль')}
                 className="text-muted hover:bg-danger/12 hover:text-danger"
               >
                 <Trash2 size={13.5} />
@@ -186,13 +189,13 @@ function AccountsGroup() {
 
       <Modal
         open={pendingDelete !== null}
-        title="Удалить профиль?"
+        title={t('Удалить профиль?')}
         subtitle={pendingDelete?.username}
         onClose={() => setPendingDelete(null)}
         footer={
           <>
             <Button variant="ghost" onClick={() => setPendingDelete(null)}>
-              Отмена
+              {t('Отмена')}
             </Button>
             <Button
               variant="danger"
@@ -203,13 +206,15 @@ function AccountsGroup() {
                 }
               }}
             >
-              Удалить
+              {t('Удалить')}
             </Button>
           </>
         }
       >
         <p className="text-[13px] leading-relaxed text-muted">
-          Профиль будет удалён из списка лаунчера. Миры и файлы сборок останутся на месте.
+          {t(
+            'Профиль будет удалён из списка лаунчера. Миры и файлы сборок останутся на месте.',
+          )}
         </p>
       </Modal>
     </Group>
@@ -219,6 +224,7 @@ function AccountsGroup() {
 function AppearanceGroup() {
   const settings = useSettingsStore((s) => s.settings);
   const save = useSettingsStore((s) => s.save);
+  const { t } = useI18n();
 
   const options: Array<{ value: ThemeMode; label: string }> = [
     { value: 'dark', label: 'Сумерки' },
@@ -229,9 +235,12 @@ function AppearanceGroup() {
   const currentTheme = settings?.theme === 'system' ? 'dark' : settings?.theme;
 
   return (
-    <Group title="Оформление" description="Тема поверхности окна и мира на фоне">
+    <Group
+      title={t('Оформление')}
+      description={t('Тема поверхности окна и мира на фоне')}
+    >
       <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-3.5">
-        <span className="text-[13px] text-ink">Цветовая тема</span>
+        <span className="text-[13px] text-ink">{t('Цветовая тема')}</span>
         <div className="inline-flex rounded-[7px] border border-line bg-bg-well p-0.5">
           {options.map((option) => {
             const active = currentTheme === option.value;
@@ -240,6 +249,38 @@ function AppearanceGroup() {
                 key={option.value}
                 onClick={() => {
                   if (settings) void save({ ...settings, theme: option.value });
+                }}
+                className={cn(
+                  'rounded-[5px] border px-3 py-1 text-xs font-medium transition-colors duration-150',
+                  active
+                    ? 'keycap-surface text-ink'
+                    : 'border-transparent text-muted hover:text-ink',
+                )}
+              >
+                {t(option.label)}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-3.5">
+        <div>
+          <p className="text-[13px] text-ink">{t('Язык интерфейса')}</p>
+          <p className="mt-0.5 text-xs text-muted">
+            {t('Переключается сразу, без перезапуска')}
+          </p>
+        </div>
+        <div className="inline-flex rounded-[7px] border border-line bg-bg-well p-0.5">
+          {LANGUAGE_OPTIONS.map((option) => {
+            const active = (settings?.language ?? 'ru') === option.value;
+            return (
+              <button
+                key={option.value}
+                onClick={() => {
+                  if (settings) {
+                    void save({ ...settings, language: option.value as Language });
+                  }
                 }}
                 className={cn(
                   'rounded-[5px] border px-3 py-1 text-xs font-medium transition-colors duration-150',
@@ -262,6 +303,7 @@ function PerformanceGroup() {
   const settings = useSettingsStore((s) => s.settings);
   const save = useSettingsStore((s) => s.save);
   const systemInfo = useSettingsStore((s) => s.systemInfo);
+  const { t } = useI18n();
 
   if (!settings) return null;
 
@@ -271,8 +313,8 @@ function PerformanceGroup() {
 
   return (
     <Group
-      title="Память и запуск"
-      description="Параметры по умолчанию для сборок без собственного лимита"
+      title={t('Память и запуск')}
+      description={t('Параметры по умолчанию для сборок без собственного лимита')}
       action={
         <span className="rounded-[5px] border border-line-strong bg-bg-well px-2.5 py-1 font-mono text-xs font-medium text-ink tabular-nums">
           {formatMemory(settings.defaultMemoryMb)}
@@ -290,7 +332,7 @@ function PerformanceGroup() {
             void save({ ...settings, defaultMemoryMb: Number(e.target.value) })
           }
           className="hl-range"
-          aria-label="Память по умолчанию"
+          aria-label={t('Память по умолчанию')}
         />
         <div className="mt-1 flex justify-between font-mono text-[11px] text-faint">
           <span>{formatMemory(step)}</span>
@@ -301,48 +343,50 @@ function PerformanceGroup() {
       <div className="flex items-center justify-between gap-4 px-5 py-3.5">
         <div>
           <p className="text-[13px] font-medium text-ink">
-            Сворачивать лаунчер при запуске игры
+            {t('Сворачивать лаунчер при запуске игры')}
           </p>
           <p className="text-xs text-muted">
-            Окно свернётся в панель задач и вернётся после выхода из игры
+            {t('Окно свернётся в панель задач и вернётся после выхода из игры')}
           </p>
         </div>
         <Switch
           checked={settings.closeOnLaunch}
           onChange={(checked) => void save({ ...settings, closeOnLaunch: checked })}
-          label="Сворачивать лаунчер при запуске игры"
+          label={t('Сворачивать лаунчер при запуске игры')}
         />
       </div>
 
       <div className="flex items-center justify-between gap-4 px-5 py-3.5">
         <div>
           <p className="text-[13px] font-medium text-ink">
-            Сворачивать в трей при закрытии
+            {t('Сворачивать в трей при закрытии')}
           </p>
           <p className="text-xs text-muted">
-            Крестик скрывает окно, лаунчер остаётся в трее. Выход — через меню трея
+            {t(
+              'Крестик скрывает окно, лаунчер остаётся в трее. Выход — через меню трея',
+            )}
           </p>
         </div>
         <Switch
           checked={settings.closeToTray}
           onChange={(checked) => void save({ ...settings, closeToTray: checked })}
-          label="Сворачивать в трей при закрытии"
+          label={t('Сворачивать в трей при закрытии')}
         />
       </div>
 
       <div className="flex items-center justify-between gap-4 px-5 py-3.5">
         <div>
           <p className="text-[13px] font-medium text-ink">
-            Показывать снапшоты при создании сборки
+            {t('Показывать снапшоты при создании сборки')}
           </p>
           <p className="text-xs text-muted">
-            Включает тестовые версии в каталог выбора
+            {t('Включает тестовые версии в каталог выбора')}
           </p>
         </div>
         <Switch
           checked={settings.showSnapshots}
           onChange={(checked) => void save({ ...settings, showSnapshots: checked })}
-          label="Показывать снапшоты"
+          label={t('Показывать снапшоты')}
         />
       </div>
     </Group>
@@ -352,6 +396,7 @@ function PerformanceGroup() {
 function JavaGroup() {
   const settings = useSettingsStore((s) => s.settings);
   const save = useSettingsStore((s) => s.save);
+  const { t } = useI18n();
   const [runtimes, setRuntimes] = useState<JavaRuntime[]>([]);
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState<number | null>(null);
@@ -379,8 +424,8 @@ function JavaGroup() {
 
   return (
     <Group
-      title="Java"
-      description="Поиск установленных JVM и загрузка Eclipse Temurin"
+      title={t('Java')}
+      description={t('Поиск установленных JVM и загрузка Eclipse Temurin')}
       action={
         <Button size="sm" variant="secondary" onClick={() => void load()} disabled={loading}>
           {loading ? (
@@ -388,13 +433,13 @@ function JavaGroup() {
           ) : (
             <RefreshCw size={12.5} />
           )}
-          Найти на ПК
+          {t('Найти на ПК')}
         </Button>
       }
     >
       {loaded && runtimes.length === 0 && (
         <p className="px-5 py-4 text-xs text-muted">
-          Системная Java не найдена — можно установить ниже.
+          {t('Системная Java не найдена — можно установить ниже.')}
         </p>
       )}
 
@@ -414,7 +459,7 @@ function JavaGroup() {
                 {runtime.isManaged && (
                   <>
                     <span className="text-faint">·</span>
-                    <span className="font-sans text-muted">управляемая</span>
+                    <span className="font-sans text-muted">{t('управляемая')}</span>
                   </>
                 )}
               </div>
@@ -430,7 +475,7 @@ function JavaGroup() {
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
-        <span className="text-[13px] text-ink">Быстрая установка Temurin</span>
+        <span className="text-[13px] text-ink">{t('Быстрая установка Temurin')}</span>
         <div className="flex gap-2">
           {[17, 21, 25].map((major) => (
             <Button
@@ -453,7 +498,7 @@ function JavaGroup() {
 
       <div className="px-5 py-4">
         <label className="hl-field-label" htmlFor="java-paths">
-          Дополнительные пути к java.exe (по одному в строке)
+          {t('Дополнительные пути к java.exe (по одному в строке)')}
         </label>
         <textarea
           id="java-paths"
@@ -480,6 +525,7 @@ function StorageGroup() {
   const save = useSettingsStore((s) => s.save);
   const systemInfo = useSettingsStore((s) => s.systemInfo);
   const notify = useNotifyStore((s) => s.push);
+  const { t, tf } = useI18n();
   const [error, setError] = useState<string | null>(null);
   const [cleaning, setCleaning] = useState(false);
 
@@ -490,9 +536,9 @@ function StorageGroup() {
     try {
       const result = await api.cleanupHorizonCache();
       if (result.freedBytes > 0) {
-        notify(`Очищено ${formatBytes(result.freedBytes)} кэша Horizon`);
+        notify(tf('Очищено {size} кэша Horizon', { size: formatBytes(result.freedBytes) }));
       } else {
-        notify('Нечего удалять: все версии Horizon используются сборками');
+        notify(t('Нечего удалять: все версии Horizon используются сборками'));
       }
     } catch (err) {
       notify(String(err), 'error');
@@ -520,8 +566,8 @@ function StorageGroup() {
 
   return (
     <Group
-      title="Хранилище"
-      description="Корневая папка со сборками, ассетами и профилями"
+      title={t('Хранилище')}
+      description={t('Корневая папка со сборками, ассетами и профилями')}
     >
       <div className="px-5 py-4">
         <div className="flex items-center gap-2">
@@ -530,10 +576,10 @@ function StorageGroup() {
           </div>
           <Button size="md" variant="secondary" onClick={() => void api.openDataDir()}>
             <FolderOpen size={13.5} />
-            Открыть папку
+            {t('Открыть папку')}
           </Button>
           <Button size="md" variant="secondary" onClick={() => void pick()}>
-            Изменить
+            {t('Изменить')}
           </Button>
         </div>
         {error && (
@@ -546,10 +592,11 @@ function StorageGroup() {
 
       <div className="flex items-center justify-between gap-4 border-t border-line px-5 py-3.5">
         <div>
-          <p className="text-[13px] font-medium text-ink">Кэш движка Horizon</p>
+          <p className="text-[13px] font-medium text-ink">{t('Кэш движка Horizon')}</p>
           <p className="text-xs text-muted">
-            Удаляет бинарники и подготовленные ресурсы версий, которые не использует
-            ни одна сборка
+            {t(
+              'Удаляет бинарники и подготовленные ресурсы версий, которые не использует ни одна сборка',
+            )}
           </p>
         </div>
         <Button
@@ -559,7 +606,7 @@ function StorageGroup() {
           disabled={cleaning}
         >
           {cleaning ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-          Очистить
+          {t('Очистить')}
         </Button>
       </div>
     </Group>
@@ -572,15 +619,16 @@ function AboutGroup() {
   const dismissed = useUpdateStore((s) => s.dismissedVersion);
   const dismiss = useUpdateStore((s) => s.dismiss);
   const resetDismiss = useUpdateStore((s) => s.resetDismiss);
+  const { t, tf } = useI18n();
 
   const hidden = Boolean(info?.updateAvailable && dismissed === info.latestVersion);
 
   return (
-    <Group title="О программе" description="Версия лаунчера и доступные обновления">
+    <Group title={t('О программе')} description={t('Версия лаунчера и доступные обновления')}>
       <div className="flex items-center justify-between gap-4 px-5 py-3.5">
         <span className="text-[12.5px] text-ink">HydroLauncher</span>
         <span className="font-mono text-[11.5px] text-muted">
-          {info?.currentVersion ?? (loading ? 'проверка обновлений…' : '—')}
+          {info?.currentVersion ?? (loading ? t('проверка обновлений…') : '—')}
         </span>
       </div>
 
@@ -591,16 +639,17 @@ function AboutGroup() {
               void api.openExternalUrl(info.releaseUrl).catch(() => undefined);
             }}
             className="text-left text-[12.5px] text-muted transition-colors hover:text-ink"
-            title="Открыть страницу релиза"
+            title={t('Открыть страницу релиза')}
           >
-            Доступна версия{' '}
-            <span className="font-mono text-ink">{info.latestVersion}</span>
+            {tf('Доступна версия {version}', {
+              version: info.latestVersion,
+            })}
           </button>
           <button
             onClick={() => dismiss(info.latestVersion)}
             className="text-[11.5px] text-faint transition-colors hover:text-ink"
           >
-            Скрыть
+            {t('Скрыть')}
           </button>
         </div>
       )}
@@ -608,13 +657,13 @@ function AboutGroup() {
       {hidden && (
         <div className="flex items-center justify-between gap-4 px-5 py-3.5">
           <span className="text-[12.5px] text-muted">
-            Обновление {info?.latestVersion} скрыто
+            {tf('Обновление {version} скрыто', { version: info?.latestVersion ?? '' })}
           </span>
           <button
             onClick={resetDismiss}
             className="text-[11.5px] text-faint transition-colors hover:text-ink"
           >
-            Показать
+            {t('Показать')}
           </button>
         </div>
       )}

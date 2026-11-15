@@ -11,6 +11,7 @@ export interface AppSettings {
   maxConcurrentDownloads: number;
   closeOnLaunch: boolean;
   closeToTray: boolean;
+  language: 'ru' | 'en';
   showSnapshots: boolean;
   customJavaPaths: string[];
 }

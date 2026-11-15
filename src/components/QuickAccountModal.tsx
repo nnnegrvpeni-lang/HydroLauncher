@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useI18n } from '../i18n';
 import { useAccountsStore } from '../stores/accountsStore';
 import { Button } from './ui/Button';
 import { Modal } from './ui/Modal';
@@ -10,6 +11,7 @@ interface QuickAccountModalProps {
 
 export function QuickAccountModal({ open, onClose }: QuickAccountModalProps) {
   const create = useAccountsStore((s) => s.create);
+  const { t } = useI18n();
   const [username, setUsername] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -27,8 +29,8 @@ export function QuickAccountModal({ open, onClose }: QuickAccountModalProps) {
   return (
     <Modal
       open={open}
-      title="Новый офлайн-профиль"
-      subtitle="Никнейм от 3 до 16 символов: латиница, цифры или _"
+      title={t('Новый офлайн-профиль')}
+      subtitle={t('Никнейм от 3 до 16 символов: латиница, цифры или _')}
       onClose={() => {
         setError(null);
         onClose();
@@ -36,21 +38,21 @@ export function QuickAccountModal({ open, onClose }: QuickAccountModalProps) {
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            Отмена
+            {t('Отмена')}
           </Button>
           <Button
             variant="primary"
             onClick={() => void submit()}
             disabled={!username.trim()}
           >
-            Создать
+            {t('Создать')}
           </Button>
         </>
       }
     >
       <div>
         <label className="hl-field-label" htmlFor="quick-account-name">
-          Никнейм игрока
+          {t('Никнейм игрока')}
         </label>
         <input
           id="quick-account-name"
@@ -59,7 +61,7 @@ export function QuickAccountModal({ open, onClose }: QuickAccountModalProps) {
           onKeyDown={(e) => {
             if (e.key === 'Enter' && username.trim()) void submit();
           }}
-          placeholder="Например, Steve"
+          placeholder={t('Например, Steve')}
           maxLength={16}
           autoComplete="off"
           spellCheck={false}

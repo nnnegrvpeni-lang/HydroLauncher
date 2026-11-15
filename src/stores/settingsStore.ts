@@ -31,6 +31,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       ]);
       set({ settings, systemInfo, loading: false, error: null });
       get().applyTheme(settings.theme);
+      document.documentElement.lang = settings.language;
     } catch (err) {
       set({ loading: false, error: String(err) });
     }
@@ -40,6 +41,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     const saved = await api.saveSettings(settings);
     set({ settings: saved });
     get().applyTheme(saved.theme);
+    document.documentElement.lang = saved.language;
   },
 
   applyTheme: (mode) => {

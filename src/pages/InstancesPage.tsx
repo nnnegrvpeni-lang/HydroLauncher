@@ -23,6 +23,7 @@ import { useInstancesStore } from '../stores/instancesStore';
 import { useLaunchStore } from '../stores/launchStore';
 import { useNotifyStore } from '../stores/notifyStore';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useI18n } from '../i18n';
 import { cn } from '../utils/cn';
 import { formatMemory, formatPlayTime } from '../utils/format';
 import { api, type Instance, type ModLoaderKind } from '../api';
@@ -72,6 +73,7 @@ export function InstancesPage({
   const progress = useLaunchStore((s) => s.progress);
   const settings = useSettingsStore((s) => s.settings);
   const activeAccount = useAccountsStore((s) => s.activeAccount);
+  const { t, tf } = useI18n();
 
   const [query, setQuery] = useState('');
   const [loaderFilter, setLoaderFilter] = useState<'all' | ModLoaderKind>('all');
@@ -87,7 +89,7 @@ export function InstancesPage({
     try {
       const copy = await api.duplicateInstance(instance.id);
       await reload();
-      notify(`Создана копия «${copy.name}»`);
+      notify(tf('Создана копия «{name}»', { name: copy.name }));
     } catch (err) {
       notify(String(err), 'error');
     } finally {
@@ -99,7 +101,7 @@ export function InstancesPage({
     setExportingId(instance.id);
     try {
       const result = await api.exportInstanceMrpack(instance.id);
-      if (result) notify(`Сборка экспортирована: ${result.path}`);
+      if (result) notify(tf('Сборка экспортирована: {path}', { path: result.path }));
     } catch (err) {
       notify(String(err), 'error');
     } finally {
@@ -126,15 +128,17 @@ export function InstancesPage({
     <div className="mx-auto max-w-[1160px] px-7 py-7 lg:px-10">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-[24px] font-semibold tracking-tight text-ink">Сборки</h1>
+          <h1 className="text-[24px] font-semibold tracking-tight text-ink">
+            {t('Сборки')}
+          </h1>
           <p className="mt-0.5 text-xs text-muted">
-            Изолированные профили игры с отдельными мирами, модами и параметрами
+            {t('Изолированные профили игры с отдельными мирами, модами и параметрами')}
           </p>
         </div>
 
         <Button variant="accent" size="md" onClick={() => setCreateOpen(true)}>
           <Plus size={14} />
-          Создать сборку
+          {t('Создать сборку')}
         </Button>
       </header>
 
@@ -154,7 +158,7 @@ export function InstancesPage({
                       : 'border-transparent text-muted hover:text-ink',
                   )}
                 >
-                  {f.label}
+                  {t(f.label)}
                 </button>
               );
             })}
@@ -168,7 +172,7 @@ export function InstancesPage({
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Поиск сборки…"
+              placeholder={t('Поиск сборки…')}
               autoComplete="off"
               spellCheck={false}
               className="hl-input h-9 rounded-[10px] py-1.5 pl-8 text-xs"
@@ -181,20 +185,20 @@ export function InstancesPage({
         {instances.length === 0 ? (
           <EmptyState
             icon={<Layers size={18} />}
-            title="Сборок пока нет"
-            description="Создайте первую сборку: выберите версию Minecraft и модлоадер."
+            title={t('Сборок пока нет')}
+            description={t('Создайте первую сборку: выберите версию Minecraft и модлоадер.')}
             action={
               <Button variant="accent" onClick={() => setCreateOpen(true)}>
                 <Plus size={14} />
-                Создать сборку
+                {t('Создать сборку')}
               </Button>
             }
           />
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={<Search size={18} />}
-            title="Ничего не найдено"
-            description="Попробуйте сбросить фильтр или изменить запрос."
+            title={t('Ничего не найдено')}
+            description={t('Попробуйте сбросить фильтр или изменить запрос.')}
           />
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -241,7 +245,7 @@ export function InstancesPage({
                           isRunning ? 'font-medium text-accent' : 'text-muted',
                         )}
                       >
-                        {isRunning ? 'Запущена' : instance.minecraftVersion}
+                        {isRunning ? t('Запущена') : instance.minecraftVersion}
                       </span>
                     </div>
 
@@ -290,7 +294,7 @@ export function InstancesPage({
                     <div className="flex items-center gap-1">
                       <IconButton
                         onClick={() => setEditing(instance)}
-                        title="Параметры сборки"
+                        title={t('Параметры сборки')}
                       >
                         <SlidersHorizontal size={13.5} />
                       </IconButton>
@@ -298,7 +302,7 @@ export function InstancesPage({
                       <IconButton
                         onClick={() => void duplicate(instance)}
                         disabled={duplicatingId !== null || state !== undefined}
-                        title="Дублировать сборку вместе с модами и мирами"
+                        title={t('Дублировать сборку вместе с модами и мирами')}
                       >
                         {duplicatingId === instance.id ? (
                           <Loader2 size={13.5} className="animate-spin" />
@@ -316,8 +320,8 @@ export function InstancesPage({
                         }
                         title={
                           instance.engine === 'horizon'
-                            ? 'Экспорт .mrpack доступен только для Java Edition'
-                            : 'Экспортировать сборку в .mrpack'
+                            ? t('Экспорт .mrpack доступен только для Java Edition')
+                            : t('Экспортировать сборку в .mrpack')
                         }
                       >
                         {exportingId === instance.id ? (
@@ -329,7 +333,7 @@ export function InstancesPage({
 
                       <IconButton
                         onClick={() => setPendingDelete(instance)}
-                        title="Удалить сборку"
+                        title={t('Удалить сборку')}
                         className="hover:bg-danger/12 hover:text-danger"
                       >
                         <Trash2 size={13.5} />
@@ -342,7 +346,7 @@ export function InstancesPage({
                         size="sm"
                         onClick={() => void terminate(instance.id)}
                       >
-                        Стоп
+                        {t('Стоп')}
                       </Button>
                     ) : (
                       <Button
@@ -350,17 +354,17 @@ export function InstancesPage({
                         size="sm"
                         onClick={() => void launch(instance.id)}
                         disabled={isBusy || !canLaunch}
-                        title={canLaunch ? 'Запустить сборку' : 'Сначала добавьте профиль'}
+                        title={canLaunch ? t('Запустить сборку') : t('Сначала добавьте профиль')}
                       >
                         {isBusy ? (
                           <>
                             <Loader2 size={12} className="animate-spin" />
-                            Запуск
+                            {t('Запуск')}
                           </>
                         ) : (
                           <>
                             <Play size={11} fill="currentColor" />
-                            Играть
+                            {t('Играть')}
                           </>
                         )}
                       </Button>
@@ -390,13 +394,13 @@ export function InstancesPage({
 
       <Modal
         open={pendingDelete !== null}
-        title="Удалить сборку?"
+        title={t('Удалить сборку?')}
         subtitle={pendingDelete?.name}
         onClose={() => setPendingDelete(null)}
         footer={
           <>
             <Button variant="ghost" onClick={() => setPendingDelete(null)}>
-              Отмена
+              {t('Отмена')}
             </Button>
             <Button
               variant="danger"
@@ -405,14 +409,15 @@ export function InstancesPage({
                 setPendingDelete(null);
               }}
             >
-              Удалить навсегда
+              {t('Удалить навсегда')}
             </Button>
           </>
         }
       >
         <p className="text-[13px] leading-relaxed text-muted">
-          Папка сборки, миры, моды и конфигурации будут удалены без возможности
-          восстановления.
+          {t(
+            'Папка сборки, миры, моды и конфигурации будут удалены без возможности восстановления.',
+          )}
         </p>
       </Modal>
     </div>

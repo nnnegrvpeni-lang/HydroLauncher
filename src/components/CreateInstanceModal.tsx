@@ -9,6 +9,7 @@ import {
 import { useCatalogStore } from '../stores/catalogStore';
 import { useInstancesStore } from '../stores/instancesStore';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useI18n } from '../i18n';
 import { cn } from '../utils/cn';
 import { formatCompactNumber } from '../utils/format';
 import { Button } from './ui/Button';
@@ -50,6 +51,7 @@ export function CreateInstanceModal({
   const create = useInstancesStore((s) => s.create);
   const loadInstances = useInstancesStore((s) => s.load);
   const showSnapshots = useSettingsStore((s) => s.settings?.showSnapshots ?? false);
+  const { t, tf } = useI18n();
 
   const versionCatalog = useCatalogStore((s) => s.versionCatalog);
   const loading = useCatalogStore((s) => s.versionCatalogLoading);
@@ -322,28 +324,28 @@ export function CreateInstanceModal({
   return (
     <Modal
       open={open}
-      title="Новая сборка"
-      subtitle="Кастомная конфигурация, модпак Modrinth или импорт .mrpack"
+      title={t('Новая сборка')}
+      subtitle={t('Кастомная конфигурация, модпак Modrinth или импорт .mrpack')}
       onClose={onClose}
       className="max-w-[780px]"
       footer={
         tab === 'custom' ? (
           <>
             <Button variant="ghost" onClick={onClose}>
-              Отмена
+              {t('Отмена')}
             </Button>
             <Button
               variant="accent"
               onClick={() => void submitCustom()}
               disabled={!name.trim() || !selectedVersion || loaderUnavailable}
             >
-              Создать
+              {t('Создать')}
             </Button>
           </>
         ) : tab === 'import' ? (
           <>
             <Button variant="ghost" onClick={onClose}>
-              Отмена
+              {t('Отмена')}
             </Button>
             <Button
               variant="accent"
@@ -351,12 +353,12 @@ export function CreateInstanceModal({
               disabled={!mrpackPath.trim() || importing}
             >
               {importing && <Loader2 size={13} className="animate-spin" />}
-              {importing ? 'Импорт…' : 'Импортировать'}
+              {importing ? t('Импорт…') : t('Импортировать')}
             </Button>
           </>
         ) : (
           <Button variant="ghost" onClick={onClose}>
-            Закрыть
+            {t('Закрыть')}
           </Button>
         )
       }
@@ -383,7 +385,7 @@ export function CreateInstanceModal({
                 : 'border-transparent text-muted hover:text-ink',
             )}
           >
-            {item.label}
+            {t(item.label)}
           </button>
         ))}
       </div>
@@ -393,13 +395,13 @@ export function CreateInstanceModal({
           <div className="space-y-4">
             <div>
               <label className="hl-field-label" htmlFor="instance-name">
-                Название
+                {t('Название')}
               </label>
               <input
                 id="instance-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Например, Survival 26.3"
+                placeholder={t('Например, Survival 26.3')}
                 autoComplete="off"
                 spellCheck={false}
                 className="hl-input"
@@ -408,7 +410,7 @@ export function CreateInstanceModal({
             </div>
 
             <div>
-              <span className="hl-field-label">Движок</span>
+              <span className="hl-field-label">{t('Движок')}</span>
               <div className="grid grid-cols-2 gap-1.5 rounded-[9px] border border-line bg-bg-well p-1">
                 {ENGINE_OPTIONS.map((option) => (
                   <button
@@ -442,23 +444,24 @@ export function CreateInstanceModal({
             <div className="space-y-3">
               <div className="rounded-[10px] border border-line bg-bg-well/70 p-4 text-xs leading-relaxed text-muted">
                 <div className="flex items-center justify-between text-ink">
-                  <span className="font-medium">Нативный движок Horizon (Rust)</span>
+                  <span className="font-medium">{t('Нативный движок Horizon (Rust)')}</span>
                   <span className="font-mono text-[11px] text-muted">Minecraft 26.3</span>
                 </div>
                 <p className="mt-2">
-                  Запускается нативно без JVM. После создания сборки лаунчер скачает бинарники
-                  Horizon с GitHub и подготовит ресурсы официального клиента 26.3.
+                  {t(
+                    'Запускается нативно без JVM. После создания сборки лаунчер скачает бинарники Horizon с GitHub и подготовит ресурсы официального клиента 26.3.',
+                  )}
                 </p>
               </div>
 
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
-                  <span className="hl-field-label mb-0">Версия бинарников Horizon</span>
+                  <span className="hl-field-label mb-0">{t('Версия бинарников Horizon')}</span>
                   <span className="font-mono text-[11px] text-faint">
                     {horizonReleasesLoading && horizonReleases.length === 0
-                      ? 'Загрузка…'
+                      ? t('Загрузка…')
                       : horizonReleases.length > 0
-                        ? `Доступно: ${horizonReleases.length}`
+                        ? tf('Доступно: {count}', { count: horizonReleases.length })
                         : ''}
                   </span>
                 </div>
@@ -470,11 +473,11 @@ export function CreateInstanceModal({
                   >
                     <span className="truncate font-mono">
                       {horizonReleasesLoading && horizonReleases.length === 0
-                        ? 'Загрузка релизов Horizon…'
+                        ? t('Загрузка релизов Horizon…')
                         : loaderVersion
                           ? horizonReleases.find((r) => r.tagName === loaderVersion)?.name ??
                             loaderVersion
-                          : 'Авто (последний nightly)'}
+                          : t('Авто (последний nightly)')}
                     </span>
                     <ChevronDown size={13} className="shrink-0 text-muted" />
                   </button>
@@ -493,7 +496,7 @@ export function CreateInstanceModal({
                             : 'text-muted hover:bg-surface-2/60 hover:text-ink',
                         )}
                       >
-                        <span>Авто (последний nightly)</span>
+                        <span>{t('Авто (последний nightly)')}</span>
                       </button>
                       {horizonReleases.map((rel) => (
                         <button
@@ -522,7 +525,7 @@ export function CreateInstanceModal({
           ) : (
             <>
               <div>
-                <span className="hl-field-label">Модлоадер</span>
+                <span className="hl-field-label">{t('Модлоадер')}</span>
                 <div className="flex flex-wrap gap-1.5">
                   {LOADER_OPTIONS.map((option) => (
                     <button
@@ -545,13 +548,13 @@ export function CreateInstanceModal({
               {loader !== 'vanilla' && (
                 <div>
                   <div className="mb-1.5 flex items-center justify-between">
-                    <span className="hl-field-label mb-0">Версия модлоадера</span>
+                    <span className="hl-field-label mb-0">{t('Версия модлоадера')}</span>
                     <span className="font-mono text-[11px] text-faint">
                       {loaderVersionsLoading
-                        ? 'Проверка…'
+                        ? t('Проверка…')
                         : loaderVersions.length > 0
-                          ? `Доступно: ${loaderVersions.length}`
-                          : 'Недоступно'}
+                          ? tf('Доступно: {count}', { count: loaderVersions.length })
+                          : t('Недоступно')}
                     </span>
                   </div>
                   <div ref={loaderDropdownRef} className="relative">
@@ -566,10 +569,10 @@ export function CreateInstanceModal({
                     >
                       <span className="truncate font-mono">
                         {loaderVersionsLoading
-                          ? 'Загрузка версий лоадера…'
+                          ? t('Загрузка версий лоадера…')
                           : loaderVersions.length === 0
-                            ? `Нет версий для ${selectedVersion}`
-                            : loaderVersion || `Авто (${loaderVersions[0]})`}
+                            ? tf('Нет версий для {version}', { version: selectedVersion })
+                            : loaderVersion || tf('Авто ({version})', { version: loaderVersions[0] })}
                       </span>
                       <ChevronDown size={13} className="shrink-0 text-muted" />
                     </button>
@@ -588,7 +591,7 @@ export function CreateInstanceModal({
                               : 'text-muted hover:bg-surface-2/60 hover:text-ink',
                           )}
                         >
-                          <span>Авто (последняя: {loaderVersions[0]})</span>
+                          <span>{tf('Авто (последняя: {version})', { version: loaderVersions[0] })}</span>
                         </button>
                         {loaderVersions.map((lv) => (
                           <button
@@ -613,7 +616,10 @@ export function CreateInstanceModal({
                   </div>
                   {loaderUnavailable && (
                     <p className="mt-1.5 text-[11px] text-danger">
-                      Для Minecraft {selectedVersion} нет сборок этого модлоадера. Выберите другой лоадер или версию игры.
+                      {tf(
+                        'Для Minecraft {version} нет сборок этого модлоадера. Выберите другой лоадер или версию игры.',
+                        { version: selectedVersion },
+                      )}
                     </p>
                   )}
                 </div>
@@ -626,9 +632,9 @@ export function CreateInstanceModal({
             <div className="flex flex-col">
               <div className="mb-1.5 flex items-center justify-between">
                 <span className="hl-field-label mb-0">
-                  Версия Minecraft ({filteredByType.length})
+                  {tf('Версия Minecraft ({count})', { count: filteredByType.length })}
                   {supportedMcLoading && (
-                    <span className="ml-2 font-normal text-faint">проверка…</span>
+                    <span className="ml-2 font-normal text-faint">{t('проверка…')}</span>
                   )}
                 </span>
                 {selectedVersion && (
@@ -646,7 +652,7 @@ export function CreateInstanceModal({
                 <input
                   value={versionQuery}
                   onChange={(e) => setVersionQuery(e.target.value)}
-                  placeholder={loading ? 'Загрузка версий…' : 'Поиск версии…'}
+                  placeholder={loading ? t('Загрузка версий…') : t('Поиск версии…')}
                   autoComplete="off"
                   spellCheck={false}
                   className="hl-input pl-8"
@@ -657,7 +663,7 @@ export function CreateInstanceModal({
               {loading ? (
                 <div className="mt-3 flex h-[270px] items-center justify-center gap-2 rounded-[9px] border border-line bg-bg-well text-xs text-muted">
                   <Loader2 size={14} className="animate-spin" />
-                  Загружаем каталог версий Mojang…
+                  {t('Загружаем каталог версий Mojang…')}
                 </div>
               ) : visibleVersions.length > 0 ? (
                 <div className="mt-2 h-[270px] divide-y divide-line overflow-y-auto rounded-[9px] border border-line bg-bg-well">
@@ -684,7 +690,7 @@ export function CreateInstanceModal({
                       >
                         <span className="font-mono">{v.id}</span>
                         <span className="text-[11px] text-faint">
-                          {supported ? (TYPE_LABEL[v.type] ?? v.type) : 'Недоступно'}
+                          {supported ? t(TYPE_LABEL[v.type] ?? v.type) : t('Недоступно')}
                         </span>
                       </button>
                     );
@@ -693,7 +699,7 @@ export function CreateInstanceModal({
               ) : (
                 !error && (
                   <div className="mt-2 flex h-[270px] items-center justify-center rounded-[9px] border border-line bg-bg-well text-xs text-muted">
-                    Подходящих версий не найдено.
+                    {t('Подходящих версий не найдено.')}
                   </div>
                 )
               )}
@@ -712,7 +718,7 @@ export function CreateInstanceModal({
             <input
               value={packQuery}
               onChange={(e) => setPackQuery(e.target.value)}
-              placeholder="Поиск сборок на Modrinth (например, Fabulously Optimized)…"
+              placeholder={t('Поиск сборок на Modrinth (например, Fabulously Optimized)…')}
               autoComplete="off"
               spellCheck={false}
               className="hl-input pl-8"
@@ -723,11 +729,11 @@ export function CreateInstanceModal({
           {packsLoading ? (
             <div className="flex h-[340px] items-center justify-center gap-2 rounded-[9px] border border-line bg-bg-well text-xs text-muted">
               <Loader2 size={14} className="animate-spin" />
-              Поиск модпаков Modrinth…
+              {t('Поиск модпаков Modrinth…')}
             </div>
           ) : packHits.length === 0 ? (
             <div className="flex h-[340px] items-center justify-center rounded-[9px] border border-line bg-bg-well text-xs text-muted">
-              Модпаки не найдены
+              {t('Модпаки не найдены')}
             </div>
           ) : (
             <div className="h-[340px] divide-y divide-line overflow-y-auto rounded-[9px] border border-line bg-bg-well">
@@ -756,7 +762,9 @@ export function CreateInstanceModal({
                             {hit.title}
                           </p>
                           <span className="shrink-0 text-[11px] text-faint">
-                            {hit.author} · {formatCompactNumber(hit.downloads)} скачиваний
+                            {hit.author} · {tf('{count} скачиваний', {
+                              count: formatCompactNumber(hit.downloads),
+                            })}
                           </span>
                         </div>
                         <p className="mt-0.5 line-clamp-1 text-xs text-muted">
@@ -777,7 +785,7 @@ export function CreateInstanceModal({
                       ) : (
                         <Download size={12} />
                       )}
-                      {busy ? 'Установка…' : 'Установить'}
+                      {busy ? t('Установка…') : t('Установить')}
                     </Button>
                   </div>
                 );
@@ -791,34 +799,34 @@ export function CreateInstanceModal({
         <div className="space-y-3">
           <div>
             <label className="hl-field-label" htmlFor="mrpack-path">
-              Файл модпака (.mrpack)
+              {t('Файл модпака (.mrpack)')}
             </label>
             <div className="flex gap-2">
               <input
                 id="mrpack-path"
                 value={mrpackPath}
                 onChange={(e) => setMrpackPath(e.target.value)}
-                placeholder="Выберите .mrpack файл…"
+                placeholder={t('Выберите .mrpack файл…')}
                 autoComplete="off"
                 spellCheck={false}
                 className="hl-input font-mono text-xs"
               />
               <Button variant="secondary" onClick={() => void handlePickMrpack()}>
                 <FolderOpen size={13} />
-                Обзор
+                {t('Обзор…')}
               </Button>
             </div>
           </div>
 
           <div>
             <label className="hl-field-label" htmlFor="mrpack-name">
-              Название сборки (необязательно)
+              {t('Название сборки (необязательно)')}
             </label>
             <input
               id="mrpack-name"
               value={importName}
               onChange={(e) => setImportName(e.target.value)}
-              placeholder="По умолчанию из modrinth.index.json"
+              placeholder={t('По умолчанию из modrinth.index.json')}
               autoComplete="off"
               spellCheck={false}
               className="hl-input"
@@ -826,8 +834,9 @@ export function CreateInstanceModal({
           </div>
 
           <p className="text-[11.5px] leading-relaxed text-muted">
-            Лаунчер распакует overrides, определит версию Minecraft и модлоадер, и скачает
-            все моды из манифеста сборки.
+            {t(
+              'Лаунчер распакует overrides, определит версию Minecraft и модлоадер, и скачает все моды из манифеста сборки.',
+            )}
           </p>
         </div>
       )}

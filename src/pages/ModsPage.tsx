@@ -33,6 +33,7 @@ import { Modal } from '../components/ui/Modal';
 import { useCatalogStore } from '../stores/catalogStore';
 import { useInstancesStore } from '../stores/instancesStore';
 import { useLinksStore } from '../stores/linksStore';
+import { useI18n } from '../i18n';
 import { cn } from '../utils/cn';
 import { formatLoaderLabel } from '../utils/format';
 
@@ -162,6 +163,7 @@ function isInstanceCompatible(
  * заголовков, списков и абзацев.
  */
 function ModBodyMarkdown({ body }: { body: string }) {
+  const { t } = useI18n();
   const blocks = useMemo(() => {
     // Преобразуем HTML-картинки <img src="..." ...> в markdown-формат перед очисткой тегов
     const withMdImages = body.replace(
@@ -185,7 +187,7 @@ function ModBodyMarkdown({ body }: { body: string }) {
   }, [body]);
 
   if (blocks.length === 0) {
-    return <p className="text-xs text-muted">Описание не предоставлено автором.</p>;
+    return <p className="text-xs text-muted">{t('Описание не предоставлено автором.')}</p>;
   }
 
   return (
@@ -360,6 +362,7 @@ export function ModsPage({
   }, [versionCatalog, ensureVersionCatalog]);
 
   const appLinks = useLinksStore((s) => s.links);
+  const { t, tf } = useI18n();
 
   // Подгружаем поддерживаемые версии выбранного модлоадера и сбрасываем несовместимую версию игры
   useEffect(() => {
@@ -749,7 +752,7 @@ export function ModsPage({
           className="inline-flex items-center gap-1.5 rounded-[9px] border border-line-strong bg-surface/65 px-3 py-1.5 text-xs font-medium text-muted backdrop-blur-md transition-colors hover:bg-surface-2 hover:text-ink"
         >
           <ArrowLeft size={13} />
-          Назад к каталогу
+          {t('Назад к каталогу')}
         </button>
 
         <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-[300px_1fr]">
@@ -772,7 +775,9 @@ export function ModsPage({
                   <h1 className="text-[17px] font-semibold tracking-tight text-ink">
                     {detailProject?.title ?? detailHit.title}
                   </h1>
-                  <p className="mt-0.5 text-xs text-faint">от {detailHit.author}</p>
+                  <p className="mt-0.5 text-xs text-faint">
+                    {tf('от {author}', { author: detailHit.author })}
+                  </p>
                 </div>
               </div>
 
@@ -806,25 +811,25 @@ export function ModsPage({
                     <Download size={14} />
                   )}
                   {isDirectBusy
-                    ? 'Установка…'
+                    ? t('Установка…')
                     : isInstalledInTarget
-                      ? `Установлен в ${targetInstance?.name}`
+                      ? tf('Установлен в {name}', { name: targetInstance?.name ?? '' })
                       : targetInstance
-                        ? `Установить в ${targetInstance.name}`
-                        : 'Установить'}
+                        ? tf('Установить в {name}', { name: targetInstance.name })
+                        : t('Установить')}
                 </Button>
               </div>
 
               <div className="mt-4 space-y-2 border-t border-line pt-3.5 text-xs">
                 <div className="flex items-center justify-between text-muted">
-                  <span>Скачиваний</span>
+                  <span>{t('Скачиваний')}</span>
                   <span className="font-mono text-ink">
                     {formatDownloads(detailProject?.downloads ?? detailHit.downloads)}
                   </span>
                 </div>
                 {detailProject && (
                   <div className="flex items-center justify-between text-muted">
-                    <span>Подписчиков</span>
+                    <span>{t('Подписчиков')}</span>
                     <span className="inline-flex items-center gap-1 font-mono text-ink">
                       <Heart size={11} className="text-faint" />
                       {formatDownloads(detailProject.followers)}
@@ -833,7 +838,7 @@ export function ModsPage({
                 )}
                 {detailProject && detailProject.loaders.length > 0 && (
                   <div className="flex items-start justify-between gap-2 text-muted">
-                    <span className="shrink-0">Загрузчики</span>
+                    <span className="shrink-0">{t('Загрузчики')}</span>
                     <span className="text-right font-mono text-[11px] text-ink">
                       {detailProject.loaders.map(formatLoaderLabel).join(', ')}
                     </span>
@@ -846,7 +851,9 @@ export function ModsPage({
                     rel="noreferrer"
                     className="inline-flex items-center gap-1.5 text-xs text-muted transition-colors hover:text-ink"
                   >
-                    Открыть на {catalogSource === 'horizon' ? 'Horizon' : 'Modrinth'}
+                    {tf('Открыть на {source}', {
+                      source: catalogSource === 'horizon' ? 'Horizon' : 'Modrinth',
+                    })}
                     <ExternalLink size={12} />
                   </a>
                 </div>
@@ -867,7 +874,7 @@ export function ModsPage({
                     : 'text-muted hover:text-ink',
                 )}
               >
-                Описание
+                {t('Описание')}
               </button>
               <button
                 type="button"
@@ -879,7 +886,8 @@ export function ModsPage({
                     : 'text-muted hover:text-ink',
                 )}
               >
-                Версии {detailVersions.length > 0 ? `· ${detailVersions.length}` : ''}
+                {t('Версии')}{' '}
+                {detailVersions.length > 0 ? `· ${detailVersions.length}` : ''}
               </button>
               {detailProject && detailProject.gallery.length > 0 && (
                 <button
@@ -893,7 +901,7 @@ export function ModsPage({
                   )}
                 >
                   <ImageIcon size={12} />
-                  Галерея · {detailProject.gallery.length}
+                  {t('Галерея')} · {detailProject.gallery.length}
                 </button>
               )}
             </div>
@@ -910,7 +918,7 @@ export function ModsPage({
                 <div className="divide-y divide-line rounded-[8px] border border-line bg-bg-well/40">
                   {detailVersions.length === 0 ? (
                     <p className="px-4 py-10 text-center text-xs text-muted">
-                      Совместимых версий не найдено
+                      {t('Совместимых версий не найдено')}
                     </p>
                   ) : (
                     detailVersions.map((ver) => {
@@ -948,7 +956,7 @@ export function ModsPage({
                             ) : (
                               <Download size={12} />
                             )}
-                            {verBusy ? 'Установка…' : 'Установить'}
+                            {verBusy ? t('Установка…') : t('Установить')}
                           </Button>
                         </div>
                       );
@@ -988,10 +996,12 @@ export function ModsPage({
     <div ref={topRef} className="mx-auto max-w-[1160px] px-7 py-7 lg:px-10">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-[24px] font-semibold tracking-tight text-ink">Моды</h1>
+          <h1 className="text-[24px] font-semibold tracking-tight text-ink">{t('Моды')}</h1>
           <p className="mt-0.5 text-xs text-muted">
-            Каталог {catalogSource === 'horizon' ? 'Horizon' : 'Modrinth'}
-            {totalHits > 0 ? ` · ${totalHits.toLocaleString('ru-RU')} проектов` : ''}
+            {t('Каталог')} {catalogSource === 'horizon' ? 'Horizon' : 'Modrinth'}
+            {totalHits > 0
+              ? ` · ${tf('{count} проектов', { count: totalHits.toLocaleString() })}`
+              : ''}
           </p>
         </div>
 
@@ -1003,7 +1013,7 @@ export function ModsPage({
               size={22}
             />
             <span className="text-xs text-muted">
-              Установка в{' '}
+              {t('Установка в')}{' '}
               <span className="font-medium text-ink">{targetInstance.name}</span>{' '}
               <span className="font-mono text-[11px] text-faint">
                 ({targetInstance.minecraftVersion} ·{' '}
@@ -1016,7 +1026,7 @@ export function ModsPage({
             <button
               type="button"
               onClick={onClearTargetInstance}
-              title="Отвязать от сборки"
+              title={t('Отвязать от сборки')}
               className="ml-1 rounded p-0.5 text-muted hover:bg-bg-well hover:text-ink"
             >
               <X size={13} />
@@ -1071,8 +1081,8 @@ export function ModsPage({
             onChange={(e) => setQuery(e.target.value)}
             placeholder={
               catalogSource === 'horizon'
-                ? 'Поиск модов и шейдеров Horizon (AE2, Zoom, Atlas)…'
-                : 'Поиск модов на Modrinth (Sodium, Iris, JEI)…'
+                ? t('Поиск модов и шейдеров Horizon (AE2, Zoom, Atlas)…')
+                : t('Поиск модов на Modrinth (Sodium, Iris, JEI)…')
             }
             autoComplete="off"
             spellCheck={false}
@@ -1094,26 +1104,26 @@ export function ModsPage({
                     : 'border-transparent text-muted hover:text-ink',
                 )}
               >
-                {kf.label}
+                {t(kf.label)}
               </button>
             ))}
           </div>
         ) : (
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1 rounded-[10px] border border-line bg-surface/55 p-1 backdrop-blur-xl">
-              {MODRINTH_TYPE_FILTERS.map((tf) => (
+              {MODRINTH_TYPE_FILTERS.map((typeFilter) => (
                 <button
-                  key={tf.id}
+                  key={typeFilter.id}
                   type="button"
-                  onClick={() => setModrinthTypeFilter(tf.id)}
+                  onClick={() => setModrinthTypeFilter(typeFilter.id)}
                   className={cn(
                     'rounded-[7px] border px-2.5 py-1 text-xs font-medium transition-colors duration-150',
-                    modrinthTypeFilter === tf.id
+                    modrinthTypeFilter === typeFilter.id
                       ? 'keycap-surface text-ink'
                       : 'border-transparent text-muted hover:text-ink',
                   )}
                 >
-                  {tf.label}
+                  {t(typeFilter.label)}
                 </button>
               ))}
             </div>
@@ -1146,7 +1156,7 @@ export function ModsPage({
                         : 'border-transparent text-muted hover:text-ink',
                     )}
                   >
-                    {lf.label}
+                    {t(lf.label)}
                   </button>
                 ))}
               </div>
@@ -1165,7 +1175,7 @@ export function ModsPage({
                   )}
                 >
                   <span className="font-mono">
-                    {gameVersionFilter === 'all' ? 'Все версии' : gameVersionFilter}
+                    {gameVersionFilter === 'all' ? t('Все версии') : gameVersionFilter}
                   </span>
                   <ChevronDown
                     size={12}
@@ -1192,7 +1202,7 @@ export function ModsPage({
                             : 'text-muted hover:bg-bg-well/60 hover:text-ink',
                         )}
                       >
-                        <span>Все версии</span>
+                        <span>{t('Все версии')}</span>
                         {gameVersionFilter === 'all' && <Check size={12} className="text-led" />}
                       </button>
                       {releaseVersions.map((ver) => {
@@ -1239,7 +1249,7 @@ export function ModsPage({
                 : 'border-transparent text-muted hover:bg-surface/60 hover:text-ink',
             )}
           >
-            {cat.label}
+            {t(cat.label)}
           </button>
         ))}
       </div>
@@ -1261,7 +1271,7 @@ export function ModsPage({
               onClick={() => setShowHorizonGuide((v) => !v)}
               className="inline-flex shrink-0 items-center gap-1 font-medium text-ink/85 transition-colors hover:text-ink"
             >
-              {showHorizonGuide ? 'Скрыть инструкцию' : 'Как запустить .hnmod?'}
+              {showHorizonGuide ? t('Скрыть инструкцию') : t('Как запустить .hnmod?')}
               {showHorizonGuide ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
             </button>
           </div>
@@ -1304,14 +1314,14 @@ export function ModsPage({
         {loading && hits.length === 0 ? (
           <div className="flex items-center justify-center gap-2 rounded-[10px] border border-line bg-surface py-16 text-xs text-muted">
             <Loader2 size={15} className="animate-spin" />
-            Загрузка каталога Modrinth…
+            {t('Загрузка каталога Modrinth…')}
           </div>
         ) : hits.length === 0 ? (
           <div className="rounded-[10px] border border-line bg-surface px-6 py-14 text-center">
             <Package size={22} className="mx-auto text-faint" strokeWidth={1.6} />
-            <p className="mt-2.5 text-sm font-medium text-ink">Ничего не найдено</p>
+            <p className="mt-2.5 text-sm font-medium text-ink">{t('Ничего не найдено')}</p>
             <p className="mt-1 text-xs text-muted">
-              Попробуйте изменить поисковый запрос, загрузчик или категорию
+              {t('Попробуйте изменить поисковый запрос, загрузчик или категорию')}
             </p>
           </div>
         ) : (
@@ -1363,12 +1373,15 @@ export function ModsPage({
                           </span>
                         </div>
                         <p className="mt-0.5 text-[11px] text-faint">
-                          от {hit.author}
+                          {tf('от {author}', { author: hit.author })}
                           {hitLoaders.length > 0 &&
                             ` · ${hitLoaders.map(formatLoaderLabel).join(', ')}`}
                           {catalogSource === 'horizon' &&
                             hit.categories.includes('Native Mod') && (
-                              <span className="text-warn"> · требует пересборки (.hnmod)</span>
+                              <span className="text-warn">
+                                {' '}
+                                · {t('требует пересборки (.hnmod)')}
+                              </span>
                             )}
                         </p>
                         <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-muted">
@@ -1391,7 +1404,7 @@ export function ModsPage({
                       ) : (
                         <Download size={13} />
                       )}
-                      {isBusy ? 'Установка…' : isInstalled ? 'Установлен' : 'Установить'}
+                      {isBusy ? t('Установка…') : isInstalled ? t('Установлен') : t('Установить')}
                     </Button>
                   </article>
                 );
@@ -1402,7 +1415,10 @@ export function ModsPage({
             {totalPages > 1 && (
               <div className="mt-6 flex items-center justify-between border-t border-line pt-4">
                 <p className="font-mono text-xs text-faint">
-                  Страница {page + 1} из {totalPages.toLocaleString('ru-RU')}
+                  {tf('Страница {page} из {total}', {
+                    page: page + 1,
+                    total: totalPages.toLocaleString(),
+                  })}
                 </p>
 
                 <div className="flex items-center gap-1.5">
@@ -1413,7 +1429,7 @@ export function ModsPage({
                     onClick={() => goToPage(page - 1)}
                   >
                     <ChevronLeft size={14} />
-                    Назад
+                    {t('Назад')}
                   </Button>
 
                   {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -1442,7 +1458,7 @@ export function ModsPage({
                     disabled={page >= totalPages - 1}
                     onClick={() => goToPage(page + 1)}
                   >
-                    Вперёд
+                    {t('Вперёд')}
                     <ChevronRight size={14} />
                   </Button>
                 </div>
@@ -1456,11 +1472,17 @@ export function ModsPage({
       <Modal
         open={installTarget !== null}
         onClose={() => setInstallTarget(null)}
-        title={installTarget ? `Установить «${installTarget.title}»` : ''}
+        title={
+          installTarget
+            ? tf('Установить «{name}»', { name: installTarget.title })
+            : ''
+        }
         subtitle={
           installTarget?.versionNumber
-            ? `Версия ${installTarget.versionNumber} · выберите совместимую сборку`
-            : 'Выберите сборку, совместимую с этим модом'
+            ? tf('Версия {version} · выберите совместимую сборку', {
+                version: installTarget.versionNumber,
+              })
+            : t('Выберите сборку, совместимую с этим модом')
         }
         className="max-w-[520px]"
       >
@@ -1517,7 +1539,7 @@ export function ModsPage({
             ) : (
               <div className="space-y-2">
                 <p className="text-[11px] font-medium uppercase tracking-wider text-faint">
-                  Совместимые сборки
+                  {t('Совместимые сборки')}
                 </p>
                 {compatibilityList.compatible.map((inst) => {
                   const busy = installingInstanceIds.has(inst.id);
@@ -1550,7 +1572,7 @@ export function ModsPage({
                         ) : (
                           <Download size={13} />
                         )}
-                        {busy ? 'Установка…' : done ? 'Установлено' : 'Установить'}
+                        {busy ? t('Установка…') : done ? t('Установлено') : t('Установить')}
                       </Button>
                     </div>
                   );
@@ -1561,7 +1583,7 @@ export function ModsPage({
             {compatibilityList.incompatible.length > 0 && (
               <div className="space-y-1.5 border-t border-line pt-3">
                 <p className="text-[11px] font-medium uppercase tracking-wider text-faint">
-                  Несовместимые
+                  {t('Несовместимые')}
                 </p>
                 {compatibilityList.incompatible.map(({ instance: inst, reason }) => (
                   <div
@@ -1577,7 +1599,7 @@ export function ModsPage({
                         </p>
                       </div>
                     </div>
-                    <span className="shrink-0 text-[11px] text-faint">{reason}</span>
+                    <span className="shrink-0 text-[11px] text-faint">{t(reason)}</span>
                   </div>
                 ))}
               </div>

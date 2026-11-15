@@ -25,6 +25,7 @@ import { useAccountsStore } from '../stores/accountsStore';
 import { useInstancesStore } from '../stores/instancesStore';
 import { useLaunchStore } from '../stores/launchStore';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useI18n } from '../i18n';
 import { cn } from '../utils/cn';
 import { buildDockInstances, pickRecent } from '../utils/dock';
 import { formatMemory, formatPlayTime } from '../utils/format';
@@ -70,6 +71,7 @@ export function HomePage({
 
   const settings = useSettingsStore((s) => s.settings);
   const systemInfo = useSettingsStore((s) => s.systemInfo);
+  const { t, tf, language } = useI18n();
 
   const logsByInstance = useLaunchStore((s) => s.logsByInstance);
   const clearLogs = useLaunchStore((s) => s.clearLogs);
@@ -140,10 +142,12 @@ export function HomePage({
             />
             <div className="min-w-0">
               <h1 className="text-[22px] font-semibold tracking-tight text-ink">
-                Добро пожаловать в HydroLauncher
+                {t('Добро пожаловать в HydroLauncher')}
               </h1>
               <p className="mt-1 text-[13px] leading-relaxed text-muted">
-                Чистый лаунчер для Java Edition и нативного движка Horizon (Rust) с офлайн-профилями и встроенным каталогом модов.
+                {t(
+                  'Чистый лаунчер для Java Edition и нативного движка Horizon (Rust) с офлайн-профилями и встроенным каталогом модов.',
+                )}
               </p>
             </div>
           </div>
@@ -153,19 +157,19 @@ export function HomePage({
               <div className="flex items-center justify-between text-xs font-medium text-ink">
                 <span className="flex items-center gap-1.5">
                   <UserPlus size={13.5} className="text-accent" />
-                  1. Профиль
+                  {t('1. Профиль')}
                 </span>
                 {activeAccount && <Check size={13} className="text-led" />}
               </div>
               <p className="mt-2 text-[12px] leading-relaxed text-muted">
                 {activeAccount ? (
                   <>
-                    Активный ник:{' '}
-                    <span className="font-medium text-ink">{activeAccount.username}</span>.
-                    Можно добавить ещё в меню сверху.
+                    {t('Активный ник:')}{' '}
+                    <span className="font-medium text-ink">{activeAccount.username}</span>.{' '}
+                    {t('Можно добавить ещё в меню сверху.')}
                   </>
                 ) : (
-                  'Укажите офлайн-никнейм — он нужен для запуска игры и сохранений.'
+                  t('Укажите офлайн-никнейм — он нужен для запуска игры и сохранений.')
                 )}
               </p>
             </div>
@@ -173,20 +177,25 @@ export function HomePage({
             <div className="rounded-[12px] border border-line bg-bg-well/70 p-4">
               <div className="flex items-center gap-1.5 text-xs font-medium text-ink">
                 <Layers size={13.5} className="text-accent" />
-                2. Сборка
+                {t('2. Сборка')}
               </div>
               <p className="mt-2 text-[12px] leading-relaxed text-muted">
-                Создайте сборку с Vanilla, Fabric, Forge, NeoForge, Quilt, Horizon или импортируйте <span className="font-mono text-ink">.mrpack</span>.
+                {t(
+                  'Создайте сборку с Vanilla, Fabric, Forge, NeoForge, Quilt, Horizon или импортируйте',
+                )}{' '}
+                <span className="font-mono text-ink">.mrpack</span>.
               </p>
             </div>
 
             <div className="rounded-[12px] border border-line bg-bg-well/70 p-4">
               <div className="flex items-center gap-1.5 text-xs font-medium text-ink">
                 <Play size={13.5} className="text-accent" />
-                3. Запуск
+                {t('3. Запуск')}
               </div>
               <p className="mt-2 text-[12px] leading-relaxed text-muted">
-                Лаунчер сам найдёт или скачает нужную Java, загрузит библиотеки, ассеты и запустит клиент.
+                {t(
+                  'Лаунчер сам найдёт или скачает нужную Java, загрузит библиотеки, ассеты и запустит клиент.',
+                )}
               </p>
             </div>
           </div>
@@ -194,17 +203,17 @@ export function HomePage({
           <div className="mt-6 flex flex-wrap items-center gap-2.5 border-t border-line pt-5">
             <Button variant="accent" size="lg" onClick={onQuickCreateInstance}>
               <Plus size={15} />
-              Создать сборку
+              {t('Создать сборку')}
             </Button>
             {!activeAccount && (
               <Button variant="secondary" size="lg" onClick={onQuickAddAccount}>
                 <UserPlus size={15} />
-                Создать профиль
+                {t('Создать профиль')}
               </Button>
             )}
             <Button variant="ghost" size="lg" onClick={() => onNavigate('mods')}>
               <Package size={15} />
-              Каталог модов
+              {t('Каталог модов')}
             </Button>
           </div>
         </div>
@@ -265,7 +274,7 @@ export function HomePage({
                       void launch(featured.id, { kind: 'server', value: srv.address })
                     }
                     className="flex min-w-0 flex-1 items-center gap-2.5 text-left disabled:opacity-50"
-                    title={`Войти на ${srv.address}`}
+                    title={tf('Войти на {address}', { address: srv.address })}
                   >
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-line bg-bg-well/75 text-muted transition-colors group-hover:border-line-strong group-hover:text-ink">
                       <Globe size={14} />
@@ -283,7 +292,7 @@ export function HomePage({
                   <button
                     type="button"
                     onClick={() => void handleRemoveQuickServer(srv.id)}
-                    title="Удалить сервер"
+                    title={t('Удалить сервер')}
                     className="rounded p-1 text-faint opacity-0 transition-all hover:bg-bg-well hover:text-ink group-hover:opacity-100"
                   >
                     <X size={11} />
@@ -300,7 +309,7 @@ export function HomePage({
                     void launch(featured.id, { kind: 'world', value: w.folderName })
                   }
                   className="group flex w-full items-center gap-2.5 rounded-[9px] px-2 py-1.5 text-left transition-all hover:bg-surface-2/75 disabled:opacity-50"
-                  title={`Войти в мир «${w.folderName}»`}
+                  title={tf('Войти в мир «{name}»', { name: w.folderName })}
                 >
                   {w.iconDataUrl ? (
                     <img
@@ -317,11 +326,14 @@ export function HomePage({
                     <p className="truncate text-[12.5px] font-medium text-ink">{w.folderName}</p>
                     <p className="truncate font-mono text-[10.5px] text-faint">
                       {w.modifiedMs
-                        ? new Date(w.modifiedMs).toLocaleDateString('ru-RU', {
-                            day: '2-digit',
-                            month: '2-digit',
-                          })
-                        : 'Мир'}
+                        ? new Date(w.modifiedMs).toLocaleDateString(
+                            language === 'en' ? 'en-US' : 'ru-RU',
+                            {
+                              day: '2-digit',
+                              month: '2-digit',
+                            },
+                          )
+                        : t('Мир')}
                     </p>
                   </div>
                   <Play
@@ -338,7 +350,7 @@ export function HomePage({
                     <input
                       value={serverName}
                       onChange={(e) => setServerName(e.target.value)}
-                      placeholder="Название (необязательно)"
+                      placeholder={t('Название (необязательно)')}
                       autoComplete="off"
                       spellCheck={false}
                       className="hl-input h-7 text-xs"
@@ -357,7 +369,7 @@ export function HomePage({
                         disabled={!serverAddress.trim()}
                         className="h-7 shrink-0 rounded-[7px] bg-ink px-2.5 text-[11px] font-medium text-bg transition-opacity hover:opacity-90 disabled:opacity-40"
                       >
-                        Ок
+                        {t('Ок')}
                       </button>
                       <button
                         type="button"
@@ -375,7 +387,7 @@ export function HomePage({
                     className="inline-flex items-center gap-1 text-[11px] text-faint transition-colors hover:text-muted"
                   >
                     <Plus size={11} />
-                    Добавить сервер
+                    {t('Добавить сервер')}
                   </button>
                 )}
               </div>
@@ -410,7 +422,7 @@ export function HomePage({
               <button
                 onClick={() => adjustMemory(-512)}
                 disabled={featuredMem <= 512}
-                title="Уменьшить на 512 MB"
+                title={t('Уменьшить на 512 MB')}
                 className="flex h-6.5 w-6.5 items-center justify-center rounded-[7px] text-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-35"
               >
                 <Minus size={11} />
@@ -418,7 +430,7 @@ export function HomePage({
               <button
                 onClick={() => adjustMemory(512)}
                 disabled={featuredMem >= maxMemoryMb}
-                title="Увеличить на 512 MB"
+                title={t('Увеличить на 512 MB')}
                 className="flex h-6.5 w-6.5 items-center justify-center rounded-[7px] text-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-35"
               >
                 <Plus size={11} />
@@ -468,25 +480,27 @@ export function HomePage({
                 onClick={() => void terminate(featured.id)}
                 className="h-11 min-w-[172px] rounded-[11px] px-6 text-[13.5px] font-semibold"
               >
-                Остановить
+                {t('Остановить')}
               </Button>
             ) : (
               <Button
                 variant="accent"
                 onClick={() => void launch(featured.id)}
                 disabled={isBusy || !canLaunch}
-                title={canLaunch ? 'Запустить сборку' : 'Сначала создайте профиль'}
+                title={
+                  canLaunch ? t('Запустить сборку') : t('Сначала создайте профиль')
+                }
                 className="h-11 min-w-[172px] rounded-[11px] px-6 text-[14px]"
               >
                 {isBusy ? (
                   <>
                     <Loader2 size={15} className="animate-spin" />
-                    {featuredState === 'preparing' ? 'Загрузка…' : 'Запуск…'}
+                    {featuredState === 'preparing' ? t('Загрузка…') : t('Запуск…')}
                   </>
                 ) : (
                   <>
                     <Play size={15} fill="currentColor" />
-                    Играть
+                    {t('Играть')}
                   </>
                 )}
               </Button>
@@ -497,7 +511,7 @@ export function HomePage({
               className="inline-flex h-11 items-center gap-2 rounded-[11px] border border-line-strong bg-surface/65 px-4 text-[13px] font-medium text-ink backdrop-blur-xl shadow-[inset_0_1px_0_var(--rim)] transition-all hover:bg-surface-2/85"
             >
               <SlidersHorizontal size={14} className="text-muted" />
-              Параметры
+              {t('Параметры')}
             </button>
 
             <button
@@ -505,7 +519,7 @@ export function HomePage({
               className="inline-flex h-11 items-center gap-2 rounded-[11px] border border-line-strong bg-surface/65 px-4 text-[13px] font-medium text-ink backdrop-blur-xl shadow-[inset_0_1px_0_var(--rim)] transition-all hover:bg-surface-2/85"
             >
               <Package size={14} className="text-muted" />
-              Моды
+              {t('Моды')}
             </button>
 
             <button
@@ -518,7 +532,7 @@ export function HomePage({
               )}
             >
               <Terminal size={14} className="text-muted" />
-              Консоль
+              {t('Консоль')}
               {logs.length > 0 && (
                 <span className="rounded-[5px] border border-line-strong bg-bg-well px-1.5 py-px font-mono text-[10px] text-ink tabular-nums">
                   {logs.length}
@@ -532,7 +546,7 @@ export function HomePage({
                 className="inline-flex h-11 items-center gap-2 rounded-[11px] border border-warn/40 bg-warn/12 px-4 text-[12.5px] font-medium text-warn backdrop-blur-xl transition-colors hover:bg-warn/20"
               >
                 <UserPlus size={14} />
-                Создать профиль
+                {t('Создать профиль')}
               </button>
             )}
           </div>
@@ -550,7 +564,7 @@ export function HomePage({
 
       {/* Нижний матовый док картриджей-сборок */}
       <section
-        aria-label="Док сборок"
+        aria-label={t('Док сборок')}
         className="relative z-20 shrink-0 border-t border-line bg-surface/45 px-6 py-3.5 backdrop-blur-2xl lg:px-10"
       >
         <div className="flex items-center gap-2.5 overflow-hidden">
@@ -578,7 +592,7 @@ export function HomePage({
                   <p className="truncate font-mono text-[10.5px] text-muted">
                     {inst.minecraftVersion} ·{' '}
                     {inst.engine === 'horizon' ? 'Rust' : (LOADER_LABEL[inst.loader] ?? inst.loader)}
-                    {instRunning && <span className="text-accent"> · запущена</span>}
+                    {instRunning && <span className="text-accent"> {t('· запущена')}</span>}
                   </p>
                 </div>
                 {selected && (
@@ -591,7 +605,7 @@ export function HomePage({
           {dockHiddenCount > 0 && (
             <button
               onClick={() => onNavigate('instances')}
-              title={`Показать все сборки (ещё ${dockHiddenCount})`}
+              title={tf('Показать все сборки (ещё {count})', { count: dockHiddenCount })}
               className="flex h-[56px] shrink-0 items-center gap-1.5 rounded-[12px] border border-line bg-surface/45 px-3 text-[12.5px] font-medium text-muted transition-colors hover:border-line-strong hover:bg-surface/80 hover:text-ink"
             >
               <Layers size={13} />
@@ -604,7 +618,7 @@ export function HomePage({
             className="flex h-[56px] shrink-0 items-center gap-2 rounded-[12px] border border-dashed border-line-strong bg-surface/25 px-4 text-[12.5px] font-medium text-muted transition-all hover:border-accent/50 hover:bg-surface/65 hover:text-ink"
           >
             <Plus size={14} />
-            Новая сборка
+            {t('Новая сборка')}
           </button>
         </div>
       </section>
@@ -634,6 +648,7 @@ function FloatingConsole({
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -657,7 +672,7 @@ function FloatingConsole({
       <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-2">
         <div className="flex items-center gap-2">
           <Terminal size={13} className="text-muted" />
-          <span className="text-xs font-medium text-ink">Консоль процесса</span>
+          <span className="text-xs font-medium text-ink">{t('Консоль процесса')}</span>
           <span className="font-mono text-[11px] text-faint">
             ({logs.length})
           </span>
@@ -670,20 +685,20 @@ function FloatingConsole({
                 className="inline-flex h-6 items-center gap-1 rounded-[5px] px-2 text-[11px] text-muted transition-colors hover:bg-surface-2 hover:text-ink"
               >
                 {copied ? <Check size={11} className="text-led" /> : <Copy size={11} />}
-                {copied ? 'Скопировано' : 'Копировать'}
+                {copied ? t('Скопировано') : t('Копировать')}
               </button>
               <button
                 onClick={onClear}
                 className="inline-flex h-6 items-center gap-1 rounded-[5px] px-2 text-[11px] text-muted transition-colors hover:bg-surface-2 hover:text-ink"
               >
                 <Trash2 size={11} />
-                Очистить
+                {t('Очистить')}
               </button>
             </>
           )}
           <button
             onClick={onClose}
-            aria-label="Закрыть консоль"
+            aria-label={t('Закрыть консоль')}
             className="flex h-6 w-6 items-center justify-center rounded-[5px] text-muted transition-colors hover:bg-surface-2 hover:text-ink"
           >
             <X size={13} />
@@ -697,7 +712,7 @@ function FloatingConsole({
       >
         {logs.length === 0 ? (
           <p className="text-muted">
-            Консоль пуста — после запуска здесь появится вывод Minecraft.
+            {t('Консоль пуста — после запуска здесь появится вывод Minecraft.')}
           </p>
         ) : (
           logs.map((log, i) => (
