@@ -46,6 +46,7 @@ import { localizeError } from '../i18n/errors';
 import { cn } from '../utils/cn';
 import { formatBytes, formatLoaderLabel } from '../utils/format';
 import { VoxelEmblem } from './VoxelEmblem';
+import { InstanceIcon } from './InstanceIcon';
 import { Button } from './ui/Button';
 import { Switch } from './ui/Switch';
 
@@ -561,8 +562,16 @@ export function InstanceModsModal({
             </button>
 
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[11px] border border-line-strong bg-surface/75 shadow-[inset_0_1px_0_var(--rim)]">
-                <VoxelEmblem engine={instance.engine} loader={instance.loader} size={30} />
+              <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-[11px] border border-line-strong shadow-[0_10px_22px_-14px_rgba(0,0,0,0.75)]">
+                <InstanceIcon
+                  icon={instance.icon}
+                  background={instance.background}
+                  seed={instance.id}
+                  className="h-full w-full"
+                />
+                <span className="absolute right-0 bottom-0 flex h-4 w-4 items-center justify-center rounded-[4px] bg-black/35 backdrop-blur-sm">
+                  <VoxelEmblem engine={instance.engine} loader={instance.loader} size={11} />
+                </span>
               </div>
               <div>
                 {renaming ? (

@@ -11,6 +11,8 @@ interface ModalProps {
   children: React.ReactNode;
   footer?: React.ReactNode;
   className?: string;
+  /** Открывает окно поверх другого модального окна (например, редактор оформления). */
+  stacked?: boolean;
 }
 
 export function Modal({
@@ -21,20 +23,31 @@ export function Modal({
   children,
   footer,
   className,
+  stacked,
 }: ModalProps) {
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key !== 'Escape') return;
+      // Вложенное окно перехватывает Escape в capture-фазе, иначе
+      // вместе с ним закрылось бы и родительское окно.
+      if (stacked) e.stopPropagation();
+      onClose();
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [open, onClose]);
+    window.addEventListener('keydown', handler, stacked ? { capture: true } : undefined);
+    return () =>
+      window.removeEventListener('keydown', handler, stacked ? { capture: true } : undefined);
+  }, [open, onClose, stacked]);
 
   if (!open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+    <div
+      className={cn(
+        'fixed inset-0 flex items-center justify-center p-6',
+        stacked ? 'z-[60]' : 'z-50',
+      )}
+    >
       <div
         className="hl-backdrop-in absolute inset-0 bg-black/55 backdrop-blur-[3px]"
         onClick={onClose}

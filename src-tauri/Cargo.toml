@@ -3,6 +3,7 @@ name = "hydro-launcher"
 version = "0.2.6"
 description = "Clean, minimal Minecraft launcher supporting Java Edition and Horizon (Rust)"
 authors = ["HydroLauncher"]
+license = "GPL-3.0-only"
 edition = "2021"
 
 [lib]

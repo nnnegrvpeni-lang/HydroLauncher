@@ -13,6 +13,22 @@ pub async fn load_instances(paths: &AppPaths, data_dir: &Path) -> AppResult<Vec<
     Ok(store.instances)
 }
 
+/// Оставляет только безопасные ID оформления: строчные буквы, цифры, `_` и `-`.
+/// Пустое или подозрительное значение заменяется резервным — так в
+/// instances.json не попадут пути и произвольные строки.
+fn sanitize_icon_id(value: Option<String>, fallback: &str) -> String {
+    value
+        .map(|raw| raw.trim().to_ascii_lowercase())
+        .filter(|raw| {
+            !raw.is_empty()
+                && raw.len() <= 48
+                && raw
+                    .chars()
+                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-')
+        })
+        .unwrap_or_else(|| fallback.to_string())
+}
+
 pub async fn create_instance(
     paths: &AppPaths,
     data_dir: &Path,
@@ -46,6 +62,8 @@ pub async fn create_instance(
         java_path_override: None,
         jvm_args: Vec::new(),
         game_args: Vec::new(),
+        icon: sanitize_icon_id(req.icon, ""),
+        background: sanitize_icon_id(req.background, ""),
         created_at: Utc::now().to_rfc3339(),
         last_played_at: None,
         play_time_seconds: 0,
@@ -92,6 +110,15 @@ pub async fn update_instance(
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty());
     instance.auto_update_horizon = req.auto_update_horizon;
+
+    if let Some(icon) = req.icon {
+        let fallback = instance.icon.clone();
+        instance.icon = sanitize_icon_id(Some(icon), &fallback);
+    }
+    if let Some(background) = req.background {
+        let fallback = instance.background.clone();
+        instance.background = sanitize_icon_id(Some(background), &fallback);
+    }
 
     let updated = instance.clone();
     write_json_atomic(&paths.instances_file(data_dir), &store).await?;
@@ -196,4 +223,32 @@ pub async fn record_play_session(
         write_json_atomic(&paths.instances_file(data_dir), &store).await?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sanitize_icon_id;
+
+    #[test]
+    fn keeps_valid_icon_ids() {
+        assert_eq!(
+            sanitize_icon_id(Some("  Grass_Block ".into()), "purple"),
+            "grass_block"
+        );
+        assert_eq!(
+            sanitize_icon_id(Some("dark-gray".into()), "purple"),
+            "dark-gray"
+        );
+    }
+
+    #[test]
+    fn rejects_paths_and_empty_ids() {
+        assert_eq!(sanitize_icon_id(Some("../secret".into()), "purple"), "purple");
+        assert_eq!(sanitize_icon_id(Some("  ".into()), "purple"), "purple");
+        assert_eq!(sanitize_icon_id(None, "purple"), "purple");
+        assert_eq!(
+            sanitize_icon_id(Some("a".repeat(64)), "purple"),
+            "purple"
+        );
+    }
 }

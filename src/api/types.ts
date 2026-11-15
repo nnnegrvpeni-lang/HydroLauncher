@@ -42,6 +42,10 @@ export interface Instance {
   javaPathOverride: string | null;
   jvmArgs: string[];
   gameArgs: string[];
+  /** ID иллюстрации из `public/instance-icons`; пустая строка — выбрать по id. */
+  icon: string;
+  /** ID градиентного фона; пустая строка — выбрать по id. */
+  background: string;
   createdAt: string;
   lastPlayedAt: string | null;
   playTimeSeconds: number;
@@ -53,6 +57,8 @@ export interface CreateInstanceRequest {
   engine: EngineKind;
   loader: ModLoaderKind;
   loaderVersion?: string | null;
+  icon?: string | null;
+  background?: string | null;
 }
 
 export interface UpdateInstanceRequest {
@@ -63,6 +69,8 @@ export interface UpdateInstanceRequest {
   jvmArgs: string[];
   loaderVersion?: string | null;
   autoUpdateHorizon?: boolean;
+  icon?: string | null;
+  background?: string | null;
 }
 
 export interface OfflineAccount {

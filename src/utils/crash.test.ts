@@ -14,6 +14,8 @@ const instance: Instance = {
   javaPathOverride: null,
   jvmArgs: [],
   gameArgs: [],
+  icon: 'grass_block',
+  background: 'purple',
   createdAt: '2026-11-01T00:00:00.000Z',
   lastPlayedAt: null,
   playTimeSeconds: 0,

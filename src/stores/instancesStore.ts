@@ -17,6 +17,8 @@ interface InstancesState {
     engine: 'java' | 'horizon';
     loader: 'vanilla' | 'fabric' | 'forge' | 'neoforge' | 'quilt';
     loaderVersion?: string | null;
+    icon?: string | null;
+    background?: string | null;
   }) => Promise<Instance>;
   remove: (id: string) => Promise<void>;
   update: (id: string, patch: Partial<Instance>) => Promise<void>;
@@ -82,6 +84,8 @@ export const useInstancesStore = create<InstancesState>((set, get) => ({
       jvmArgs: patch.jvmArgs ?? current.jvmArgs,
       loaderVersion:
         patch.loaderVersion !== undefined ? patch.loaderVersion : current.loaderVersion,
+      icon: patch.icon !== undefined ? patch.icon : current.icon,
+      background: patch.background !== undefined ? patch.background : current.background,
     });
     set({
       instances: get().instances.map((i) => (i.id === id ? updated : i)),

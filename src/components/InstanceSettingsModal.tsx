@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { ChevronDown, Download, Loader2 } from 'lucide-react';
+import { ChevronDown, Download, Loader2, Palette } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Modal } from './ui/Modal';
 import { Switch } from './ui/Switch';
+import { InstanceIcon } from './InstanceIcon';
+import { InstanceIconEditorModal } from './InstanceIconEditorModal';
 import { useCatalogStore } from '../stores/catalogStore';
 import { useInstancesStore } from '../stores/instancesStore';
 import { useNotifyStore } from '../stores/notifyStore';
@@ -10,6 +12,12 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { useI18n } from '../i18n';
 import { cn } from '../utils/cn';
 import { formatMemory } from '../utils/format';
+import {
+  backgroundLabel,
+  resolveInstanceIcon,
+  symbolLabel,
+  type InstanceIconConfig,
+} from '../utils/instanceIcons';
 import { api, type InstalledHorizonBinary, type Instance } from '../api';
 
 interface InstanceSettingsModalProps {
@@ -39,6 +47,8 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
   const loaderDropdownRef = useRef<HTMLDivElement>(null);
   const [installedHorizon, setInstalledHorizon] = useState<InstalledHorizonBinary[]>([]);
   const [saving, setSaving] = useState(false);
+  const [iconConfig, setIconConfig] = useState<InstanceIconConfig>({ icon: '', background: '' });
+  const [iconEditorOpen, setIconEditorOpen] = useState(false);
 
   const horizonReleases = useCatalogStore((s) => s.horizonReleases);
   const horizonReleasesLoading = useCatalogStore((s) => s.horizonReleasesLoading);
@@ -53,7 +63,14 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
     setJvmArgsText(instance.jvmArgs.join(' '));
     setLoaderVersion(instance.loaderVersion ?? '');
     setAutoUpdateHorizon(instance.autoUpdateHorizon ?? true);
+    setIconConfig(
+      resolveInstanceIcon(
+        { icon: instance.icon, background: instance.background },
+        instance.id,
+      ),
+    );
     setLoaderDropdownOpen(false);
+    setIconEditorOpen(false);
   }, [instance, settings?.defaultMemoryMb]);
 
   useEffect(() => {
@@ -174,6 +191,8 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
           .filter(Boolean),
         loaderVersion: nextLoaderVersion,
         autoUpdateHorizon,
+        icon: iconConfig.icon,
+        background: iconConfig.background,
       });
       onClose();
       if (instance.engine === 'horizon' && nextLoaderVersion !== prevLoaderVersion) {
@@ -217,6 +236,30 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
           spellCheck={false}
           className="hl-input"
         />
+      </div>
+
+      <div>
+        <span className="hl-field-label">{t('Оформление сборки')}</span>
+        <div className="flex items-center gap-3 rounded-[10px] border border-line bg-bg-well/55 p-2">
+          <InstanceIcon
+            icon={iconConfig.icon}
+            background={iconConfig.background}
+            seed={instance.id}
+            className="h-[52px] w-[52px] shrink-0 rounded-[9px]"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[12.5px] font-medium text-ink">
+              {t(symbolLabel(iconConfig.icon))}
+            </p>
+            <p className="truncate text-[11px] text-faint">
+              {t(backgroundLabel(iconConfig.background))}
+            </p>
+          </div>
+          <Button size="sm" variant="secondary" onClick={() => setIconEditorOpen(true)}>
+            <Palette size={12.5} />
+            {t('Изменить')}
+          </Button>
+        </div>
       </div>
 
       {instance.engine === 'horizon' ? (
@@ -462,6 +505,14 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
           </Button>
         </div>
       </div>
+
+      <InstanceIconEditorModal
+        open={iconEditorOpen}
+        config={iconConfig}
+        seed={instance.id}
+        onClose={() => setIconEditorOpen(false)}
+        onApply={setIconConfig}
+      />
     </Modal>
   );
 }

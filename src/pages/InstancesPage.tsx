@@ -12,6 +12,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { CreateInstanceModal } from '../components/CreateInstanceModal';
+import { InstanceIcon } from '../components/InstanceIcon';
 import { InstanceModsModal } from '../components/InstanceModsModal';
 import { InstanceSettingsModal } from '../components/InstanceSettingsModal';
 import { VoxelEmblem } from '../components/VoxelEmblem';
@@ -45,15 +46,6 @@ const LOADER_LABEL: Record<string, string> = {
   forge: 'Forge',
   neoforge: 'NeoForge',
   quilt: 'Quilt',
-};
-
-const TINT: Record<string, string> = {
-  vanilla: '#7a9a6a',
-  fabric: '#cfc5aa',
-  forge: '#8a929c',
-  neoforge: '#6a9f8e',
-  quilt: '#8f83c4',
-  horizon: '#9b8470',
 };
 
 interface InstancesPageProps {
@@ -238,8 +230,6 @@ export function InstancesPage({
               const instProgress =
                 progress?.instanceId === instance.id ? progress : null;
               const memoryMb = instance.memoryMbOverride ?? defaultMemoryMb;
-              const tint =
-                TINT[instance.engine === 'horizon' ? 'horizon' : instance.loader] ?? TINT.vanilla;
 
               return (
                 <article
@@ -247,34 +237,20 @@ export function InstancesPage({
                   style={{ animationDelay: `${Math.min(idx * 25, 200)}ms` }}
                   className="deck-surface hl-fade-up group flex flex-col overflow-hidden rounded-[16px] p-2.5 transition-transform duration-200 hover:-translate-y-1"
                 >
-                  {/* Верхняя мини-сцена картриджа со ступенчатым холмом */}
+                  {/* Оформление сборки: фон + предмет, как в Modrinth; лоадер — маленький бейдж */}
                   <button
                     onClick={() => setDetailInstanceId(instance.id)}
                     className="flex flex-col items-stretch text-left"
                   >
-                    <div className="relative h-[84px] w-full overflow-hidden rounded-[11px] bg-bg-well/55">
-                      <div
-                        className="absolute inset-x-0 bottom-0 h-14 opacity-35 transition-opacity group-hover:opacity-50"
-                        style={{
-                          background: tint,
-                          clipPath:
-                            'polygon(0 60%,12% 60%,12% 35%,28% 35%,28% 55%,45% 55%,45% 20%,62% 20%,62% 48%,80% 48%,80% 30%,100% 30%,100% 100%,0 100%)',
-                        }}
-                        aria-hidden
+                    <div className="relative h-[92px] w-full overflow-hidden rounded-[11px]">
+                      <InstanceIcon
+                        icon={instance.icon}
+                        background={instance.background}
+                        seed={instance.id}
+                        className="h-full w-full"
                       />
-                      <VoxelEmblem
-                        engine={instance.engine}
-                        loader={instance.loader}
-                        size={48}
-                        className="absolute top-3.5 left-4"
-                      />
-                      <span
-                        className={cn(
-                          'absolute top-3 right-3 font-mono text-[11.5px]',
-                          isRunning ? 'font-medium text-accent' : 'text-muted',
-                        )}
-                      >
-                        {isRunning ? t('Запущена') : instance.minecraftVersion}
+                      <span className="absolute right-2 bottom-2 flex h-6 w-6 items-center justify-center rounded-[7px] border border-white/20 bg-black/30 backdrop-blur-sm">
+                        <VoxelEmblem engine={instance.engine} loader={instance.loader} size={18} />
                       </span>
                     </div>
 
@@ -283,6 +259,8 @@ export function InstancesPage({
                         {instance.name}
                       </h2>
                       <p className="mt-1 flex items-center gap-1.5 font-mono text-[11px] text-muted">
+                        <span className="text-ink/75">{instance.minecraftVersion}</span>
+                        <span className="text-faint">·</span>
                         <span>
                           {instance.engine === 'horizon'
                             ? 'Rust'
@@ -300,6 +278,12 @@ export function InstancesPage({
                             <span className="tabular-nums">
                               {formatPlayTime(instance.playTimeSeconds, language)}
                             </span>
+                          </>
+                        )}
+                        {isRunning && (
+                          <>
+                            <span className="text-faint">·</span>
+                            <span className="text-accent">{t('Запущена')}</span>
                           </>
                         )}
                       </p>

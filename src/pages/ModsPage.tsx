@@ -27,7 +27,7 @@ import {
   type ModrinthSearchHit,
   type ModrinthVersionInfo,
 } from '../api';
-import { VoxelEmblem } from '../components/VoxelEmblem';
+import { InstanceIcon } from '../components/InstanceIcon';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { useCatalogStore } from '../stores/catalogStore';
@@ -1021,10 +1021,11 @@ export function ModsPage({
 
         {targetInstance ? (
           <div className="flex items-center gap-2.5 rounded-[10px] border border-line-strong bg-surface/65 px-3 py-1.5 backdrop-blur-xl">
-            <VoxelEmblem
-              engine={targetInstance.engine}
-              loader={targetInstance.loader}
-              size={22}
+            <InstanceIcon
+              icon={targetInstance.icon}
+              background={targetInstance.background}
+              seed={targetInstance.id}
+              className="h-[22px] w-[22px] shrink-0 rounded-[6px]"
             />
             <span className="text-xs text-muted">
               {t('Установка в')}{' '}
@@ -1566,7 +1567,12 @@ export function ModsPage({
                       className="group flex items-center justify-between gap-3 rounded-[8px] border border-line bg-bg-well/55 px-3 py-2.5 transition-colors hover:border-line-strong"
                     >
                       <div className="flex min-w-0 items-center gap-3">
-                        <VoxelEmblem engine={inst.engine} loader={inst.loader} size={30} />
+                        <InstanceIcon
+                          icon={inst.icon}
+                          background={inst.background}
+                          seed={inst.id}
+                          className="h-[30px] w-[30px] shrink-0 rounded-[8px]"
+                        />
                         <div className="min-w-0">
                           <p className="truncate text-[13px] font-medium text-ink">{inst.name}</p>
                           <p className="font-mono text-[11px] text-muted">
@@ -1607,7 +1613,12 @@ export function ModsPage({
                     className="flex items-center justify-between gap-3 rounded-[8px] border border-line/60 bg-bg-well/25 px-3 py-2 opacity-60"
                   >
                     <div className="flex min-w-0 items-center gap-2.5">
-                      <VoxelEmblem engine={inst.engine} loader={inst.loader} size={24} />
+                      <InstanceIcon
+                        icon={inst.icon}
+                        background={inst.background}
+                        seed={inst.id}
+                        className="h-6 w-6 shrink-0 rounded-[6px]"
+                      />
                       <div className="min-w-0">
                         <p className="truncate text-xs font-medium text-ink">{inst.name}</p>
                         <p className="font-mono text-[10.5px] text-muted">

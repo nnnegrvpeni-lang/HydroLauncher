@@ -1006,6 +1006,8 @@ async fn install_mrpack_from_bytes(
             engine: crate::models::instance::EngineKind::Java,
             loader,
             loader_version,
+            icon: None,
+            background: None,
         },
     )
     .await?;

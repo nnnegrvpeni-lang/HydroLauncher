@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, Download, FileArchive, FolderOpen, Loader2, Search } from 'lucide-react';
+import { ChevronDown, Download, FileArchive, FolderOpen, Loader2, Palette, Search } from 'lucide-react';
 import {
   api,
   type EngineKind,
@@ -13,6 +13,14 @@ import { useI18n } from '../i18n';
 import { localizeError } from '../i18n/errors';
 import { cn } from '../utils/cn';
 import { formatCompactNumber } from '../utils/format';
+import {
+  backgroundLabel,
+  randomInstanceIcon,
+  symbolLabel,
+  type InstanceIconConfig,
+} from '../utils/instanceIcons';
+import { InstanceIcon } from './InstanceIcon';
+import { InstanceIconEditorModal } from './InstanceIconEditorModal';
 import { Button } from './ui/Button';
 import { Modal } from './ui/Modal';
 
@@ -86,6 +94,14 @@ export function CreateInstanceModal({
   const [loaderDropdownOpen, setLoaderDropdownOpen] = useState(false);
   const loaderDropdownRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const [iconConfig, setIconConfig] = useState<InstanceIconConfig>(() => randomInstanceIcon());
+  const [iconEditorOpen, setIconEditorOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setIconConfig(randomInstanceIcon());
+    setIconEditorOpen(false);
+  }, [open]);
 
   const supportedMcSet = useMemo(() => {
     if (engine !== 'java' || loader === 'vanilla') return null;
@@ -250,6 +266,8 @@ export function CreateInstanceModal({
           (engine === 'horizon' || loader !== 'vanilla') && loaderVersion
             ? loaderVersion
             : null,
+        icon: iconConfig.icon,
+        background: iconConfig.background,
       });
       setName('');
       setVersionQuery('');
@@ -408,6 +426,30 @@ export function CreateInstanceModal({
                 className="hl-input"
                 autoFocus
               />
+            </div>
+
+            <div>
+              <span className="hl-field-label">{t('Оформление')}</span>
+              <div className="flex items-center gap-3 rounded-[10px] border border-line bg-bg-well/55 p-2">
+                <InstanceIcon
+                  icon={iconConfig.icon}
+                  background={iconConfig.background}
+                  seed={name || 'new-instance'}
+                  className="h-[52px] w-[52px] shrink-0 rounded-[9px]"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[12.5px] font-medium text-ink">
+                    {t(symbolLabel(iconConfig.icon))}
+                  </p>
+                  <p className="truncate text-[11px] text-faint">
+                    {t(backgroundLabel(iconConfig.background))}
+                  </p>
+                </div>
+                <Button size="sm" variant="secondary" onClick={() => setIconEditorOpen(true)}>
+                  <Palette size={12.5} />
+                  {t('Изменить')}
+                </Button>
+              </div>
             </div>
 
             <div>
@@ -845,6 +887,14 @@ export function CreateInstanceModal({
       {error && (
         <p className="text-xs break-all text-danger">{localizeError(error, language)}</p>
       )}
+
+      <InstanceIconEditorModal
+        open={iconEditorOpen}
+        config={iconConfig}
+        seed={name || 'new-instance'}
+        onClose={() => setIconEditorOpen(false)}
+        onApply={setIconConfig}
+      />
     </Modal>
   );
 }

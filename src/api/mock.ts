@@ -80,6 +80,8 @@ let instances: Instance[] = [
     javaPathOverride: null,
     jvmArgs: [],
     gameArgs: [],
+    icon: '',
+    background: '',
     createdAt: '2026-05-12T11:20:00.000Z',
     lastPlayedAt: now(),
     playTimeSeconds: 48_320,
@@ -96,6 +98,8 @@ let instances: Instance[] = [
     javaPathOverride: null,
     jvmArgs: [],
     gameArgs: [],
+    icon: '',
+    background: '',
     createdAt: '2026-06-01T08:45:00.000Z',
     lastPlayedAt: null,
     playTimeSeconds: 1_800,
@@ -112,6 +116,8 @@ let instances: Instance[] = [
     javaPathOverride: null,
     jvmArgs: [],
     gameArgs: [],
+    icon: '',
+    background: '',
     createdAt: '2026-06-20T16:10:00.000Z',
     lastPlayedAt: null,
     playTimeSeconds: 0,
@@ -128,6 +134,8 @@ let instances: Instance[] = [
     javaPathOverride: null,
     jvmArgs: [],
     gameArgs: [],
+    icon: '',
+    background: '',
     createdAt: '2026-09-02T10:12:00.000Z',
     lastPlayedAt: '2026-11-09T18:40:00.000Z',
     playTimeSeconds: 21_600,
@@ -144,6 +152,8 @@ let instances: Instance[] = [
     javaPathOverride: null,
     jvmArgs: [],
     gameArgs: [],
+    icon: '',
+    background: '',
     createdAt: '2026-10-11T09:05:00.000Z',
     lastPlayedAt: '2026-11-12T20:15:00.000Z',
     playTimeSeconds: 5_400,
@@ -160,6 +170,8 @@ let instances: Instance[] = [
     javaPathOverride: null,
     jvmArgs: [],
     gameArgs: [],
+    icon: '',
+    background: '',
     createdAt: '2026-08-19T12:00:00.000Z',
     lastPlayedAt: null,
     playTimeSeconds: 0,
@@ -176,6 +188,8 @@ let instances: Instance[] = [
     javaPathOverride: null,
     jvmArgs: [],
     gameArgs: [],
+    icon: '',
+    background: '',
     createdAt: '2026-07-04T15:30:00.000Z',
     lastPlayedAt: '2026-10-28T21:05:00.000Z',
     playTimeSeconds: 3_120,
@@ -316,6 +330,8 @@ export async function mockInvoke<T>(
         minecraftVersion: string;
         engine: Instance['engine'];
         loader: Instance['loader'];
+        icon?: string | null;
+        background?: string | null;
       };
       const instance: Instance = {
         id: `inst-${Date.now()}`,
@@ -329,6 +345,8 @@ export async function mockInvoke<T>(
         javaPathOverride: null,
         jvmArgs: [],
         gameArgs: [],
+        icon: request.icon ?? '',
+        background: request.background ?? '',
         createdAt: now(),
         lastPlayedAt: null,
         playTimeSeconds: 0,
@@ -343,6 +361,8 @@ export async function mockInvoke<T>(
         memoryMbOverride: number | null;
         javaPathOverride: string | null;
         jvmArgs: string[];
+        icon?: string | null;
+        background?: string | null;
       };
       instances = instances.map((i) =>
         i.id === request.id
@@ -352,6 +372,8 @@ export async function mockInvoke<T>(
               memoryMbOverride: request.memoryMbOverride,
               javaPathOverride: request.javaPathOverride,
               jvmArgs: request.jvmArgs,
+              icon: request.icon ?? i.icon,
+              background: request.background ?? i.background,
             }
           : i,
       );
@@ -666,6 +688,8 @@ export async function mockInvoke<T>(
         javaPathOverride: null,
         jvmArgs: [],
         gameArgs: [],
+        icon: '',
+        background: '',
         createdAt: now(),
         lastPlayedAt: null,
         playTimeSeconds: 0,
@@ -727,6 +751,8 @@ export async function mockInvoke<T>(
         javaPathOverride: null,
         jvmArgs: [],
         gameArgs: [],
+        icon: '',
+        background: '',
         createdAt: now(),
         lastPlayedAt: null,
         playTimeSeconds: 0,

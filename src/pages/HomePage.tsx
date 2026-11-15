@@ -18,6 +18,7 @@ import {
   UserPlus,
   X,
 } from 'lucide-react';
+import { InstanceIcon } from '../components/InstanceIcon';
 import { InstanceModsModal } from '../components/InstanceModsModal';
 import { InstanceSettingsModal } from '../components/InstanceSettingsModal';
 import { VoxelEmblem } from '../components/VoxelEmblem';
@@ -542,8 +543,16 @@ export function HomePage({
         {/* Главный герой-блок сборки (левая нижняя зона сцены) */}
         <div className="relative z-10 mt-auto max-w-[680px] px-7 pb-8 lg:px-10 lg:pb-10">
           <div className="flex items-center gap-3.5">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[13px] border border-line-strong bg-surface/75 backdrop-blur-xl shadow-[inset_0_1px_0_var(--rim),0_12px_28px_-12px_rgba(0,0,0,0.65)]">
-              <VoxelEmblem engine={featured.engine} loader={featured.loader} size={32} />
+            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-[13px] border border-line-strong shadow-[0_12px_28px_-12px_rgba(0,0,0,0.65)]">
+              <InstanceIcon
+                icon={featured.icon}
+                background={featured.background}
+                seed={featured.id}
+                className="h-full w-full"
+              />
+              <span className="absolute right-0.5 bottom-0.5 flex h-[17px] w-[17px] items-center justify-center rounded-[5px] bg-black/35 backdrop-blur-sm">
+                <VoxelEmblem engine={featured.engine} loader={featured.loader} size={13} />
+              </span>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 rounded-[9px] border border-line bg-surface/55 px-3 py-1.5 font-mono text-[12px] text-muted backdrop-blur-md">
@@ -682,9 +691,12 @@ export function HomePage({
                     : 'border-line bg-surface/45 text-muted hover:border-line-strong hover:bg-surface/80 hover:text-ink',
                 )}
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] border border-line bg-bg-well/70">
-                  <VoxelEmblem engine={inst.engine} loader={inst.loader} size={26} />
-                </div>
+                <InstanceIcon
+                  icon={inst.icon}
+                  background={inst.background}
+                  seed={inst.id}
+                  className="h-9 w-9 shrink-0 rounded-[9px] border border-line"
+                />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[13px] font-medium text-ink">
                     {inst.name}

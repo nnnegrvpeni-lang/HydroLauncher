@@ -1,7 +1,8 @@
 use crate::error::{AppError, AppResult};
 use crate::models::events::LaunchProgressEvent;
 use crate::models::instance::{
-    CreateInstanceRequest, EngineKind, Instance, ModLoaderKind, UpdateInstanceRequest,
+    default_background, default_icon, CreateInstanceRequest, EngineKind, Instance, ModLoaderKind,
+    UpdateInstanceRequest,
 };
 use crate::services::instance_service;
 use crate::storage::paths::AppPaths;
@@ -35,6 +36,10 @@ struct InstanceArchiveManifest {
     java_path_override: Option<String>,
     #[serde(default)]
     jvm_args: Vec<String>,
+    #[serde(default = "default_icon")]
+    icon: String,
+    #[serde(default = "default_background")]
+    background: String,
 }
 
 #[derive(Debug, Clone)]
@@ -184,6 +189,8 @@ pub async fn export_instance(
         memory_mb_override: instance.memory_mb_override,
         java_path_override: instance.java_path_override.clone(),
         jvm_args: instance.jvm_args.clone(),
+        icon: instance.icon.clone(),
+        background: instance.background.clone(),
     };
     let manifest_bytes = serde_json::to_vec_pretty(&manifest)?;
 
@@ -356,6 +363,8 @@ pub async fn import_instance(
             engine: manifest.engine,
             loader: manifest.loader,
             loader_version: manifest.loader_version.clone(),
+            icon: Some(manifest.icon.clone()),
+            background: Some(manifest.background.clone()),
         },
     )
     .await?;
@@ -371,6 +380,8 @@ pub async fn import_instance(
             jvm_args: manifest.jvm_args,
             loader_version: manifest.loader_version,
             auto_update_horizon: true,
+            icon: None,
+            background: None,
         },
     )
     .await

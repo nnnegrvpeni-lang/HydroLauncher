@@ -15,6 +15,8 @@ function makeInstance(id: string, lastPlayedAt: string | null, createdAt: string
     javaPathOverride: null,
     jvmArgs: [],
     gameArgs: [],
+    icon: 'grass_block',
+    background: 'purple',
     createdAt,
     lastPlayedAt,
     playTimeSeconds: 0,
