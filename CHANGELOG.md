@@ -4,7 +4,7 @@
 [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/), версии следуют
 [семантическому версионированию](https://semver.org/lang/ru/).
 
-## [0.2.0] — в разработке
+## [0.2.0] — 2026-11-15
 
 ### Исправлено
 - Скачивание файлов стало устойчивым к обрывам: общий HTTP-клиент с
@@ -105,5 +105,6 @@
 - Изолированная консоль для каждой сборки с копированием и очисткой логов.
 - Три темы оформления — «Сумерки», «Ночь», «День» — в стиле «жидкого стекла».
 
+[0.2.0]: https://github.com/nnnegrvpeni-lang/HydroLauncher/releases/tag/v0.2.0
 [0.1.1]: https://github.com/nnnegrvpeni-lang/HydroLauncher/releases/tag/v0.1.1
 [0.1.0]: https://github.com/nnnegrvpeni-lang/HydroLauncher/releases/tag/v0.1.0

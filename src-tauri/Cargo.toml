@@ -1,6 +1,6 @@
 [package]
 name = "hydro-launcher"
-version = "0.1.1"
+version = "0.2.0"
 description = "Clean, minimal Minecraft launcher supporting Java Edition and Horizon (Rust)"
 authors = ["HydroLauncher"]
 edition = "2021"

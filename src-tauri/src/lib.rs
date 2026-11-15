@@ -78,9 +78,9 @@ fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
             }
         });
 
-    if let Some(icon) = app.default_window_icon().cloned() {
-        builder = builder.icon(icon);
-    }
+    // Иконка из ресурсов гарантирует, что значок трея виден даже если
+    // системная иконка окна недоступна.
+    builder = builder.icon(tauri::include_image!("icons/32x32.png"));
 
     builder.build(app)?;
     Ok(())
