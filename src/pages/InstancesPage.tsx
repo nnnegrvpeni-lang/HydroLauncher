@@ -9,6 +9,7 @@ import {
   Search,
   SlidersHorizontal,
   Trash2,
+  Upload,
 } from 'lucide-react';
 import { CreateInstanceModal } from '../components/CreateInstanceModal';
 import { InstanceModsModal } from '../components/InstanceModsModal';
@@ -84,6 +85,22 @@ export function InstancesPage({
   const [pendingDelete, setPendingDelete] = useState<Instance | null>(null);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [exportingId, setExportingId] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+
+  const importArchive = async () => {
+    try {
+      const path = await api.pickInstanceArchive();
+      if (!path) return;
+      setImporting(true);
+      const created = await api.importInstanceArchive(path);
+      await reload();
+      notify(tf('Сборка импортирована: {name}', { name: created.name }));
+    } catch (err) {
+      notify(String(err), 'error');
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const duplicate = async (instance: Instance) => {
     setDuplicatingId(instance.id);
@@ -137,10 +154,21 @@ export function InstancesPage({
           </p>
         </div>
 
-        <Button variant="accent" size="md" onClick={() => setCreateOpen(true)}>
-          <Plus size={14} />
-          {t('Создать сборку')}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            size="md"
+            onClick={() => void importArchive()}
+            disabled={importing}
+          >
+            {importing ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+            {t('Импортировать архив')}
+          </Button>
+          <Button variant="accent" size="md" onClick={() => setCreateOpen(true)}>
+            <Plus size={14} />
+            {t('Создать сборку')}
+          </Button>
+        </div>
       </header>
 
       {instances.length > 0 && (

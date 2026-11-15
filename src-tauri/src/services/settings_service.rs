@@ -52,6 +52,8 @@ pub async fn load_or_init_settings(paths: &AppPaths) -> AppResult<AppSettings> {
         close_on_launch: false,
         close_to_tray: false,
         language: crate::models::settings::Language::Ru,
+        auto_backup_worlds: false,
+        backup_retention: 5,
         show_snapshots: false,
         custom_java_paths: Vec::new(),
     };
@@ -75,6 +77,7 @@ pub async fn save_settings(paths: &AppPaths, mut settings: AppSettings) -> AppRe
     let max_allowed = sys_info.total_memory_mb.max(MIN_MEMORY_MB);
     settings.default_memory_mb = settings.default_memory_mb.clamp(MIN_MEMORY_MB, max_allowed);
     settings.max_concurrent_downloads = settings.max_concurrent_downloads.clamp(1, 32);
+    settings.backup_retention = settings.backup_retention.clamp(1, 50);
 
     write_json_atomic(&paths.config_file(), &settings).await?;
     Ok(settings)

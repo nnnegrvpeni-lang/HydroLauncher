@@ -20,6 +20,10 @@ fn default_language() -> Language {
     Language::Ru
 }
 
+fn default_backup_retention() -> usize {
+    5
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
@@ -33,6 +37,10 @@ pub struct AppSettings {
     pub close_to_tray: bool,
     #[serde(default = "default_language")]
     pub language: Language,
+    #[serde(default)]
+    pub auto_backup_worlds: bool,
+    #[serde(default = "default_backup_retention")]
+    pub backup_retention: usize,
     pub show_snapshots: bool,
     pub custom_java_paths: Vec<String>,
 }

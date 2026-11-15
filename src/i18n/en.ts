@@ -205,9 +205,34 @@ export const en: Record<string, string> = {
   'Ресурсы Horizon готовы к запуску': 'Horizon resources are ready to launch',
   'Остановите игру перед сменой папки данных':
     'Stop the game before changing the data folder',
+  'Авто-бэкап миров перед запуском': 'Auto-backup worlds before launch',
+  'Копии изменившихся миров создаются до старта игры':
+    'Backups of changed worlds are created before the game starts',
+  'Хранить копий на мир': 'Backups kept per world',
+  'Старые копии удаляются автоматически': 'Older backups are removed automatically',
   'Открыть лог': 'Open log',
   'Логов пока нет — запустите сборку, чтобы увидеть вывод процесса.':
     'No logs yet — launch the instance to see the process output.',
+
+  // Бэкапы миров и архивы сборок
+  'Резервные копии': 'Backups',
+  'Резервных копий пока нет': 'No backups yet',
+  Восстановить: 'Restore',
+  'Восстановить мир из этой копии? Текущий мир будет сохранён рядом как .before-restore.':
+    'Restore the world from this backup? The current world will be kept next to it as .before-restore.',
+  'Удалить эту резервную копию?': 'Delete this backup?',
+  'Удалить резервную копию': 'Delete backup',
+  'Мир восстановлен из копии {file}': 'World restored from {file}',
+  'Резервная копия мира «{folder}»…': 'Backing up world “{folder}”…',
+  'Резервные копии миров готовы': 'World backups are ready',
+  'Экспорт сборки: {file}': 'Exporting instance: {file}',
+  'Импорт сборки…': 'Importing instance…',
+  Импорт: 'Import',
+  'Импортировать архив': 'Import archive',
+  'Экспорт сборки (.zip)': 'Export instance (.zip)',
+  'Полный архив сборки': 'Full instance archive',
+  'Моды, конфиги и миры в одном zip': 'Mods, configs and worlds in one zip',
+  'Сборка импортирована: {name}': 'Instance imported: {name}',
 
   // Главная: быстрый запуск и док
   'Войти на {address}': 'Join {address}',

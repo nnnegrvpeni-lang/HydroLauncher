@@ -41,6 +41,14 @@ const RULES: Array<{ pattern: RegExp; render: (match: RegExpMatchArray) => strin
     pattern: /^(.+) готов$/,
     render: (m) => `${m[1]} is ready`,
   },
+  {
+    pattern: /^Резервная копия мира «(.+)»…$/,
+    render: (m) => `Backing up world “${m[1]}”…`,
+  },
+  {
+    pattern: /^Экспорт сборки: (.+)$/,
+    render: (m) => `Exporting instance: ${m[1]}`,
+  },
 ];
 
 export function localizeProgressMessage(message: string, language: Language): string {

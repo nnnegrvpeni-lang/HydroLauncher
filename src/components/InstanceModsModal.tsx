@@ -34,6 +34,7 @@ import {
   type InstanceWorld,
   type ModUpdateInfo,
   type ModrinthVersionInfo,
+  type WorldBackupEntry,
 } from '../api';
 import { useAccountsStore } from '../stores/accountsStore';
 import { useInstancesStore } from '../stores/instancesStore';
@@ -65,6 +66,17 @@ function formatWorldDate(ms: number, language: 'ru' | 'en' = 'ru'): string {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
+  });
+}
+
+function formatBackupDate(ms: number, language: 'ru' | 'en'): string {
+  if (!ms) return '—';
+  return new Date(ms).toLocaleString(language === 'en' ? 'en-US' : 'ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
@@ -118,6 +130,17 @@ export function InstanceModsModal({
   const [worldsLoading, setWorldsLoading] = useState(false);
   const [busyWorld, setBusyWorld] = useState<string | null>(null);
   const [pendingWorldDelete, setPendingWorldDelete] = useState<string | null>(null);
+  const [backups, setBackups] = useState<WorldBackupEntry[]>([]);
+  const [expandedWorld, setExpandedWorld] = useState<string | null>(null);
+  const [backupBusy, setBackupBusy] = useState<string | null>(null);
+  const [pendingRestore, setPendingRestore] = useState<{
+    world: string;
+    file: string;
+  } | null>(null);
+  const [pendingBackupDelete, setPendingBackupDelete] = useState<{
+    world: string;
+    file: string;
+  } | null>(null);
 
   const loadMods = useCallback(async (instanceId: string) => {
     setLoading(true);
@@ -167,7 +190,12 @@ export function InstanceModsModal({
     setWorldsLoading(true);
     setError(null);
     try {
-      setWorlds(await api.listInstanceWorlds(instanceId));
+      const [list, backupList] = await Promise.all([
+        api.listInstanceWorlds(instanceId),
+        api.listWorldBackups(instanceId),
+      ]);
+      setWorlds(list);
+      setBackups(backupList);
     } catch (err) {
       setError(String(err));
     } finally {
@@ -187,6 +215,8 @@ export function InstanceModsModal({
     setError(null);
     try {
       const backup = await api.backupInstanceWorld(instance.id, folderName);
+      setBackups(await api.listWorldBackups(instance.id));
+      setExpandedWorld(folderName);
       useNotifyStore
         .getState()
         .push(tf('Резервная копия мира создана: {file}', { file: backup.fileName }));
@@ -194,6 +224,43 @@ export function InstanceModsModal({
       setError(String(err));
     } finally {
       setBusyWorld(null);
+    }
+  };
+
+  const handleRestoreBackup = async (world: string, fileName: string) => {
+    if (!instance) return;
+    setBackupBusy(fileName);
+    setError(null);
+    try {
+      await api.restoreWorldBackup(instance.id, world, fileName);
+      await loadWorlds(instance.id);
+      setPendingRestore(null);
+      useNotifyStore
+        .getState()
+        .push(tf('Мир восстановлен из копии {file}', { file: fileName }));
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setBackupBusy(null);
+    }
+  };
+
+  const handleDeleteBackup = async (world: string, fileName: string) => {
+    if (!instance) return;
+    setBackupBusy(fileName);
+    setError(null);
+    try {
+      await api.deleteWorldBackup(instance.id, world, fileName);
+      setBackups((prev) =>
+        prev.filter(
+          (backup) => !(backup.worldFolder === world && backup.fileName === fileName),
+        ),
+      );
+      setPendingBackupDelete(null);
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setBackupBusy(null);
     }
   };
 
@@ -866,78 +933,222 @@ export function InstanceModsModal({
               </div>
             ) : (
               <div className="flex flex-col gap-2.5">
-                {worlds.map((world) => (
-                  <div
-                    key={world.folderName}
-                    className="flex items-center gap-3 rounded-[10px] border border-line bg-surface px-3.5 py-3"
-                  >
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[8px] border border-line bg-bg-well">
-                      {world.iconDataUrl ? (
-                        <img
-                          src={world.iconDataUrl}
-                          alt={world.folderName}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <Globe size={20} className="text-faint" strokeWidth={1.6} />
+                {worlds.map((world) => {
+                  const worldBackups = backups.filter(
+                    (backup) => backup.worldFolder === world.folderName,
+                  );
+                  const isExpanded = expandedWorld === world.folderName;
+                  return (
+                    <div
+                      key={world.folderName}
+                      className="overflow-hidden rounded-[10px] border border-line bg-surface"
+                    >
+                      <div className="flex items-center gap-3 px-3.5 py-3">
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[8px] border border-line bg-bg-well">
+                          {world.iconDataUrl ? (
+                            <img
+                              src={world.iconDataUrl}
+                              alt={world.folderName}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <Globe size={20} className="text-faint" strokeWidth={1.6} />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13px] font-medium text-ink">
+                            {world.folderName}
+                          </p>
+                          <p className="mt-0.5 font-mono text-[11px] text-muted">
+                            {formatBytes(world.sizeBytes, language)} ·{' '}
+                            {formatWorldDate(world.modifiedMs, language)}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1">
+                          {pendingWorldDelete === world.folderName ? (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="danger"
+                                disabled={busyWorld !== null || runtimeLocked}
+                                onClick={() => void handleDeleteWorld(world.folderName)}
+                              >
+                                {t('Удалить')}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setPendingWorldDelete(null)}
+                              >
+                                {t('Отмена')}
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => void handleBackupWorld(world.folderName)}
+                                disabled={busyWorld !== null || runtimeLocked}
+                                title={t('Создать резервную копию')}
+                                className="rounded-[6px] p-1.5 text-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-40"
+                              >
+                                {busyWorld === world.folderName ? (
+                                  <Loader2 size={13} className="animate-spin" />
+                                ) : (
+                                  <Archive size={13} />
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedWorld(isExpanded ? null : world.folderName)
+                                }
+                                title={t('Резервные копии')}
+                                className={cn(
+                                  'inline-flex h-7 items-center gap-1 rounded-[6px] px-1.5 text-[11px] transition-colors hover:bg-surface-2 hover:text-ink',
+                                  isExpanded ? 'text-ink' : 'text-muted',
+                                )}
+                              >
+                                <History size={13} />
+                                {worldBackups.length}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setPendingWorldDelete(world.folderName)}
+                                disabled={busyWorld !== null || runtimeLocked}
+                                title={t('Удалить мир')}
+                                className="rounded-[6px] p-1.5 text-muted transition-colors hover:bg-danger/15 hover:text-danger disabled:opacity-40"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {isExpanded && (
+                        <div className="border-t border-line bg-bg-well/40 px-3.5 py-2">
+                          <div className="flex items-center justify-between py-1">
+                            <span className="text-[11.5px] font-medium text-ink">
+                              {t('Резервные копии')}
+                            </span>
+                            <span className="font-mono text-[11px] text-faint">
+                              {worldBackups.length}
+                            </span>
+                          </div>
+                          {worldBackups.length === 0 ? (
+                            <p className="py-2 text-[11.5px] text-muted">
+                              {t('Резервных копий пока нет')}
+                            </p>
+                          ) : (
+                            <div className="divide-y divide-line/70">
+                              {worldBackups.map((backup) => {
+                                const restoring =
+                                  pendingRestore?.world === world.folderName &&
+                                  pendingRestore.file === backup.fileName;
+                                const deleting =
+                                  pendingBackupDelete?.world === world.folderName &&
+                                  pendingBackupDelete.file === backup.fileName;
+
+                                if (restoring || deleting) {
+                                  return (
+                                    <div
+                                      key={backup.fileName}
+                                      className="flex flex-wrap items-center justify-between gap-2 py-2"
+                                    >
+                                      <p className="text-[11.5px] leading-relaxed text-muted">
+                                        {restoring
+                                          ? t(
+                                              'Восстановить мир из этой копии? Текущий мир будет сохранён рядом как .before-restore.',
+                                            )
+                                          : t('Удалить эту резервную копию?')}
+                                      </p>
+                                      <div className="flex items-center gap-1.5">
+                                        <Button
+                                          size="sm"
+                                          variant="danger"
+                                          disabled={backupBusy !== null || runtimeLocked}
+                                          onClick={() =>
+                                            restoring
+                                              ? void handleRestoreBackup(
+                                                  world.folderName,
+                                                  backup.fileName,
+                                                )
+                                              : void handleDeleteBackup(
+                                                  world.folderName,
+                                                  backup.fileName,
+                                                )
+                                          }
+                                        >
+                                          {restoring ? t('Восстановить') : t('Удалить')}
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => {
+                                            setPendingRestore(null);
+                                            setPendingBackupDelete(null);
+                                          }}
+                                        >
+                                          {t('Отмена')}
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <div
+                                    key={backup.fileName}
+                                    className="flex items-center justify-between gap-3 py-2"
+                                  >
+                                    <div className="min-w-0">
+                                      <p className="font-mono text-[11.5px] text-ink">
+                                        {formatBackupDate(backup.createdMs, language)}
+                                      </p>
+                                      <p className="font-mono text-[10.5px] text-muted">
+                                        {formatBytes(backup.sizeBytes, language)}
+                                      </p>
+                                    </div>
+                                    <div className="flex shrink-0 items-center gap-1">
+                                      <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        disabled={backupBusy !== null || runtimeLocked}
+                                        onClick={() =>
+                                          setPendingRestore({
+                                            world: world.folderName,
+                                            file: backup.fileName,
+                                          })
+                                        }
+                                      >
+                                        {t('Восстановить')}
+                                      </Button>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setPendingBackupDelete({
+                                            world: world.folderName,
+                                            file: backup.fileName,
+                                          })
+                                        }
+                                        disabled={backupBusy !== null || runtimeLocked}
+                                        title={t('Удалить резервную копию')}
+                                        className="rounded-[6px] p-1.5 text-muted transition-colors hover:bg-danger/15 hover:text-danger disabled:opacity-40"
+                                      >
+                                        <Trash2 size={13} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-medium text-ink">
-                        {world.folderName}
-                      </p>
-                      <p className="mt-0.5 font-mono text-[11px] text-muted">
-                        {formatBytes(world.sizeBytes, language)} · {formatWorldDate(world.modifiedMs, language)}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      {pendingWorldDelete === world.folderName ? (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            disabled={busyWorld !== null || runtimeLocked}
-                            onClick={() => void handleDeleteWorld(world.folderName)}
-                          >
-                            {t('Удалить')}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setPendingWorldDelete(null)}
-                          >
-                            {t('Отмена')}
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => void handleBackupWorld(world.folderName)}
-                            disabled={busyWorld !== null || runtimeLocked}
-                            title={t('Создать резервную копию')}
-                            className="rounded-[6px] p-1.5 text-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-40"
-                          >
-                            {busyWorld === world.folderName ? (
-                              <Loader2 size={13} className="animate-spin" />
-                            ) : (
-                              <Archive size={13} />
-                            )}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setPendingWorldDelete(world.folderName)}
-                            disabled={busyWorld !== null || runtimeLocked}
-                            title={t('Удалить мир')}
-                            className="rounded-[6px] p-1.5 text-muted transition-colors hover:bg-danger/15 hover:text-danger disabled:opacity-40"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

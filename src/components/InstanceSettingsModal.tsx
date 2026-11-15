@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Download, Loader2 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Modal } from './ui/Modal';
 import { Switch } from './ui/Switch';
 import { useCatalogStore } from '../stores/catalogStore';
 import { useInstancesStore } from '../stores/instancesStore';
+import { useNotifyStore } from '../stores/notifyStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useI18n } from '../i18n';
 import { cn } from '../utils/cn';
@@ -20,7 +21,10 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
   const update = useInstancesStore((s) => s.update);
   const settings = useSettingsStore((s) => s.settings);
   const systemInfo = useSettingsStore((s) => s.systemInfo);
+  const running = useInstancesStore((s) => s.running);
+  const notify = useNotifyStore((s) => s.push);
   const { t, tf, language } = useI18n();
+  const [exporting, setExporting] = useState(false);
 
   const [name, setName] = useState('');
   const [customMemory, setCustomMemory] = useState(false);
@@ -116,6 +120,22 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
   }, [loaderDropdownOpen]);
 
   if (!instance) return null;
+
+  const runtimeLocked = Boolean(running.get(instance.id));
+
+  const exportArchive = async () => {
+    setExporting(true);
+    try {
+      const result = await api.exportInstanceArchive(instance.id);
+      if (result) {
+        notify(tf('Сборка экспортирована: {path}', { path: result.path }));
+      }
+    } catch (err) {
+      notify(String(err), 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const maxMb = systemInfo?.totalMemoryMb ?? 8192;
   const step = 512;
@@ -418,6 +438,30 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
           )}
         </>
       )}
+
+      <div className="border-t border-line pt-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-[12.5px] font-medium text-ink">{t('Полный архив сборки')}</p>
+            <p className="text-[11.5px] text-muted">
+              {t('Моды, конфиги и миры в одном zip')}
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={exporting || runtimeLocked}
+            onClick={() => void exportArchive()}
+          >
+            {exporting ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              <Download size={13} />
+            )}
+            {t('Экспорт сборки (.zip)')}
+          </Button>
+        </div>
+      </div>
     </Modal>
   );
 }

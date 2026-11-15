@@ -208,6 +208,18 @@ pub async fn launch(
 
     emit_state(&app, &instance.id, "preparing");
 
+    // 0. Авто-бэкап изменившихся миров (если включён в настройках).
+    if settings.auto_backup_worlds {
+        let _ = crate::services::world_backup_service::auto_backup_changed_worlds(
+            &app,
+            &paths,
+            &data_dir,
+            &instance.id,
+            settings.backup_retention,
+        )
+        .await;
+    }
+
     // 1. Описание версии из манифеста Mojang
     let mojang = MojangService::new();
     let (mut details, summary) = mojang

@@ -12,6 +12,8 @@ export interface AppSettings {
   closeOnLaunch: boolean;
   closeToTray: boolean;
   language: 'ru' | 'en';
+  autoBackupWorlds: boolean;
+  backupRetention: number;
   showSnapshots: boolean;
   customJavaPaths: string[];
 }
@@ -271,8 +273,14 @@ export interface InstanceWorld {
   iconDataUrl: string | null;
 }
 
-export interface WorldBackup {
+export interface WorldBackupEntry {
+  worldFolder: string;
   fileName: string;
+  createdMs: number;
+  sizeBytes: number;
+}
+
+export interface ExportedInstanceArchive {
   path: string;
   sizeBytes: number;
 }
@@ -381,9 +389,20 @@ export const api = {
   listInstanceWorlds: (instanceId: string) =>
     invoke<InstanceWorld[]>('list_instance_worlds', { instanceId }),
   backupInstanceWorld: (instanceId: string, folderName: string) =>
-    invoke<WorldBackup>('backup_instance_world', { instanceId, folderName }),
+    invoke<WorldBackupEntry>('backup_instance_world', { instanceId, folderName }),
+  listWorldBackups: (instanceId: string) =>
+    invoke<WorldBackupEntry[]>('list_world_backups', { instanceId }),
+  restoreWorldBackup: (instanceId: string, folderName: string, fileName: string) =>
+    invoke<void>('restore_world_backup', { instanceId, folderName, fileName }),
+  deleteWorldBackup: (instanceId: string, folderName: string, fileName: string) =>
+    invoke<void>('delete_world_backup', { instanceId, folderName, fileName }),
   deleteInstanceWorld: (instanceId: string, folderName: string) =>
     invoke<void>('delete_instance_world', { instanceId, folderName }),
+  exportInstanceArchive: (instanceId: string) =>
+    invoke<ExportedInstanceArchive | null>('export_instance_archive', { instanceId }),
+  pickInstanceArchive: () => invoke<string | null>('pick_instance_archive'),
+  importInstanceArchive: (filePath: string) =>
+    invoke<Instance>('import_instance_archive', { filePath }),
 
   // Настройки
   getSettings: () => invoke<AppSettings>('get_settings'),

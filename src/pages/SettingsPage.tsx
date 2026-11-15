@@ -603,7 +603,48 @@ function StorageGroup() {
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-4 border-t border-line px-5 py-3.5">
+      <div className="flex items-center justify-between gap-4 px-5 py-3.5">
+        <div>
+          <p className="text-[13px] font-medium text-ink">
+            {t('Авто-бэкап миров перед запуском')}
+          </p>
+          <p className="text-xs text-muted">
+            {t('Копии изменившихся миров создаются до старта игры')}
+          </p>
+        </div>
+        <Switch
+          checked={settings.autoBackupWorlds}
+          onChange={(checked) => void save({ ...settings, autoBackupWorlds: checked })}
+          label={t('Авто-бэкап миров перед запуском')}
+        />
+      </div>
+
+      {settings.autoBackupWorlds && (
+        <div className="flex items-center justify-between gap-4 px-5 py-3.5">
+          <div>
+            <p className="text-[13px] font-medium text-ink">{t('Хранить копий на мир')}</p>
+            <p className="text-xs text-muted">
+              {t('Старые копии удаляются автоматически')}
+            </p>
+          </div>
+          <select
+            value={settings.backupRetention}
+            onChange={(e) =>
+              void save({ ...settings, backupRetention: Number(e.target.value) })
+            }
+            className="hl-input h-8 w-20 px-2 text-xs"
+            aria-label={t('Хранить копий на мир')}
+          >
+            {[3, 5, 10, 20].map((count) => (
+              <option key={count} value={count}>
+                {count}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-4 px-5 py-3.5">
         <div>
           <p className="text-[13px] font-medium text-ink">{t('Кэш движка Horizon')}</p>
           <p className="text-xs text-muted">

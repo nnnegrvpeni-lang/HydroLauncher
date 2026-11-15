@@ -398,53 +398,6 @@ pub struct InstanceWorld {
     pub icon_data_url: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WorldBackup {
-    pub file_name: String,
-    pub path: String,
-    pub size_bytes: u64,
-}
-
-/// Проверяет имя папки мира: без разделителей, переходов вверх и пустых имён.
-fn world_dir(saves_dir: &Path, folder_name: &str) -> Result<PathBuf, AppError> {
-    let name = folder_name.trim();
-    if name.is_empty()
-        || name == "."
-        || name == ".."
-        || name.contains(['/', '\\'])
-        || name.contains('\0')
-    {
-        return Err(AppError::Validation("Некорректное имя мира".into()));
-    }
-    Ok(saves_dir.join(name))
-}
-
-/// Суммарный размер папки без перехода по символическим ссылкам.
-async fn directory_size(path: &Path) -> u64 {
-    let mut total = 0u64;
-    let mut stack = vec![path.to_path_buf()];
-    while let Some(dir) = stack.pop() {
-        let Ok(mut entries) = tokio::fs::read_dir(&dir).await else {
-            continue;
-        };
-        while let Ok(Some(entry)) = entries.next_entry().await {
-            let Ok(file_type) = entry.file_type().await else {
-                continue;
-            };
-            if file_type.is_symlink() {
-                continue;
-            }
-            if file_type.is_dir() {
-                stack.push(entry.path());
-            } else if let Ok(meta) = entry.metadata().await {
-                total = total.saturating_add(meta.len());
-            }
-        }
-    }
-    total
-}
-
 async fn world_icon_data_url(world_path: &Path) -> Option<String> {
     let icon_path = world_path.join("icon.png");
     if !icon_path.is_file() {
@@ -462,32 +415,6 @@ async fn world_icon_data_url(world_path: &Path) -> Option<String> {
 struct WorldSizeCacheEntry {
     stamp_ms: u64,
     size_bytes: u64,
-}
-
-/// Дешёвая проверка изменений мира: максимальный mtime среди прямых детей.
-/// Рекурсивно не обходим — `level.dat` переписывается при сохранении.
-async fn world_change_stamp(path: &Path) -> u64 {
-    let mut stamp = tokio::fs::metadata(path)
-        .await
-        .ok()
-        .and_then(|meta| meta.modified().ok())
-        .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
-        .map(|duration| duration.as_millis() as u64)
-        .unwrap_or(0);
-
-    let Ok(mut entries) = tokio::fs::read_dir(path).await else {
-        return stamp;
-    };
-    while let Ok(Some(entry)) = entries.next_entry().await {
-        if let Ok(meta) = entry.metadata().await {
-            if let Ok(modified) = meta.modified() {
-                if let Ok(duration) = modified.duration_since(UNIX_EPOCH) {
-                    stamp = stamp.max(duration.as_millis() as u64);
-                }
-            }
-        }
-    }
-    stamp
 }
 
 #[tauri::command]
@@ -520,6 +447,9 @@ pub async fn list_instance_worlds(
             continue;
         }
         let folder_name = entry.file_name().to_string_lossy().to_string();
+        if folder_name.contains(".before-restore-") {
+            continue;
+        }
         let modified_ms = entry
             .metadata()
             .await
@@ -529,11 +459,11 @@ pub async fn list_instance_worlds(
             .map(|d| d.as_millis() as u64)
             .unwrap_or(0);
 
-        let stamp = world_change_stamp(&path).await;
+        let stamp = crate::services::world_backup_service::world_change_stamp(&path).await;
         let size_bytes = match cache.get(&folder_name) {
             Some(cached) if stamp > 0 && cached.stamp_ms >= stamp => cached.size_bytes,
             _ => {
-                let size = directory_size(&path).await;
+                let size = crate::services::world_backup_service::directory_size(&path).await;
                 cache.insert(
                     folder_name.clone(),
                     WorldSizeCacheEntry {
@@ -575,78 +505,65 @@ pub async fn backup_instance_world(
     registry: State<'_, crate::services::launch_service::LaunchRegistry>,
     instance_id: String,
     folder_name: String,
-) -> Result<WorldBackup, AppError> {
+) -> Result<crate::services::world_backup_service::WorldBackupEntry, AppError> {
     shared::ensure_instance_idle(&registry, &instance_id).await?;
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
-    let saves_dir = paths.instance_game_dir(&data_dir, &instance_id).join("saves");
-    let source = world_dir(&saves_dir, &folder_name)?;
-    if !source.is_dir() || !source.join("level.dat").is_file() {
-        return Err(AppError::NotFound("Мир не найден".into()));
-    }
-
-    let backups_dir = paths.instance_dir(&data_dir, &instance_id).join("backups");
-    tokio::fs::create_dir_all(&backups_dir).await?;
-
-    let clean_name: String = folder_name
-        .chars()
-        .map(|c| {
-            if c.is_alphanumeric() || matches!(c, '-' | '_' | ' ') {
-                c
-            } else {
-                '_'
-            }
-        })
-        .collect();
-    let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
-    let file_name = format!("{}-{}.zip", clean_name.trim(), stamp);
-    let target = backups_dir.join(&file_name);
-
-    let source_clone = source.clone();
-    let target_clone = target.clone();
-    tokio::task::spawn_blocking(move || zip_directory(&source_clone, &target_clone))
-        .await
-        .map_err(|e| AppError::Process(format!("Не удалось создать резервную копию: {e}")))??;
-
-    let size_bytes = tokio::fs::metadata(&target).await?.len();
-    Ok(WorldBackup {
-        file_name,
-        path: target.to_string_lossy().into_owned(),
-        size_bytes,
-    })
+    crate::services::world_backup_service::backup_world(
+        &paths,
+        &data_dir,
+        &instance_id,
+        &folder_name,
+    )
+    .await
 }
 
-fn zip_directory(source: &Path, target: &Path) -> Result<(), AppError> {
-    use zip::write::SimpleFileOptions;
+#[tauri::command]
+pub async fn list_world_backups(
+    state: State<'_, AppState>,
+    instance_id: String,
+) -> Result<Vec<crate::services::world_backup_service::WorldBackupEntry>, AppError> {
+    let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
+    crate::services::world_backup_service::list_backups(&paths, &data_dir, &instance_id).await
+}
 
-    let file = std::fs::File::create(target)?;
-    let mut zip = zip::ZipWriter::new(file);
-    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+#[tauri::command]
+pub async fn restore_world_backup(
+    state: State<'_, AppState>,
+    registry: State<'_, crate::services::launch_service::LaunchRegistry>,
+    instance_id: String,
+    folder_name: String,
+    file_name: String,
+) -> Result<(), AppError> {
+    shared::ensure_instance_idle(&registry, &instance_id).await?;
+    let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
+    crate::services::world_backup_service::restore_backup(
+        &paths,
+        &data_dir,
+        &instance_id,
+        &folder_name,
+        &file_name,
+    )
+    .await
+}
 
-    let base = source.to_path_buf();
-    let mut stack = vec![base.clone()];
-    while let Some(dir) = stack.pop() {
-        for entry in std::fs::read_dir(&dir)?.flatten() {
-            let path = entry.path();
-            let Ok(file_type) = entry.file_type() else {
-                continue;
-            };
-            if file_type.is_symlink() {
-                continue;
-            }
-            if file_type.is_dir() {
-                stack.push(path);
-                continue;
-            }
-            let relative = path.strip_prefix(&base).unwrap_or(&path);
-            let archive_name = relative.to_string_lossy().replace('\\', "/");
-            zip.start_file(archive_name, options)?;
-            let mut input = std::fs::File::open(&path)?;
-            std::io::copy(&mut input, &mut zip)?;
-        }
-    }
-
-    zip.finish()?;
-    Ok(())
+#[tauri::command]
+pub async fn delete_world_backup(
+    state: State<'_, AppState>,
+    registry: State<'_, crate::services::launch_service::LaunchRegistry>,
+    instance_id: String,
+    folder_name: String,
+    file_name: String,
+) -> Result<(), AppError> {
+    shared::ensure_instance_idle(&registry, &instance_id).await?;
+    let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
+    crate::services::world_backup_service::delete_backup(
+        &paths,
+        &data_dir,
+        &instance_id,
+        &folder_name,
+        &file_name,
+    )
+    .await
 }
 
 #[tauri::command]
@@ -658,8 +575,9 @@ pub async fn delete_instance_world(
 ) -> Result<(), AppError> {
     shared::ensure_instance_idle(&registry, &instance_id).await?;
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
+    let folder = crate::services::world_backup_service::validate_world_folder(&folder_name)?;
     let saves_dir = paths.instance_game_dir(&data_dir, &instance_id).join("saves");
-    let target = world_dir(&saves_dir, &folder_name)?;
+    let target = saves_dir.join(&folder);
     if !target.is_dir() {
         return Err(AppError::NotFound("Мир не найден".into()));
     }
@@ -737,8 +655,7 @@ pub async fn read_instance_log(
 pub async fn open_instance_log(
     state: State<'_, AppState>,
     instance_id: String,
-) -> Result<(), AppError> {
-    let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
+) -> Result<(), AppError> {    let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
     let target = instance_latest_log(&paths, &data_dir, &instance_id);
     if !target.is_file() {
         return Err(AppError::NotFound(
@@ -765,6 +682,84 @@ pub async fn open_instance_log(
         .map_err(|e| AppError::Process(format!("Не удалось открыть лог: {e}")))?;
 
     Ok(())
+}
+
+/// Экспортирует сборку целиком (моды, конфиги, миры) в zip.
+#[tauri::command]
+pub async fn export_instance_archive(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    registry: State<'_, crate::services::launch_service::LaunchRegistry>,
+    instance_id: String,
+) -> Result<Option<crate::services::instance_archive_service::ExportedInstanceArchive>, AppError>
+{
+    shared::ensure_instance_idle(&registry, &instance_id).await?;
+    let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
+    let instance = instance_service::load_instances(&paths, &data_dir)
+        .await?
+        .into_iter()
+        .find(|item| item.id == instance_id)
+        .ok_or_else(|| AppError::NotFound("Сборка не найдена".into()))?;
+
+    let default_name = format!("{}.zip", safe_export_name(&instance.name));
+    let Some(target) = rfd::FileDialog::new()
+        .set_title("Экспорт сборки в zip")
+        .set_file_name(&default_name)
+        .add_filter("Zip archive", &["zip"])
+        .save_file()
+    else {
+        return Ok(None);
+    };
+
+    let exported = crate::services::instance_archive_service::export_instance(
+        &app, &paths, &data_dir, &instance, &target,
+    )
+    .await?;
+    Ok(Some(exported))
+}
+
+#[tauri::command]
+pub fn pick_instance_archive() -> Option<String> {
+    rfd::FileDialog::new()
+        .set_title("Выберите архив сборки HydroLauncher")
+        .add_filter("Zip archive", &["zip"])
+        .pick_file()
+        .map(|path| path.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+pub async fn import_instance_archive(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    file_path: String,
+) -> Result<Instance, AppError> {
+    let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
+    crate::services::instance_archive_service::import_instance(
+        &app,
+        &paths,
+        &data_dir,
+        std::path::Path::new(&file_path),
+    )
+    .await
+}
+
+fn safe_export_name(name: &str) -> String {
+    let cleaned: String = name
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || matches!(c, '-' | '_' | ' ') {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let trimmed: String = cleaned.trim().trim_matches('.').chars().take(64).collect();
+    if trimmed.is_empty() {
+        "instance".to_string()
+    } else {
+        trimmed
+    }
 }
 
 #[cfg(test)]

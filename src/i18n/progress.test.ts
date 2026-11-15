@@ -29,6 +29,13 @@ describe('localizeProgressMessage', () => {
       'Forge libraries (3/10)…',
     );
     expect(localizeProgressMessage('Forge готов', 'en')).toBe('Forge is ready');
+    expect(localizeProgressMessage('Резервная копия мира «Мир»…', 'en')).toBe(
+      'Backing up world “Мир”…',
+    );
+    expect(localizeProgressMessage('Экспорт сборки: mods/foo.jar', 'en')).toBe(
+      'Exporting instance: mods/foo.jar',
+    );
+    expect(localizeProgressMessage('Импорт сборки…', 'en')).toBe('Importing instance…');
   });
 
   it('keeps Russian and unknown messages untouched', () => {

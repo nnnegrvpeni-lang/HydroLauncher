@@ -41,6 +41,8 @@ let settings: AppSettings = {
   closeOnLaunch: false,
   closeToTray: false,
   language: 'ru',
+  autoBackupWorlds: false,
+  backupRetention: 5,
   showSnapshots: false,
   customJavaPaths: [],
 };
@@ -605,12 +607,52 @@ export async function mockInvoke<T>(
       ] as T;
     case 'backup_instance_world':
       return {
-        fileName: `${String(args?.folderName ?? 'world')}-backup.zip`,
-        path: `C:\\HydroLauncher\\data\\instances\\${String(args?.instanceId ?? 'inst')}\\backups\\backup.zip`,
+        worldFolder: String(args?.folderName ?? 'world'),
+        fileName: '20261115-120000.zip',
+        createdMs: Date.now(),
         sizeBytes: 18 * 1024 * 1024,
       } as T;
+    case 'list_world_backups':
+      return [
+        {
+          worldFolder: 'Новый мир',
+          fileName: '20261115-120000.zip',
+          createdMs: Date.now() - 3_600_000,
+          sizeBytes: 18 * 1024 * 1024,
+        },
+      ] as T;
+    case 'restore_world_backup':
+    case 'delete_world_backup':
+      return undefined as T;
     case 'delete_instance_world':
       return undefined as T;
+    case 'export_instance_archive':
+      return {
+        path: 'C:\\Users\\Public\\HydroLauncher-instance.zip',
+        sizeBytes: 12 * 1024 * 1024,
+      } as T;
+    case 'pick_instance_archive':
+      return null as T;
+    case 'import_instance_archive': {
+      const imported: Instance = {
+        id: `inst-${Date.now()}`,
+        name: 'Импортированная сборка',
+        minecraftVersion: '1.21.4',
+        engine: 'java',
+        loader: 'fabric',
+        loaderVersion: '0.16.9',
+        autoUpdateHorizon: true,
+        memoryMbOverride: null,
+        javaPathOverride: null,
+        jvmArgs: [],
+        gameArgs: [],
+        createdAt: now(),
+        lastPlayedAt: null,
+        playTimeSeconds: 0,
+      };
+      instances = [...instances, imported];
+      return imported as T;
+    }
     case 'read_instance_log':
       return [
         '[12:00:00] [stdout] Starting Minecraft',
