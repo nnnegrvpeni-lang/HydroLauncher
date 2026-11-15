@@ -8,7 +8,7 @@ import { useInstancesStore } from '../stores/instancesStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { cn } from '../utils/cn';
 import { formatMemory } from '../utils/format';
-import { api, type Instance } from '../api';
+import { api, type InstalledHorizonBinary, type Instance } from '../api';
 
 interface InstanceSettingsModalProps {
   instance: Instance | null;
@@ -31,6 +31,7 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
   const [loaderVersionsLoading, setLoaderVersionsLoading] = useState(false);
   const [loaderDropdownOpen, setLoaderDropdownOpen] = useState(false);
   const loaderDropdownRef = useRef<HTMLDivElement>(null);
+  const [installedHorizon, setInstalledHorizon] = useState<InstalledHorizonBinary[]>([]);
   const [saving, setSaving] = useState(false);
 
   const horizonReleases = useCatalogStore((s) => s.horizonReleases);
@@ -48,6 +49,25 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
     setAutoUpdateHorizon(instance.autoUpdateHorizon ?? true);
     setLoaderDropdownOpen(false);
   }, [instance, settings?.defaultMemoryMb]);
+
+  useEffect(() => {
+    if (!instance || instance.engine !== 'horizon') {
+      setInstalledHorizon([]);
+      return;
+    }
+    let active = true;
+    api
+      .listInstalledHorizonBinaries()
+      .then((list) => {
+        if (active) setInstalledHorizon(list);
+      })
+      .catch(() => {
+        if (active) setInstalledHorizon([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [instance]);
 
   useEffect(() => {
     if (!instance) {
@@ -98,6 +118,16 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
   const maxMb = systemInfo?.totalMemoryMb ?? 8192;
   const step = 512;
   const sliderMax = Math.max(step, Math.floor(maxMb / step) * step);
+
+  const horizonTag = loaderVersion.trim() || 'nightly';
+  const installedForTag = installedHorizon.find((bin) => bin.tagName === horizonTag);
+  const installedLabel = installedForTag
+    ? `Установлено: ${installedForTag.tagName}${
+        installedForTag.updatedAt
+          ? ` · ${new Date(installedForTag.updatedAt).toLocaleDateString('ru-RU')}`
+          : ''
+      }`
+    : 'Не установлено — бинарники скачаются при первом запуске';
 
   const submit = async () => {
     if (!name.trim()) return;
@@ -228,6 +258,7 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
                 </div>
               )}
             </div>
+            <p className="mt-1.5 font-mono text-[11px] text-faint">{installedLabel}</p>
           </div>
 
           <div className="rounded-[8px] border border-line bg-bg-well/70 p-3.5">

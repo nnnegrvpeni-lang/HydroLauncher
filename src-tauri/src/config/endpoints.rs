@@ -12,8 +12,6 @@ pub const MOJANG_RESOURCES_BASE_URL: &str = "https://resources.download.minecraf
 
 pub const ADOPTIUM_API_BASE_URL: &str = "https://api.adoptium.net/v3";
 pub const MODRINTH_API_BASE_URL: &str = "https://api.modrinth.com/v2";
-pub const HORIZON_NIGHTLY_RELEASE_API_URL: &str =
-    "https://api.github.com/repos/horizon-rust/horizon/releases/tags/nightly";
 pub const HORIZON_RELEASES_API_URL: &str =
     "https://api.github.com/repos/horizon-rust/horizon/releases?per_page=50";
 pub fn horizon_release_by_tag_url(tag: &str) -> String {
@@ -22,6 +20,11 @@ pub fn horizon_release_by_tag_url(tag: &str) -> String {
 pub const HORIZON_MODS_INDEX_URL: &str =
     "https://horizon-rust.github.io/horizon-mods/index.json";
 pub const HORIZON_MINECRAFT_VERSION: &str = "26.3";
+
+/// Репозиторий и релизы самого лаунчера.
+pub const HYDRO_REPO_URL: &str = "https://github.com/nnnegrvpeni-lang/HydroLauncher";
+pub const HYDRO_LATEST_RELEASE_API_URL: &str =
+    "https://api.github.com/repos/nnnegrvpeni-lang/HydroLauncher/releases/latest";
 
 pub const FABRIC_META_BASE_URL: &str = "https://meta.fabricmc.net/v2";
 pub const QUILT_META_BASE_URL: &str = "https://meta.quiltmc.org/v3";

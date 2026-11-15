@@ -292,8 +292,23 @@ export interface HorizonUpdateInfo {
   installed: boolean;
   updateAvailable: boolean;
   tagName: string;
+  installedTag: string | null;
   currentUpdatedAt: string | null;
   latestUpdatedAt: string | null;
+}
+
+export interface InstalledHorizonBinary {
+  tagName: string;
+  updatedAt: string | null;
+  assetSize: number;
+}
+
+export interface LauncherUpdateInfo {
+  currentVersion: string;
+  latestVersion: string;
+  updateAvailable: boolean;
+  releaseUrl: string;
+  publishedAt: string | null;
 }
 
 export const api = {
@@ -333,6 +348,8 @@ export const api = {
   pickDirectory: () => invoke<string | null>('pick_directory'),
   validateDataDir: (path: string) => invoke<string>('validate_data_dir', { path }),
   openDataDir: () => invoke<void>('open_data_dir'),
+  checkLauncherUpdate: () => invoke<LauncherUpdateInfo>('check_launcher_update'),
+  openExternalUrl: (url: string) => invoke<void>('open_external_url', { url }),
 
   // Java
   getJavaRuntimes: () => invoke<JavaRuntime[]>('get_java_runtimes'),
@@ -354,6 +371,8 @@ export const api = {
   getLoaderSupportedMcVersions: (loader: ModLoaderKind) =>
     invoke<string[]>('get_loader_supported_mc_versions', { loader }),
   listHorizonReleases: () => invoke<HorizonReleaseSummary[]>('list_horizon_releases'),
+  listInstalledHorizonBinaries: () =>
+    invoke<InstalledHorizonBinary[]>('list_installed_horizon_binaries'),
   checkHorizonUpdate: (tag?: string) => invoke<HorizonUpdateInfo>('check_horizon_update', { tag }),
   updateHorizonBinaries: (instanceId?: string, tag?: string) =>
     invoke<HorizonUpdateInfo>('update_horizon_binaries', { instanceId, tag }),

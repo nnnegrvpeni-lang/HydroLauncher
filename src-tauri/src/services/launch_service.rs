@@ -87,7 +87,8 @@ pub async fn prepare_instance(app: AppHandle, instance: Instance) -> AppResult<(
                 instance.auto_update_horizon,
             )
             .await?;
-            let prepared_dir = paths.horizon_prepared_dir(&data_dir, &details.id);
+            let horizon_tag = horizon_service::effective_tag(instance.loader_version.as_deref());
+            let prepared_dir = paths.horizon_prepared_dir(&data_dir, &details.id, &horizon_tag);
             let java_exec = if horizon_service::is_horizon_prepared(&prepare_bin, &prepared_dir).await {
                 String::new()
             } else {
@@ -117,6 +118,7 @@ pub async fn prepare_instance(app: AppHandle, instance: Instance) -> AppResult<(
                 &details,
                 &summary,
                 &prepare_bin,
+                Some(&horizon_tag),
                 &java_exec,
             )
             .await?;
@@ -292,7 +294,8 @@ pub async fn launch(
                 instance.auto_update_horizon,
             )
             .await?;
-            let prepared_dir_path = paths.horizon_prepared_dir(&data_dir, &details.id);
+            let horizon_tag = horizon_service::effective_tag(instance.loader_version.as_deref());
+            let prepared_dir_path = paths.horizon_prepared_dir(&data_dir, &details.id, &horizon_tag);
             let java_exec =
                 if horizon_service::is_horizon_prepared(&prepare_bin, &prepared_dir_path).await {
                     String::new()
@@ -323,6 +326,7 @@ pub async fn launch(
                 &details,
                 &summary,
                 &prepare_bin,
+                Some(&horizon_tag),
                 &java_exec,
             )
             .await?;

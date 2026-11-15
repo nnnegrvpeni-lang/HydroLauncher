@@ -15,8 +15,10 @@ import {
   X,
 } from 'lucide-react';
 import type { OfflineAccount } from '../api';
+import { api } from '../api';
 import { isMockEnabled } from '../api/mock';
 import { useAccountsStore } from '../stores/accountsStore';
+import { useLauncherUpdate } from '../stores/updateStore';
 import { cn } from '../utils/cn';
 import { AccountAvatar } from './AccountAvatar';
 import { Button } from './ui/Button';
@@ -43,6 +45,7 @@ export function TitleBar({ page, onNavigate, onQuickAddAccount }: TitleBarProps)
   const activeAccount = useAccountsStore((s) => s.activeAccount);
   const setActiveAccount = useAccountsStore((s) => s.setActive);
   const removeAccount = useAccountsStore((s) => s.remove);
+  const launcherUpdate = useLauncherUpdate();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<OfflineAccount | null>(null);
@@ -123,6 +126,17 @@ export function TitleBar({ page, onNavigate, onQuickAddAccount }: TitleBarProps)
 
       {/* Правая группа: профиль, управление окном */}
       <div className="flex items-center gap-2.5">
+        {launcherUpdate && (
+          <button
+            onClick={() => {
+              void api.openExternalUrl(launcherUpdate.releaseUrl).catch(() => undefined);
+            }}
+            title={`HydroLauncher ${launcherUpdate.latestVersion} — открыть страницу релиза`}
+            className="text-[11.5px] text-faint transition-colors hover:text-muted"
+          >
+            доступно {launcherUpdate.latestVersion}
+          </button>
+        )}
         <div ref={menuRef} className="relative">
           <button
             onClick={() => setMenuOpen((v) => !v)}

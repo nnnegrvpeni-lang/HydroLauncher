@@ -475,7 +475,8 @@ a:focus:not(:focus-visible) {
   width: 72px;
   height: 72px;
   background: #e6dcc3;
-  opacity: 0.72;
+  opacity: 0.55;
+  box-shadow: 0 0 72px 14px rgb(230 220 195 / 0.12);
   transition: background 0.35s ease, opacity 0.35s ease, box-shadow 0.35s ease;
 }
 
@@ -493,18 +494,30 @@ a:focus:not(:focus-visible) {
 
 .hl-cloud {
   position: absolute;
-  height: 24px;
-  border-radius: 4px;
-  background: rgb(255 255 255 / 0.08);
+  height: 18px;
+  border-radius: 3px;
+  background: rgb(255 255 255 / 0.09);
+  box-shadow:
+    24px -12px 0 0 rgb(255 255 255 / 0.09),
+    52px -12px 0 3px rgb(255 255 255 / 0.09),
+    84px 0 0 0 rgb(255 255 255 / 0.09);
   animation: hl-drift 46s ease-in-out infinite alternate;
 }
 
 :root[data-theme='night'] .hl-cloud {
-  background: rgb(255 255 255 / 0.03);
+  background: rgb(255 255 255 / 0.035);
+  box-shadow:
+    24px -12px 0 0 rgb(255 255 255 / 0.035),
+    52px -12px 0 3px rgb(255 255 255 / 0.035),
+    84px 0 0 0 rgb(255 255 255 / 0.035);
 }
 
 :root[data-theme='light'] .hl-cloud {
-  background: rgb(255 255 255 / 0.52);
+  background: rgb(255 255 255 / 0.55);
+  box-shadow:
+    24px -12px 0 0 rgb(255 255 255 / 0.55),
+    52px -12px 0 3px rgb(255 255 255 / 0.55),
+    84px 0 0 0 rgb(255 255 255 / 0.55);
 }
 
 .hl-hill {

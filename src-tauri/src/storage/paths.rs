@@ -108,8 +108,25 @@ impl AppPaths {
         self.horizon_dir(data_dir).join("bin")
     }
 
-    pub fn horizon_prepared_dir(&self, data_dir: &Path, mc_version: &str) -> PathBuf {
-        self.horizon_dir(data_dir).join("prepared").join(mc_version)
+    /// Бинарники конкретного релиза Horizon: `runtimes/horizon/bin/<tag>`.
+    /// Так разные сборки могут держать разные версии движка одновременно.
+    pub fn horizon_bin_tag_dir(&self, data_dir: &Path, tag: &str) -> PathBuf {
+        self.horizon_bin_dir(data_dir).join(sanitize_tag(tag))
+    }
+
+    pub fn horizon_meta_dir(&self, data_dir: &Path) -> PathBuf {
+        self.horizon_dir(data_dir).join("meta")
+    }
+
+    pub fn horizon_meta_file(&self, data_dir: &Path, tag: &str) -> PathBuf {
+        self.horizon_meta_dir(data_dir).join(format!("{}.json", sanitize_tag(tag)))
+    }
+
+    pub fn horizon_prepared_dir(&self, data_dir: &Path, mc_version: &str, tag: &str) -> PathBuf {
+        self.horizon_dir(data_dir)
+            .join("prepared")
+            .join(mc_version)
+            .join(sanitize_tag(tag))
     }
 
     pub fn horizon_mods_cache_file(&self, data_dir: &Path) -> PathBuf {
@@ -122,5 +139,25 @@ impl AppPaths {
 
     pub fn natives_dir(&self, data_dir: &Path, version_id: &str) -> PathBuf {
         self.version_dir(data_dir, version_id).join("natives")
+    }
+}
+
+/// Приводит тег релиза Horizon к безопасному имени папки/файла.
+pub fn sanitize_tag(tag: &str) -> String {
+    let cleaned: String = tag
+        .trim()
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.') {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    if cleaned.is_empty() || cleaned == "." || cleaned == ".." {
+        "nightly".to_string()
+    } else {
+        cleaned
     }
 }

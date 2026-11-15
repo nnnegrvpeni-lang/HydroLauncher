@@ -89,3 +89,39 @@ pub async fn open_data_dir(state: State<'_, AppState>) -> Result<(), AppError> {
 
     Ok(())
 }
+
+#[tauri::command]
+pub async fn check_launcher_update(
+) -> Result<crate::services::launcher_update_service::LauncherUpdateInfo, AppError> {
+    crate::services::launcher_update_service::check_launcher_update().await
+}
+
+/// Открывает внешнюю ссылку в системном браузере. Разрешены только https-URL.
+#[tauri::command]
+pub async fn open_external_url(url: String) -> Result<(), AppError> {
+    let target = url.trim();
+    if !target.starts_with("https://") || target.len() > 2048 {
+        return Err(AppError::Validation("Разрешены только https-ссылки".into()));
+    }
+
+    #[cfg(target_os = "windows")]
+    std::process::Command::new("rundll32")
+        .arg("url.dll,FileProtocolHandler")
+        .arg(target)
+        .spawn()
+        .map_err(|e| AppError::Process(format!("Не удалось открыть ссылку: {e}")))?;
+
+    #[cfg(target_os = "macos")]
+    std::process::Command::new("open")
+        .arg(target)
+        .spawn()
+        .map_err(|e| AppError::Process(format!("Не удалось открыть ссылку: {e}")))?;
+
+    #[cfg(target_os = "linux")]
+    std::process::Command::new("xdg-open")
+        .arg(target)
+        .spawn()
+        .map_err(|e| AppError::Process(format!("Не удалось открыть ссылку: {e}")))?;
+
+    Ok(())
+}

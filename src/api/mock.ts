@@ -17,10 +17,11 @@ import type {
 
 const now = () => new Date().toISOString();
 
-/** `?theme=light` в dev-режиме — быстрая проверка светлой темы. */
+/** `?theme=light` или `?theme=night` в dev-режиме — быстрая проверка тем. */
 function initialTheme(): AppSettings['theme'] {
   const param = new URLSearchParams(window.location.search).get('theme');
-  return param === 'light' ? 'light' : 'dark';
+  if (param === 'light' || param === 'night') return param;
+  return 'dark';
 }
 
 function offlineUuid(name: string): string {
@@ -460,6 +461,25 @@ export async function mockInvoke<T>(
         versionId: String(args?.version ?? '2.0.0'),
         versionNumber: String(args?.version ?? '2.0.0'),
       } as T;
+
+    case 'list_installed_horizon_binaries':
+      return [
+        {
+          tagName: 'nightly',
+          updatedAt: now(),
+          assetSize: 18_400_000,
+        },
+      ] as T;
+    case 'check_launcher_update':
+      return {
+        currentVersion: '0.1.1',
+        latestVersion: '0.1.1',
+        updateAvailable: false,
+        releaseUrl: '',
+        publishedAt: now(),
+      } as T;
+    case 'open_external_url':
+      return undefined as T;
 
     default:
       throw `Неизвестная команда: ${command}`;

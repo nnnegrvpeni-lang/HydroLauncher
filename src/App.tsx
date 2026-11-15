@@ -14,16 +14,17 @@ import { useInitCatalogPreload } from './stores/catalogStore';
 import { useInitInstances } from './stores/instancesStore';
 import { useInitLaunchListeners } from './stores/launchStore';
 import { useInitSettings, useSettingsStore } from './stores/settingsStore';
+import { useInitLauncherUpdate } from './stores/updateStore';
 
-function WorldBackdrop() {
+function WorldBackdrop({ showSun }: { showSun: boolean }) {
   return (
     <div className="hl-world" aria-hidden>
       <div className="hl-stars" />
-      <div className="hl-sun" />
-      <div className="hl-cloud" style={{ left: '18%', top: '14%', width: 200 }} />
+      {showSun && <div className="hl-sun" />}
+      <div className="hl-cloud" style={{ left: '18%', top: '27%', width: 180 }} />
       <div
         className="hl-cloud"
-        style={{ left: '58%', top: '8%', width: 260, animationDelay: '-14s' }}
+        style={{ left: '58%', top: '36%', width: 220, animationDelay: '-14s' }}
       />
       <div className="hl-hill a" />
       <div className="hl-hill b" />
@@ -45,6 +46,7 @@ export default function App() {
   useInitInstances();
   useInitLaunchListeners();
   useInitCatalogPreload();
+  useInitLauncherUpdate();
 
   // Отключаем стандартное браузерное контекстное меню на ПКМ
   useEffect(() => {
@@ -65,7 +67,7 @@ export default function App() {
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden bg-bg text-ink">
-      <WorldBackdrop />
+      <WorldBackdrop showSun={page === 'home'} />
 
       <TitleBar
         page={page}

@@ -129,6 +129,14 @@ pub async fn list_horizon_releases() -> Result<Vec<crate::services::horizon_serv
 }
 
 #[tauri::command]
+pub async fn list_installed_horizon_binaries(
+    state: State<'_, AppState>,
+) -> Result<Vec<crate::services::horizon_service::InstalledHorizonBinary>, AppError> {
+    let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
+    crate::services::horizon_service::list_installed_horizon_binaries(&paths, &data_dir).await
+}
+
+#[tauri::command]
 pub async fn check_horizon_update(
     state: State<'_, AppState>,
     tag: Option<String>,

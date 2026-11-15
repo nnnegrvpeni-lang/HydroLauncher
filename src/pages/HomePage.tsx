@@ -85,6 +85,24 @@ export function HomePage({
     instances.find((i) => i.id === selectedInstanceId) ?? pickRecent(instances);
 
   const featuredId = featured?.id ?? null;
+
+  const DOCK_LIMIT = 6;
+  const orderedInstances = [...instances].sort(
+    (a, b) => instanceActivityTime(b) - instanceActivityTime(a),
+  );
+  const dockInstances = (() => {
+    const visible = orderedInstances.slice(0, DOCK_LIMIT);
+    if (featured && !visible.some((inst) => inst.id === featured.id)) {
+      return [
+        featured,
+        ...orderedInstances
+          .filter((inst) => inst.id !== featured.id)
+          .slice(0, DOCK_LIMIT - 1),
+      ];
+    }
+    return visible;
+  })();
+  const dockHiddenCount = Math.max(0, instances.length - dockInstances.length);
   const qpFeaturedState = featured ? running.get(featured.id) ?? 'idle' : 'idle';
   const featuredBusyOrRunning = qpFeaturedState !== 'idle';
 
@@ -549,8 +567,8 @@ export function HomePage({
         aria-label="Док сборок"
         className="relative z-20 shrink-0 border-t border-line bg-surface/45 px-6 py-3.5 backdrop-blur-2xl lg:px-10"
       >
-        <div className="flex items-center gap-2.5 overflow-x-auto">
-          {instances.map((inst) => {
+        <div className="flex items-center gap-2.5 overflow-hidden">
+          {dockInstances.map((inst) => {
             const selected = inst.id === featured.id;
             const instRunning = running.get(inst.id) === 'running';
             return (
@@ -558,7 +576,7 @@ export function HomePage({
                 key={inst.id}
                 onClick={() => onSelectInstance(inst.id)}
                 className={cn(
-                  'relative flex h-[56px] min-w-[206px] max-w-[248px] shrink-0 items-center gap-3 rounded-[12px] border px-3.5 text-left transition-all duration-150',
+                  'relative flex h-[56px] min-w-0 max-w-[240px] flex-1 items-center gap-3 rounded-[12px] border px-3.5 text-left transition-all duration-150',
                   selected
                     ? 'keycap-surface text-ink'
                     : 'border-line bg-surface/45 text-muted hover:border-line-strong hover:bg-surface/80 hover:text-ink',
@@ -583,6 +601,17 @@ export function HomePage({
               </button>
             );
           })}
+
+          {dockHiddenCount > 0 && (
+            <button
+              onClick={() => onNavigate('instances')}
+              title={`Показать все сборки (ещё ${dockHiddenCount})`}
+              className="flex h-[56px] shrink-0 items-center gap-1.5 rounded-[12px] border border-line bg-surface/45 px-3 text-[12.5px] font-medium text-muted transition-colors hover:border-line-strong hover:bg-surface/80 hover:text-ink"
+            >
+              <Layers size={13} />
+              +{dockHiddenCount}
+            </button>
+          )}
 
           <button
             onClick={onQuickCreateInstance}
@@ -702,11 +731,15 @@ function FloatingConsole({
   );
 }
 
+function instanceActivityTime(instance: Instance): number {
+  const stamp = instance.lastPlayedAt ?? instance.createdAt;
+  const parsed = stamp ? Date.parse(stamp) : 0;
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
 function pickRecent(instances: Instance[]): Instance | null {
-  const sorted = [...instances].sort((a, b) => {
-    const aTime = a.lastPlayedAt ? Date.parse(a.lastPlayedAt) : 0;
-    const bTime = b.lastPlayedAt ? Date.parse(b.lastPlayedAt) : 0;
-    return bTime - aTime;
-  });
+  const sorted = [...instances].sort(
+    (a, b) => instanceActivityTime(b) - instanceActivityTime(a),
+  );
   return sorted[0] ?? null;
 }

@@ -1,11 +1,9 @@
-use crate::config::endpoints::{
-    horizon_release_by_tag_url, HORIZON_NIGHTLY_RELEASE_API_URL, HORIZON_RELEASES_API_URL,
-};
+use crate::config::endpoints::{horizon_release_by_tag_url, HORIZON_RELEASES_API_URL};
 use crate::error::{AppError, AppResult};
 use crate::models::events::LaunchProgressEvent;
 use crate::models::mojang::{VersionDetails, VersionSummary};
 use crate::services::downloader::{download_file, get_json};
-use crate::storage::paths::AppPaths;
+use crate::storage::paths::{sanitize_tag, AppPaths};
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Emitter};
@@ -50,8 +48,21 @@ pub struct HorizonUpdateInfo {
     pub installed: bool,
     pub update_available: bool,
     pub tag_name: String,
+    /// Тег локально распакованных бинарников (None, если ничего не установлено).
+    pub installed_tag: Option<String>,
     pub current_updated_at: Option<String>,
     pub latest_updated_at: Option<String>,
+}
+
+/// Тег по умолчанию: плавающий nightly-релиз движка.
+const DEFAULT_HORIZON_TAG: &str = "nightly";
+
+/// Возвращает реальный тег релиза: пустое значение означает nightly.
+pub fn effective_tag(tag: Option<&str>) -> String {
+    tag.map(str::trim)
+        .filter(|t| !t.is_empty())
+        .unwrap_or(DEFAULT_HORIZON_TAG)
+        .to_string()
 }
 
 fn client_binary_name() -> &'static str {
@@ -118,8 +129,99 @@ fn find_binary_in_dir(dir: &Path, binary_name: &str) -> Option<PathBuf> {
     None
 }
 
-pub fn resolve_horizon_binaries(paths: &AppPaths, data_dir: &Path) -> Option<(PathBuf, PathBuf)> {
+/// Переносит старую однослотовую раскладку (`bin/*`, `horizon-meta.json`,
+/// `prepared/<mc>`) в раскладку по тегам. Выполняется один раз при апгрейде.
+fn migrate_legacy_layout(paths: &AppPaths, data_dir: &Path) {
+    let legacy_meta = paths.horizon_dir(data_dir).join("horizon-meta.json");
+    if !legacy_meta.exists() {
+        return;
+    }
+
+    let legacy_tag = std::fs::read(&legacy_meta)
+        .ok()
+        .and_then(|bytes| serde_json::from_slice::<HorizonMeta>(&bytes).ok())
+        .map(|meta| meta.tag_name)
+        .filter(|tag| !tag.trim().is_empty())
+        .unwrap_or_else(|| DEFAULT_HORIZON_TAG.to_string());
+
     let bin_dir = paths.horizon_bin_dir(data_dir);
+    let target_bin = paths.horizon_bin_tag_dir(data_dir, &legacy_tag);
+    if bin_dir.exists() && !target_bin.exists() {
+        if let Ok(read_dir) = std::fs::read_dir(&bin_dir) {
+            let children: Vec<PathBuf> = read_dir.flatten().map(|entry| entry.path()).collect();
+            if !children.is_empty() && std::fs::create_dir_all(&target_bin).is_ok() {
+                for child in children {
+                    let Some(name) = child.file_name().map(|n| n.to_owned()) else {
+                        continue;
+                    };
+                    let dest = target_bin.join(name);
+                    if !dest.exists() {
+                        let _ = std::fs::rename(&child, &dest);
+                    }
+                }
+            }
+        }
+    }
+
+    let legacy_meta_target = paths.horizon_meta_file(data_dir, &legacy_tag);
+    if !legacy_meta_target.exists() {
+        if let Some(parent) = legacy_meta_target.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let _ = std::fs::rename(&legacy_meta, &legacy_meta_target);
+    } else {
+        let _ = std::fs::remove_file(&legacy_meta);
+    }
+
+    migrate_legacy_prepared(paths, data_dir, &legacy_tag);
+}
+
+/// Старая раскладка хранила подготовленные ресурсы в `prepared/<mc>/`.
+/// Новая — в `prepared/<mc>/<tag>/`.
+fn migrate_legacy_prepared(paths: &AppPaths, data_dir: &Path, legacy_tag: &str) {
+    let prepared_root = paths.horizon_dir(data_dir).join("prepared");
+    let Ok(mc_entries) = std::fs::read_dir(&prepared_root) else {
+        return;
+    };
+
+    for entry in mc_entries.flatten() {
+        let mc_path = entry.path();
+        if !mc_path.is_dir() {
+            continue;
+        }
+        let target = mc_path.join(sanitize_tag(legacy_tag));
+        if target.exists() {
+            continue;
+        }
+        let Ok(children) = std::fs::read_dir(&mc_path) else {
+            continue;
+        };
+        let children: Vec<PathBuf> = children.flatten().map(|child| child.path()).collect();
+        if children.is_empty() {
+            continue;
+        }
+        if std::fs::create_dir_all(&target).is_err() {
+            continue;
+        }
+        for child in children {
+            let Some(name) = child.file_name().map(|n| n.to_owned()) else {
+                continue;
+            };
+            let dest = target.join(name);
+            if !dest.exists() {
+                let _ = std::fs::rename(&child, &dest);
+            }
+        }
+    }
+}
+
+pub fn resolve_horizon_binaries(
+    paths: &AppPaths,
+    data_dir: &Path,
+    tag: Option<&str>,
+) -> Option<(PathBuf, PathBuf)> {
+    migrate_legacy_layout(paths, data_dir);
+    let bin_dir = paths.horizon_bin_tag_dir(data_dir, &effective_tag(tag));
     let client = find_binary_in_dir(&bin_dir, client_binary_name())?;
     let prepare = find_binary_in_dir(&bin_dir, prepare_binary_name())?;
     Some((client, prepare))
@@ -145,6 +247,49 @@ pub async fn list_horizon_releases() -> AppResult<Vec<HorizonReleaseSummary>> {
         .collect())
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstalledHorizonBinary {
+    pub tag_name: String,
+    pub updated_at: Option<String>,
+    pub asset_size: u64,
+}
+
+/// Возвращает теги движка, бинарники которых реально лежат на диске.
+pub async fn list_installed_horizon_binaries(
+    paths: &AppPaths,
+    data_dir: &Path,
+) -> AppResult<Vec<InstalledHorizonBinary>> {
+    migrate_legacy_layout(paths, data_dir);
+    let meta_dir = paths.horizon_meta_dir(data_dir);
+    let mut entries = match tokio::fs::read_dir(&meta_dir).await {
+        Ok(entries) => entries,
+        Err(_) => return Ok(Vec::new()),
+    };
+
+    let mut installed = Vec::new();
+    while let Some(entry) = entries.next_entry().await? {
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
+            continue;
+        }
+        let meta = match crate::storage::json_store::read_json_or_default::<HorizonMeta>(&path).await {
+            Ok(meta) if !meta.tag_name.trim().is_empty() => meta,
+            _ => continue,
+        };
+        if resolve_horizon_binaries(paths, data_dir, Some(&meta.tag_name)).is_none() {
+            continue;
+        }
+        installed.push(InstalledHorizonBinary {
+            tag_name: meta.tag_name,
+            updated_at: meta.updated_at,
+            asset_size: meta.asset_size,
+        });
+    }
+
+    Ok(installed)
+}
+
 pub async fn ensure_horizon_binaries(
     app: &AppHandle,
     paths: &AppPaths,
@@ -153,30 +298,20 @@ pub async fn ensure_horizon_binaries(
     preferred_tag: Option<&str>,
     auto_update: bool,
 ) -> AppResult<(PathBuf, PathBuf)> {
-    let requested_tag = preferred_tag
-        .map(str::trim)
-        .filter(|t| !t.is_empty());
-    if let Some(pair) = resolve_horizon_binaries(paths, data_dir) {
-        if let Some(tag) = requested_tag {
-            let meta_path = paths.horizon_dir(data_dir).join("horizon-meta.json");
-            let current_tag = crate::storage::json_store::read_json_or_default::<HorizonMeta>(&meta_path)
-                .await
-                .ok()
-                .map(|m| m.tag_name);
-            if current_tag.as_deref() == Some(tag) {
-                return Ok(pair);
-            }
-        } else if !auto_update {
+    let pinned = preferred_tag.map(str::trim).filter(|t| !t.is_empty()).is_some();
+    let tag = effective_tag(preferred_tag);
+
+    if let Some(pair) = resolve_horizon_binaries(paths, data_dir, Some(&tag)) {
+        if pinned || !auto_update {
             return Ok(pair);
-        } else {
-            match check_horizon_update(paths, data_dir, Some("nightly")).await {
-                Ok(info) if !info.update_available => return Ok(pair),
-                Err(_) => return Ok(pair),
-                _ => {}
-            }
+        }
+        match check_horizon_update(paths, data_dir, Some(DEFAULT_HORIZON_TAG)).await {
+            Ok(info) if !info.update_available => return Ok(pair),
+            Err(_) => return Ok(pair),
+            _ => {}
         }
     }
-    download_horizon_binaries(app, paths, data_dir, instance_id, requested_tag).await
+    download_horizon_binaries(app, paths, data_dir, instance_id, Some(&tag)).await
 }
 
 pub async fn check_horizon_update(
@@ -184,8 +319,9 @@ pub async fn check_horizon_update(
     data_dir: &Path,
     tag: Option<&str>,
 ) -> AppResult<HorizonUpdateInfo> {
-    let installed = resolve_horizon_binaries(paths, data_dir).is_some();
-    let meta_path = paths.horizon_dir(data_dir).join("horizon-meta.json");
+    let tag = effective_tag(tag);
+    let installed = resolve_horizon_binaries(paths, data_dir, Some(&tag)).is_some();
+    let meta_path = paths.horizon_meta_file(data_dir, &tag);
     let local_meta: Option<HorizonMeta> = if meta_path.exists() {
         crate::storage::json_store::read_json_or_default(&meta_path)
             .await
@@ -197,11 +333,7 @@ pub async fn check_horizon_update(
     let client = reqwest::Client::builder()
         .user_agent("HydroLauncher/0.1")
         .build()?;
-    let release_url = tag
-        .map(str::trim)
-        .filter(|t| !t.is_empty())
-        .map(horizon_release_by_tag_url)
-        .unwrap_or_else(|| HORIZON_NIGHTLY_RELEASE_API_URL.to_string());
+    let release_url = horizon_release_by_tag_url(&tag);
     let release: GitHubRelease = get_json(&client, &release_url).await?;
     let archive_name = expected_archive_name()?;
     let asset = release.assets.iter().find(|a| a.name == archive_name);
@@ -225,6 +357,7 @@ pub async fn check_horizon_update(
         installed,
         update_available,
         tag_name: release.tag_name,
+        installed_tag: local_meta.map(|meta| meta.tag_name),
         current_updated_at: current_updated,
         latest_updated_at: latest_updated,
     })
@@ -249,6 +382,7 @@ async fn download_horizon_binaries(
     instance_id: &str,
     tag: Option<&str>,
 ) -> AppResult<(PathBuf, PathBuf)> {
+    let tag = effective_tag(tag);
 
     emit_progress(
         app,
@@ -263,9 +397,7 @@ async fn download_horizon_binaries(
         .user_agent("HydroLauncher/0.1")
         .build()?;
 
-    let release_url = tag
-        .map(horizon_release_by_tag_url)
-        .unwrap_or_else(|| HORIZON_NIGHTLY_RELEASE_API_URL.to_string());
+    let release_url = horizon_release_by_tag_url(&tag);
     let release: GitHubRelease = get_json(&client, &release_url).await?;
     let archive_name = expected_archive_name()?;
     let asset = release
@@ -279,7 +411,7 @@ async fn download_horizon_binaries(
             ))
         })?;
 
-    let bin_dir = paths.horizon_bin_dir(data_dir);
+    let bin_dir = paths.horizon_bin_tag_dir(data_dir, &release.tag_name);
     if bin_dir.exists() {
         let _ = tokio::fs::remove_dir_all(&bin_dir).await;
     }
@@ -323,12 +455,15 @@ async fn download_horizon_binaries(
         updated_at: asset.updated_at.clone().or(release.published_at.clone()),
         asset_size: asset.size,
     };
-    let meta_path = paths.horizon_dir(data_dir).join("horizon-meta.json");
+    let meta_path = paths.horizon_meta_file(data_dir, &release.tag_name);
+    if let Some(parent) = meta_path.parent() {
+        tokio::fs::create_dir_all(parent).await?;
+    }
     let _ = crate::storage::json_store::write_json_atomic(&meta_path, &meta).await;
 
     emit_progress(app, instance_id, "horizon", "Движок Horizon установлен", 1, 1);
 
-    resolve_horizon_binaries(paths, data_dir).ok_or_else(|| {
+    resolve_horizon_binaries(paths, data_dir, Some(&release.tag_name)).ok_or_else(|| {
         AppError::NotFound("После распаковки не найдены бинарники horizon-client / horizon-prepare".into())
     })
 }
@@ -409,13 +544,15 @@ pub async fn ensure_horizon_prepared(
     details: &VersionDetails,
     summary: &VersionSummary,
     prepare_bin: &Path,
+    tag: Option<&str>,
     java_exec: &str,
 ) -> AppResult<PathBuf> {
-    let prepared_dir = paths.horizon_prepared_dir(data_dir, &details.id);
+    let tag = effective_tag(tag);
+    let prepared_dir = paths.horizon_prepared_dir(data_dir, &details.id, &tag);
     let prepare_root = prepare_bin
         .parent()
         .map(Path::to_path_buf)
-        .unwrap_or_else(|| paths.horizon_bin_dir(data_dir));
+        .unwrap_or_else(|| paths.horizon_bin_tag_dir(data_dir, &tag));
 
     // Быстрая проверка: если ресурсы уже подготовлены под эту версию horizon-prepare
     if prepared_dir.exists() {

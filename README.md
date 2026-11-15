@@ -1,5 +1,8 @@
 # HydroLauncher
 
+[![Release](https://img.shields.io/github/v/release/nnnegrvpeni-lang/HydroLauncher?label=release&color=b4cdb0)](https://github.com/nnnegrvpeni-lang/HydroLauncher/releases/latest)
+[![Build](https://img.shields.io/github/actions/workflow/status/nnnegrvpeni-lang/HydroLauncher/release.yml?label=build)](https://github.com/nnnegrvpeni-lang/HydroLauncher/actions/workflows/release.yml)
+
 Десктопный лаунчер Minecraft на базе **Tauri v2 + React 19 + Rust** с интерфейсом в стиле «жидкое стекло». Поддерживает классическую **Java Edition** (Vanilla, Fabric, Forge, NeoForge, Quilt) и нативный Rust-движок **Horizon**.
 
 ---
@@ -9,12 +12,13 @@
 - **Изолированные сборки** — отдельные папки игры, миры, моды, шейдеры, ресурспаки, скриншоты и параметры для каждого профиля.
 - **Модлоадеры Java Edition** — автоматическая установка **Vanilla**, **Fabric**, **Forge**, **NeoForge** и **Quilt**.
 - **Интеграция с Modrinth** — поиск и установка модов, шейдеров, ресурспаков и модпаков (`.mrpack`), автоматическое разрешение зависимостей, переключение версий и проверка обновлений.
-- **Поддержка Horizon (Rust)** — запуск сборок на нативном движке Horizon, проверка и загрузка Nightly-обновлений, каталог модов Horizon (`.hmod`, `.hnmod`, `.hshader`, `.zip`).
+- **Поддержка Horizon (Rust)** — запуск сборок на нативном движке Horizon, выбор версии бинарников с отдельным хранением для каждого релиза, автообновление Nightly-сборок и каталог модов Horizon (`.hmod`, `.hnmod`, `.hshader`, `.zip`).
 - **Автоопределение и скачивание Java** — автоматический поиск установленной Java (управляемой или системной) и загрузка подходящей версии **Adoptium Temurin JRE** при её отсутствии.
 - **Изолированная консоль** — отдельные логи для каждой сборки с копированием и очисткой прямо в окне сборки и на главной странице.
 - **Быстрый запуск (Quick Play)** — быстрый вход в сохранённые миры и на серверы с главной страницы.
 - **Офлайн-профили** — локальные аккаунты (`OfflinePlayer:<name>`, UUID v3) без привязки к внешним серверам авторизации.
-- **Темы оформления** — тёмная, светлая и системная темы с полупрозрачными стеклянными панелями и фоном мира.
+- **Темы оформления** — «Сумерки», «Ночь» и «День» с полупрозрачными стеклянными панелями и фоном мира.
+- **Проверка обновлений** — тихое уведомление о новой версии лаунчера со ссылкой на страницу релиза.
 
 ---
 
@@ -94,6 +98,15 @@ cargo test --manifest-path src-tauri/Cargo.toml
 # Сборка установщика / релизного бинарника
 npm run tauri build
 ```
+
+---
+
+## Релизы
+
+Релизы собираются автоматически: пуш тега `v*` запускает workflow
+[`.github/workflows/release.yml`](.github/workflows/release.yml) на `windows-latest`,
+который собирает портативный `.exe`, установщики NSIS и MSI и прикрепляет их к
+релизу. Список изменений — в [CHANGELOG.md](CHANGELOG.md).
 
 ---
 

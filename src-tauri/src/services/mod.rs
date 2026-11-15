@@ -11,6 +11,7 @@ pub mod horizon_service;
 pub mod instance_service;
 pub mod java_rules;
 pub mod java_service;
+pub mod launcher_update_service;
 pub mod launch_service;
 pub mod loader_service;
 pub mod modrinth_service;

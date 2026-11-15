@@ -16,6 +16,7 @@ import { Modal } from '../components/ui/Modal';
 import { Switch } from '../components/ui/Switch';
 import { useAccountsStore } from '../stores/accountsStore';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useUpdateStore } from '../stores/updateStore';
 import { api, type JavaRuntime, type OfflineAccount, type ThemeMode } from '../api';
 import { cn } from '../utils/cn';
 import { formatMemory } from '../utils/format';
@@ -70,6 +71,7 @@ export function SettingsPage() {
           <>
             <AccountsGroup />
             <AppearanceGroup />
+            <AboutGroup />
           </>
         )}
         {tab === 'launch' && <PerformanceGroup />}
@@ -500,6 +502,62 @@ function StorageGroup() {
           </p>
         )}
       </div>
+    </Group>
+  );
+}
+
+function AboutGroup() {
+  const info = useUpdateStore((s) => s.info);
+  const loading = useUpdateStore((s) => s.loading);
+  const dismissed = useUpdateStore((s) => s.dismissedVersion);
+  const dismiss = useUpdateStore((s) => s.dismiss);
+  const resetDismiss = useUpdateStore((s) => s.resetDismiss);
+
+  const hidden = Boolean(info?.updateAvailable && dismissed === info.latestVersion);
+
+  return (
+    <Group title="О программе" description="Версия лаунчера и доступные обновления">
+      <div className="flex items-center justify-between gap-4 px-5 py-3.5">
+        <span className="text-[12.5px] text-ink">HydroLauncher</span>
+        <span className="font-mono text-[11.5px] text-muted">
+          {info?.currentVersion ?? (loading ? 'проверка обновлений…' : '—')}
+        </span>
+      </div>
+
+      {info?.updateAvailable && !hidden && (
+        <div className="flex items-center justify-between gap-4 px-5 py-3.5">
+          <button
+            onClick={() => {
+              void api.openExternalUrl(info.releaseUrl).catch(() => undefined);
+            }}
+            className="text-left text-[12.5px] text-muted transition-colors hover:text-ink"
+            title="Открыть страницу релиза"
+          >
+            Доступна версия{' '}
+            <span className="font-mono text-ink">{info.latestVersion}</span>
+          </button>
+          <button
+            onClick={() => dismiss(info.latestVersion)}
+            className="text-[11.5px] text-faint transition-colors hover:text-ink"
+          >
+            Скрыть
+          </button>
+        </div>
+      )}
+
+      {hidden && (
+        <div className="flex items-center justify-between gap-4 px-5 py-3.5">
+          <span className="text-[12.5px] text-muted">
+            Обновление {info?.latestVersion} скрыто
+          </span>
+          <button
+            onClick={resetDismiss}
+            className="text-[11.5px] text-faint transition-colors hover:text-ink"
+          >
+            Показать
+          </button>
+        </div>
+      )}
     </Group>
   );
 }
