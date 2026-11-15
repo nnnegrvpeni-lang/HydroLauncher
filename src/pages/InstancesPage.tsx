@@ -15,7 +15,6 @@ import { CreateInstanceModal } from '../components/CreateInstanceModal';
 import { InstanceIcon } from '../components/InstanceIcon';
 import { InstanceModsModal } from '../components/InstanceModsModal';
 import { InstanceSettingsModal } from '../components/InstanceSettingsModal';
-import { VoxelEmblem } from '../components/VoxelEmblem';
 import { Button, IconButton } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Modal } from '../components/ui/Modal';
@@ -237,21 +236,18 @@ export function InstancesPage({
                   style={{ animationDelay: `${Math.min(idx * 25, 200)}ms` }}
                   className="deck-surface hl-fade-up group flex flex-col overflow-hidden rounded-[16px] p-2.5 transition-transform duration-200 hover:-translate-y-1"
                 >
-                  {/* Оформление сборки: фон + предмет, как в Modrinth; лоадер — маленький бейдж */}
+                  {/* Оформление сборки: фон-градиент + предмет */}
                   <button
                     onClick={() => setDetailInstanceId(instance.id)}
                     className="flex flex-col items-stretch text-left"
                   >
-                    <div className="relative h-[92px] w-full overflow-hidden rounded-[11px]">
+                    <div className="h-[92px] w-full overflow-hidden rounded-[11px]">
                       <InstanceIcon
                         icon={instance.icon}
                         background={instance.background}
                         seed={instance.id}
                         className="h-full w-full"
                       />
-                      <span className="absolute right-2 bottom-2 flex h-6 w-6 items-center justify-center rounded-[7px] border border-white/20 bg-black/30 backdrop-blur-sm">
-                        <VoxelEmblem engine={instance.engine} loader={instance.loader} size={18} />
-                      </span>
                     </div>
 
                     <div className="px-2 pt-3.5 pb-2">

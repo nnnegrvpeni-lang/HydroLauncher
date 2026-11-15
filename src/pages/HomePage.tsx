@@ -21,7 +21,6 @@ import {
 import { InstanceIcon } from '../components/InstanceIcon';
 import { InstanceModsModal } from '../components/InstanceModsModal';
 import { InstanceSettingsModal } from '../components/InstanceSettingsModal';
-import { VoxelEmblem } from '../components/VoxelEmblem';
 import { VoxelStageCanvas } from '../components/VoxelStageCanvas';
 import { Button } from '../components/ui/Button';
 import { useAccountsStore } from '../stores/accountsStore';
@@ -543,16 +542,13 @@ export function HomePage({
         {/* Главный герой-блок сборки (левая нижняя зона сцены) */}
         <div className="relative z-10 mt-auto max-w-[680px] px-7 pb-8 lg:px-10 lg:pb-10">
           <div className="flex items-center gap-3.5">
-            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-[13px] border border-line-strong shadow-[0_12px_28px_-12px_rgba(0,0,0,0.65)]">
+            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-[13px] border border-line-strong shadow-[0_12px_28px_-12px_rgba(0,0,0,0.65)]">
               <InstanceIcon
                 icon={featured.icon}
                 background={featured.background}
                 seed={featured.id}
                 className="h-full w-full"
               />
-              <span className="absolute right-0.5 bottom-0.5 flex h-[17px] w-[17px] items-center justify-center rounded-[5px] bg-black/35 backdrop-blur-sm">
-                <VoxelEmblem engine={featured.engine} loader={featured.loader} size={13} />
-              </span>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 rounded-[9px] border border-line bg-surface/55 px-3 py-1.5 font-mono text-[12px] text-muted backdrop-blur-md">

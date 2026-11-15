@@ -40,7 +40,7 @@ export function InstanceIconEditorModal({
   onClose,
   onApply,
 }: InstanceIconEditorModalProps) {
-  const { t, tf } = useI18n();
+  const { t } = useI18n();
   const [draft, setDraft] = useState<InstanceIconConfig>(() =>
     resolveInstanceIcon(config, seed ?? ''),
   );
@@ -195,12 +195,6 @@ export function InstanceIconEditorModal({
           ))}
         </div>
       </div>
-
-      <p className="text-[11px] leading-relaxed text-faint">
-        {tf(
-          'Иллюстрации предметов — Modrinth (GPL-3.0). Фон рисуется градиентом, поэтому не занимает места и не зависит от темы.',
-        )}
-      </p>
     </Modal>
   );
 }

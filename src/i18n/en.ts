@@ -484,8 +484,6 @@ export const en: Record<string, string> = {
   Модлоадеры: 'Mod loaders',
   'Предметы из модов': 'Modded symbols',
   'Базовый мир': 'Vanilla',
-  'Иллюстрации предметов — Modrinth (GPL-3.0). Фон рисуется градиентом, поэтому не занимает места и не зависит от темы.':
-    'Symbol illustrations are from Modrinth (GPL-3.0). The background is a gradient, so it takes no space and does not depend on the theme.',
   Покебол: 'Poke Ball',
   Сфера: 'Orb',
   Котелок: 'Cooking Pot',

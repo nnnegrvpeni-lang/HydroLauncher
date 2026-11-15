@@ -409,15 +409,6 @@ a:focus:not(:focus-visible) {
   animation: hl-toast-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.hl-voxel-hover {
-  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), filter 0.22s ease;
-}
-
-.group:hover .hl-voxel-hover,
-.hl-voxel-hover:hover {
-  transform: translateY(-2px) scale(1.04);
-}
-
 @keyframes hl-drift {
   from {
     transform: translateX(-60px);
