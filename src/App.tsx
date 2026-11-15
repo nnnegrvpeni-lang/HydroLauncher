@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { CreateInstanceModal } from './components/CreateInstanceModal';
+import { CrashReportModal } from './components/CrashReportModal';
 import { QuickAccountModal } from './components/QuickAccountModal';
 import { TitleBar } from './components/TitleBar';
 import { ToastHost } from './components/ToastHost';
@@ -128,6 +129,7 @@ export default function App() {
       />
 
       <ToastHost />
+      <CrashReportModal />
     </div>
   );
 }

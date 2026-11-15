@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import {
+  Copy,
+  FileArchive,
   Layers,
   Loader2,
   Play,
@@ -19,10 +21,11 @@ import { ProgressBar } from '../components/ui/ProgressBar';
 import { useAccountsStore } from '../stores/accountsStore';
 import { useInstancesStore } from '../stores/instancesStore';
 import { useLaunchStore } from '../stores/launchStore';
+import { useNotifyStore } from '../stores/notifyStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { cn } from '../utils/cn';
 import { formatMemory, formatPlayTime } from '../utils/format';
-import type { Instance, ModLoaderKind } from '../api';
+import { api, type Instance, type ModLoaderKind } from '../api';
 
 const LOADER_FILTERS: Array<{ value: 'all' | ModLoaderKind; label: string }> = [
   { value: 'all', label: 'Все' },
@@ -64,6 +67,8 @@ export function InstancesPage({
   const launch = useInstancesStore((s) => s.launch);
   const terminate = useInstancesStore((s) => s.terminate);
   const remove = useInstancesStore((s) => s.remove);
+  const reload = useInstancesStore((s) => s.load);
+  const notify = useNotifyStore((s) => s.push);
   const progress = useLaunchStore((s) => s.progress);
   const settings = useSettingsStore((s) => s.settings);
   const activeAccount = useAccountsStore((s) => s.activeAccount);
@@ -74,6 +79,33 @@ export function InstancesPage({
   const [editing, setEditing] = useState<Instance | null>(null);
   const [detailInstanceId, setDetailInstanceId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Instance | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const [exportingId, setExportingId] = useState<string | null>(null);
+
+  const duplicate = async (instance: Instance) => {
+    setDuplicatingId(instance.id);
+    try {
+      const copy = await api.duplicateInstance(instance.id);
+      await reload();
+      notify(`Создана копия «${copy.name}»`);
+    } catch (err) {
+      notify(String(err), 'error');
+    } finally {
+      setDuplicatingId(null);
+    }
+  };
+
+  const exportMrpack = async (instance: Instance) => {
+    setExportingId(instance.id);
+    try {
+      const result = await api.exportInstanceMrpack(instance.id);
+      if (result) notify(`Сборка экспортирована: ${result.path}`);
+    } catch (err) {
+      notify(String(err), 'error');
+    } finally {
+      setExportingId(null);
+    }
+  };
 
   const detailInstance = detailInstanceId
     ? (instances.find((i) => i.id === detailInstanceId) ?? null)
@@ -261,6 +293,38 @@ export function InstancesPage({
                         title="Параметры сборки"
                       >
                         <SlidersHorizontal size={13.5} />
+                      </IconButton>
+
+                      <IconButton
+                        onClick={() => void duplicate(instance)}
+                        disabled={duplicatingId !== null || state !== undefined}
+                        title="Дублировать сборку вместе с модами и мирами"
+                      >
+                        {duplicatingId === instance.id ? (
+                          <Loader2 size={13.5} className="animate-spin" />
+                        ) : (
+                          <Copy size={13.5} />
+                        )}
+                      </IconButton>
+
+                      <IconButton
+                        onClick={() => void exportMrpack(instance)}
+                        disabled={
+                          exportingId !== null ||
+                          instance.engine === 'horizon' ||
+                          state !== undefined
+                        }
+                        title={
+                          instance.engine === 'horizon'
+                            ? 'Экспорт .mrpack доступен только для Java Edition'
+                            : 'Экспортировать сборку в .mrpack'
+                        }
+                      >
+                        {exportingId === instance.id ? (
+                          <Loader2 size={13.5} className="animate-spin" />
+                        ) : (
+                          <FileArchive size={13.5} />
+                        )}
                       </IconButton>
 
                       <IconButton

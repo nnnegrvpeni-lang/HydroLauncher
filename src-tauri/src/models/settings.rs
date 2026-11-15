@@ -17,6 +17,9 @@ pub struct AppSettings {
     pub default_memory_mb: u64,
     pub max_concurrent_downloads: usize,
     pub close_on_launch: bool,
+    /// Сворачивать окно в трей при нажатии на крестик вместо выхода.
+    #[serde(default)]
+    pub close_to_tray: bool,
     pub show_snapshots: bool,
     pub custom_java_paths: Vec<String>,
 }

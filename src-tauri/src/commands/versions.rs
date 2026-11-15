@@ -146,6 +146,22 @@ pub async fn check_horizon_update(
 }
 
 #[tauri::command]
+pub async fn cleanup_horizon_cache(
+    state: State<'_, AppState>,
+) -> Result<crate::services::horizon_service::HorizonCleanupResult, AppError> {
+    let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
+    let instances = crate::services::instance_service::load_instances(&paths, &data_dir).await?;
+    let used_tags: Vec<String> = instances
+        .iter()
+        .filter(|instance| instance.engine == crate::models::instance::EngineKind::Horizon)
+        .map(|instance| {
+            crate::services::horizon_service::effective_tag(instance.loader_version.as_deref())
+        })
+        .collect();
+    crate::services::horizon_service::cleanup_unused_horizon(&paths, &data_dir, &used_tags).await
+}
+
+#[tauri::command]
 pub async fn update_horizon_binaries(
     app: tauri::AppHandle,
     state: State<'_, AppState>,

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
+  Archive,
   ArrowLeft,
   ArrowUpCircle,
   Camera,
@@ -8,6 +9,7 @@ import {
   Copy,
   ExternalLink,
   FolderOpen,
+  Globe,
   History,
   Layers,
   Loader2,
@@ -29,19 +31,21 @@ import {
   type InstalledModFile,
   type Instance,
   type InstanceScreenshot,
+  type InstanceWorld,
   type ModUpdateInfo,
   type ModrinthVersionInfo,
 } from '../api';
 import { useAccountsStore } from '../stores/accountsStore';
 import { useInstancesStore } from '../stores/instancesStore';
 import { useLaunchStore } from '../stores/launchStore';
+import { useNotifyStore } from '../stores/notifyStore';
 import { cn } from '../utils/cn';
 import { formatLoaderLabel } from '../utils/format';
 import { VoxelEmblem } from './VoxelEmblem';
 import { Button } from './ui/Button';
 import { Switch } from './ui/Switch';
 
-type ModalTab = 'mods' | 'shaders' | 'resourcepacks' | 'screenshots' | 'logs';
+type ModalTab = 'mods' | 'shaders' | 'resourcepacks' | 'worlds' | 'screenshots' | 'logs';
 
 const EMPTY_LOGS: GameLog[] = [];
 
@@ -55,6 +59,15 @@ interface InstanceModsModalProps {
 function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`;
   return `${Math.max(1, Math.round(bytes / 1024))} КБ`;
+}
+
+function formatWorldDate(ms: number): string {
+  if (!ms) return '—';
+  return new Date(ms).toLocaleDateString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
 }
 
 /** Запасной парсер чистого имени, если мод локальный и н�� найден на Modrinth. */
@@ -102,6 +115,11 @@ export function InstanceModsModal({
   const [screenshots, setScreenshots] = useState<InstanceScreenshot[]>([]);
   const [screenshotsLoading, setScreenshotsLoading] = useState(false);
 
+  const [worlds, setWorlds] = useState<InstanceWorld[]>([]);
+  const [worldsLoading, setWorldsLoading] = useState(false);
+  const [busyWorld, setBusyWorld] = useState<string | null>(null);
+  const [pendingWorldDelete, setPendingWorldDelete] = useState<string | null>(null);
+
   const loadMods = useCallback(async (instanceId: string) => {
     setLoading(true);
     setError(null);
@@ -145,6 +163,55 @@ export function InstanceModsModal({
       void loadScreenshots(instance.id);
     }
   }, [instance, tab, loadScreenshots]);
+
+  const loadWorlds = useCallback(async (instanceId: string) => {
+    setWorldsLoading(true);
+    setError(null);
+    try {
+      setWorlds(await api.listInstanceWorlds(instanceId));
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setWorldsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (instance && tab === 'worlds') {
+      void loadWorlds(instance.id);
+    }
+  }, [instance, tab, loadWorlds]);
+
+  const handleBackupWorld = async (folderName: string) => {
+    if (!instance) return;
+    setBusyWorld(folderName);
+    setError(null);
+    try {
+      const backup = await api.backupInstanceWorld(instance.id, folderName);
+      useNotifyStore
+        .getState()
+        .push(`Резервная копия мира создана: ${backup.fileName}`);
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setBusyWorld(null);
+    }
+  };
+
+  const handleDeleteWorld = async (folderName: string) => {
+    if (!instance) return;
+    setBusyWorld(folderName);
+    setError(null);
+    try {
+      await api.deleteInstanceWorld(instance.id, folderName);
+      setWorlds((prev) => prev.filter((world) => world.folderName !== folderName));
+      setPendingWorldDelete(null);
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setBusyWorld(null);
+    }
+  };
 
   useEffect(() => {
     if (!instance) return;
@@ -577,6 +644,20 @@ export function InstanceModsModal({
             type="button"
             onClick={() => {
               setVersionPickerMod(null);
+              setTab('worlds');
+            }}
+            className={cn(
+              'inline-flex h-8 items-center gap-1.5 rounded-[7px] border px-3 text-xs font-medium transition-colors duration-150',
+              tab === 'worlds' ? 'keycap-surface text-ink' : 'border-transparent text-muted hover:text-ink',
+            )}
+          >
+            <Globe size={13} />
+            Миры{worlds.length > 0 && tab === 'worlds' ? ` (${worlds.length})` : ''}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setVersionPickerMod(null);
               setTab('screenshots');
             }}
             className={cn(
@@ -749,6 +830,99 @@ export function InstanceModsModal({
                           <Trash2 size={13} />
                         </button>
                       </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : tab === 'worlds' ? (
+          <div className="mt-5">
+            {worldsLoading ? (
+              <div className="flex items-center justify-center gap-2 rounded-[10px] border border-line bg-surface py-16 text-xs text-muted">
+                <Loader2 size={15} className="animate-spin" />
+                Загрузка миров…
+              </div>
+            ) : worlds.length === 0 ? (
+              <div className="rounded-[10px] border border-line bg-surface px-6 py-14 text-center">
+                <Globe size={22} className="mx-auto text-faint" strokeWidth={1.6} />
+                <p className="mt-2.5 text-sm font-medium text-ink">Миров пока нет</p>
+                <p className="mt-1 text-xs text-muted">
+                  Создайте мир в игре — он появится здесь. Резервные копии сохраняются в
+                  <code className="font-mono text-ink"> backups/</code>
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2.5">
+                {worlds.map((world) => (
+                  <div
+                    key={world.folderName}
+                    className="flex items-center gap-3 rounded-[10px] border border-line bg-surface px-3.5 py-3"
+                  >
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[8px] border border-line bg-bg-well">
+                      {world.iconDataUrl ? (
+                        <img
+                          src={world.iconDataUrl}
+                          alt={world.folderName}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <Globe size={20} className="text-faint" strokeWidth={1.6} />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-medium text-ink">
+                        {world.folderName}
+                      </p>
+                      <p className="mt-0.5 font-mono text-[11px] text-muted">
+                        {formatBytes(world.sizeBytes)} · {formatWorldDate(world.modifiedMs)}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      {pendingWorldDelete === world.folderName ? (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            disabled={busyWorld !== null}
+                            onClick={() => void handleDeleteWorld(world.folderName)}
+                          >
+                            Удалить
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setPendingWorldDelete(null)}
+                          >
+                            Отмена
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => void handleBackupWorld(world.folderName)}
+                            disabled={busyWorld !== null}
+                            title="Создать резервную копию"
+                            className="rounded-[6px] p-1.5 text-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-40"
+                          >
+                            {busyWorld === world.folderName ? (
+                              <Loader2 size={13} className="animate-spin" />
+                            ) : (
+                              <Archive size={13} />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPendingWorldDelete(world.folderName)}
+                            disabled={busyWorld !== null}
+                            title="Удалить мир"
+                            className="rounded-[6px] p-1.5 text-muted transition-colors hover:bg-danger/15 hover:text-danger disabled:opacity-40"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}

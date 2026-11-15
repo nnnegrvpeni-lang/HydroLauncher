@@ -10,6 +10,7 @@ use tauri::State;
 pub async fn get_settings(state: State<'_, AppState>) -> Result<AppSettings, AppError> {
     let paths = AppPaths::discover()?;
     let settings = settings_service::load_or_init_settings(&paths).await?;
+    state.apply_window_prefs(&settings);
     {
         let mut current = state.settings.lock().await;
         *current = Some(settings.clone());
@@ -24,6 +25,7 @@ pub async fn save_settings_cmd(
 ) -> Result<AppSettings, AppError> {
     let paths = AppPaths::discover()?;
     let saved = settings_service::save_settings(&paths, settings).await?;
+    state.apply_window_prefs(&saved);
     {
         let mut current = state.settings.lock().await;
         *current = Some(saved.clone());

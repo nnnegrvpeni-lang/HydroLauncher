@@ -10,6 +10,7 @@ export interface AppSettings {
   defaultMemoryMb: number;
   maxConcurrentDownloads: number;
   closeOnLaunch: boolean;
+  closeToTray: boolean;
   showSnapshots: boolean;
   customJavaPaths: string[];
 }
@@ -262,6 +263,29 @@ export interface InstanceQuickPlay {
   servers: QuickPlayServer[];
 }
 
+export interface InstanceWorld {
+  folderName: string;
+  modifiedMs: number;
+  sizeBytes: number;
+  iconDataUrl: string | null;
+}
+
+export interface WorldBackup {
+  fileName: string;
+  path: string;
+  sizeBytes: number;
+}
+
+export interface ExportedMrpack {
+  path: string;
+  sizeBytes: number;
+}
+
+export interface HorizonCleanupResult {
+  removedTags: string[];
+  freedBytes: number;
+}
+
 export interface QuickPlayTarget {
   kind: 'world' | 'server';
   value: string;
@@ -333,6 +357,8 @@ export const api = {
   createInstance: (request: CreateInstanceRequest) => invoke<Instance>('create_instance', { request }),
   updateInstance: (request: UpdateInstanceRequest) => invoke<Instance>('update_instance', { request }),
   deleteInstance: (instanceId: string) => invoke<void>('delete_instance', { instanceId }),
+  duplicateInstance: (instanceId: string) =>
+    invoke<Instance>('duplicate_instance', { instanceId }),
   openInstanceFolder: (instanceId: string, subfolder?: 'mods' | 'game') =>
     invoke<void>('open_instance_folder', { instanceId, subfolder }),
   getInstanceQuickPlay: (instanceId: string) =>
@@ -347,6 +373,12 @@ export const api = {
     invoke<void>('delete_instance_screenshot', { instanceId, fileName }),
   openScreenshotFile: (instanceId: string, fileName: string) =>
     invoke<void>('open_screenshot_file', { instanceId, fileName }),
+  listInstanceWorlds: (instanceId: string) =>
+    invoke<InstanceWorld[]>('list_instance_worlds', { instanceId }),
+  backupInstanceWorld: (instanceId: string, folderName: string) =>
+    invoke<WorldBackup>('backup_instance_world', { instanceId, folderName }),
+  deleteInstanceWorld: (instanceId: string, folderName: string) =>
+    invoke<void>('delete_instance_world', { instanceId, folderName }),
 
   // Настройки
   getSettings: () => invoke<AppSettings>('get_settings'),
@@ -384,6 +416,7 @@ export const api = {
   checkHorizonUpdate: (tag?: string) => invoke<HorizonUpdateInfo>('check_horizon_update', { tag }),
   updateHorizonBinaries: (instanceId?: string, tag?: string) =>
     invoke<HorizonUpdateInfo>('update_horizon_binaries', { instanceId, tag }),
+  cleanupHorizonCache: () => invoke<HorizonCleanupResult>('cleanup_horizon_cache'),
 
   // Моды (Modrinth)
   searchModrinthMods: (request: SearchModrinthRequest) =>
@@ -410,6 +443,8 @@ export const api = {
     invoke<Instance>('install_modrinth_modpack', { projectId, customName }),
   importMrpackFile: (filePath: string, customName?: string) =>
     invoke<Instance>('import_mrpack_file', { filePath, customName }),
+  exportInstanceMrpack: (instanceId: string) =>
+    invoke<ExportedMrpack | null>('export_instance_mrpack', { instanceId }),
   pickMrpackFile: () => invoke<string | null>('pick_mrpack_file'),
 
   // Моды (Horizon)

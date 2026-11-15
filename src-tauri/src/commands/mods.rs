@@ -1,5 +1,5 @@
 use crate::commands::shared;
-use crate::models::instance::{Instance, ModLoaderKind};
+use crate::models::instance::{EngineKind, Instance, ModLoaderKind};
 use crate::services::horizon_mods_service::{
     self, HorizonModDetailsDto, HorizonModsSearchResult, SearchHorizonModsRequest,
 };
@@ -187,4 +187,58 @@ pub async fn pick_mrpack_file() -> Result<Option<String>, AppError> {
         .add_filter("Modrinth Modpack", &["mrpack", "zip"])
         .pick_file();
     Ok(file.map(|p| p.to_string_lossy().into_owned()))
+}
+
+/// Экспортирует сборку в `.mrpack` и возвращает путь к созданному файлу.
+#[tauri::command]
+pub async fn export_instance_mrpack(
+    state: State<'_, AppState>,
+    instance_id: String,
+) -> Result<Option<modrinth_service::ExportedMrpack>, AppError> {
+    let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
+    let instance = instance_service::load_instances(&paths, &data_dir)
+        .await?
+        .into_iter()
+        .find(|i| i.id == instance_id)
+        .ok_or_else(|| AppError::NotFound("Сборка не найдена".into()))?;
+
+    if instance.engine == EngineKind::Horizon {
+        return Err(AppError::Validation(
+            "Экспорт доступен только для сборок Minecraft Java Edition".into(),
+        ));
+    }
+
+    let default_name = format!("{}.mrpack", safe_export_name(&instance.name));
+    let picked = rfd::FileDialog::new()
+        .set_title("Экспорт сборки в .mrpack")
+        .set_file_name(&default_name)
+        .add_filter("Modrinth Modpack", &["mrpack"])
+        .save_file();
+    let Some(target) = picked else {
+        return Ok(None);
+    };
+
+    let exported =
+        modrinth_service::export_instance_mrpack(&paths, &data_dir, &instance, &target).await?;
+    Ok(Some(exported))
+}
+
+fn safe_export_name(name: &str) -> String {
+    let cleaned: String = name
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || matches!(c, '-' | '_' | ' ') {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let trimmed = cleaned.trim().trim_matches('.').to_string();
+    let trimmed: String = trimmed.chars().take(64).collect();
+    if trimmed.is_empty() {
+        "instance".to_string()
+    } else {
+        trimmed
+    }
 }

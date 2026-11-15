@@ -4,6 +4,7 @@ use crate::state::AppState;
 use crate::storage::json_store;
 use crate::{commands::shared, models::instance::CreateInstanceRequest, AppError};
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 use tauri::State;
 use uuid::Uuid;
@@ -39,6 +40,15 @@ pub async fn delete_instance(
 ) -> Result<(), AppError> {
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
     instance_service::delete_instance(&paths, &data_dir, &instance_id).await
+}
+
+#[tauri::command]
+pub async fn duplicate_instance(
+    state: State<'_, AppState>,
+    instance_id: String,
+) -> Result<Instance, AppError> {
+    let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
+    instance_service::duplicate_instance(&paths, &data_dir, &instance_id).await
 }
 
 #[tauri::command]
@@ -351,7 +361,7 @@ pub async fn open_screenshot_file(
         .join("screenshots")
         .join(&file_name);
     if !target.exists() {
-        return Err(AppError::NotFound("Ск��иншот не найден".into()));
+        return Err(AppError::NotFound("Скриншот не найден".into()));
     }
 
     #[cfg(target_os = "windows")]
@@ -372,5 +382,208 @@ pub async fn open_screenshot_file(
         .spawn()
         .map_err(|e| AppError::Process(format!("Не удалось открыть файл: {e}")))?;
 
+    Ok(())
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstanceWorld {
+    pub folder_name: String,
+    pub modified_ms: u64,
+    pub size_bytes: u64,
+    pub icon_data_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorldBackup {
+    pub file_name: String,
+    pub path: String,
+    pub size_bytes: u64,
+}
+
+/// Проверяет имя папки мира: без разделителей, переходов вверх и пустых имён.
+fn world_dir(saves_dir: &Path, folder_name: &str) -> Result<PathBuf, AppError> {
+    let name = folder_name.trim();
+    if name.is_empty()
+        || name == "."
+        || name == ".."
+        || name.contains(['/', '\\'])
+        || name.contains('\0')
+    {
+        return Err(AppError::Validation("Некорректное имя мира".into()));
+    }
+    Ok(saves_dir.join(name))
+}
+
+/// Суммарный размер папки без перехода по символическим ссылкам.
+async fn directory_size(path: &Path) -> u64 {
+    let mut total = 0u64;
+    let mut stack = vec![path.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let Ok(mut entries) = tokio::fs::read_dir(&dir).await else {
+            continue;
+        };
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            let Ok(file_type) = entry.file_type().await else {
+                continue;
+            };
+            if file_type.is_symlink() {
+                continue;
+            }
+            if file_type.is_dir() {
+                stack.push(entry.path());
+            } else if let Ok(meta) = entry.metadata().await {
+                total = total.saturating_add(meta.len());
+            }
+        }
+    }
+    total
+}
+
+async fn world_icon_data_url(world_path: &Path) -> Option<String> {
+    let icon_path = world_path.join("icon.png");
+    if !icon_path.is_file() {
+        return None;
+    }
+    tokio::fs::read(&icon_path)
+        .await
+        .ok()
+        .filter(|bytes| !bytes.is_empty() && bytes.len() <= 512 * 1024)
+        .map(|bytes| format!("data:image/png;base64,{}", encode_base64(&bytes)))
+}
+
+#[tauri::command]
+pub async fn list_instance_worlds(
+    state: State<'_, AppState>,
+    instance_id: String,
+) -> Result<Vec<InstanceWorld>, AppError> {
+    let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
+    let saves_dir = paths.instance_game_dir(&data_dir, &instance_id).join("saves");
+    if !saves_dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    let mut worlds = Vec::new();
+    let mut entries = tokio::fs::read_dir(&saves_dir).await?;
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        let path = entry.path();
+        if !path.is_dir() || !path.join("level.dat").is_file() {
+            continue;
+        }
+        let folder_name = entry.file_name().to_string_lossy().to_string();
+        let modified_ms = entry
+            .metadata()
+            .await
+            .ok()
+            .and_then(|m| m.modified().ok())
+            .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+
+        worlds.push(InstanceWorld {
+            icon_data_url: world_icon_data_url(&path).await,
+            folder_name,
+            modified_ms,
+            size_bytes: directory_size(&path).await,
+        });
+    }
+
+    worlds.sort_by(|a, b| b.modified_ms.cmp(&a.modified_ms));
+    Ok(worlds)
+}
+
+/// Создаёт zip-архив мира в `<сборка>/backups`.
+#[tauri::command]
+pub async fn backup_instance_world(
+    state: State<'_, AppState>,
+    instance_id: String,
+    folder_name: String,
+) -> Result<WorldBackup, AppError> {
+    let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
+    let saves_dir = paths.instance_game_dir(&data_dir, &instance_id).join("saves");
+    let source = world_dir(&saves_dir, &folder_name)?;
+    if !source.is_dir() || !source.join("level.dat").is_file() {
+        return Err(AppError::NotFound("Мир не найден".into()));
+    }
+
+    let backups_dir = paths.instance_dir(&data_dir, &instance_id).join("backups");
+    tokio::fs::create_dir_all(&backups_dir).await?;
+
+    let clean_name: String = folder_name
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || matches!(c, '-' | '_' | ' ') {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
+    let file_name = format!("{}-{}.zip", clean_name.trim(), stamp);
+    let target = backups_dir.join(&file_name);
+
+    let source_clone = source.clone();
+    let target_clone = target.clone();
+    tokio::task::spawn_blocking(move || zip_directory(&source_clone, &target_clone))
+        .await
+        .map_err(|e| AppError::Process(format!("Не удалось создать резервную копию: {e}")))??;
+
+    let size_bytes = tokio::fs::metadata(&target).await?.len();
+    Ok(WorldBackup {
+        file_name,
+        path: target.to_string_lossy().into_owned(),
+        size_bytes,
+    })
+}
+
+fn zip_directory(source: &Path, target: &Path) -> Result<(), AppError> {
+    use zip::write::SimpleFileOptions;
+
+    let file = std::fs::File::create(target)?;
+    let mut zip = zip::ZipWriter::new(file);
+    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+
+    let base = source.to_path_buf();
+    let mut stack = vec![base.clone()];
+    while let Some(dir) = stack.pop() {
+        for entry in std::fs::read_dir(&dir)?.flatten() {
+            let path = entry.path();
+            let Ok(file_type) = entry.file_type() else {
+                continue;
+            };
+            if file_type.is_symlink() {
+                continue;
+            }
+            if file_type.is_dir() {
+                stack.push(path);
+                continue;
+            }
+            let relative = path.strip_prefix(&base).unwrap_or(&path);
+            let archive_name = relative.to_string_lossy().replace('\\', "/");
+            zip.start_file(archive_name, options)?;
+            let mut input = std::fs::File::open(&path)?;
+            std::io::copy(&mut input, &mut zip)?;
+        }
+    }
+
+    zip.finish()?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn delete_instance_world(
+    state: State<'_, AppState>,
+    instance_id: String,
+    folder_name: String,
+) -> Result<(), AppError> {
+    let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
+    let saves_dir = paths.instance_game_dir(&data_dir, &instance_id).join("saves");
+    let target = world_dir(&saves_dir, &folder_name)?;
+    if !target.is_dir() {
+        return Err(AppError::NotFound("Мир не найден".into()));
+    }
+    tokio::fs::remove_dir_all(&target).await?;
     Ok(())
 }

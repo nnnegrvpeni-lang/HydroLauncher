@@ -289,6 +289,131 @@ pub async fn list_installed_horizon_binaries(
     Ok(installed)
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HorizonCleanupResult {
+    pub removed_tags: Vec<String>,
+    pub freed_bytes: u64,
+}
+
+/// Удаляет бинарники и подготовленные ресурсы Horizon, которые не использует
+/// ни одна сборка. Возвращает освобождённое место.
+pub async fn cleanup_unused_horizon(
+    paths: &AppPaths,
+    data_dir: &Path,
+    used_tags: &[String],
+) -> AppResult<HorizonCleanupResult> {
+    use std::collections::HashSet;
+
+    let used: HashSet<String> = used_tags
+        .iter()
+        .map(|tag| crate::storage::paths::sanitize_tag(tag))
+        .collect();
+
+    let mut removed_tags: Vec<String> = Vec::new();
+    let mut freed_bytes = 0u64;
+
+    if let Ok(mut entries) = tokio::fs::read_dir(paths.horizon_meta_dir(data_dir)).await {
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            let meta_path = entry.path();
+            if meta_path.extension().and_then(|ext| ext.to_str()) != Some("json") {
+                continue;
+            }
+            let Ok(meta) =
+                crate::storage::json_store::read_json_or_default::<HorizonMeta>(&meta_path).await
+            else {
+                continue;
+            };
+            let tag = meta.tag_name.trim().to_string();
+            if tag.is_empty() {
+                continue;
+            }
+            let safe = crate::storage::paths::sanitize_tag(&tag);
+            if used.contains(&safe) {
+                continue;
+            }
+
+            let bin_dir = paths.horizon_bin_tag_dir(data_dir, &safe);
+            freed_bytes += directory_size(&bin_dir).await;
+            let _ = tokio::fs::remove_dir_all(&bin_dir).await;
+
+            if let Ok(meta_info) = tokio::fs::metadata(&meta_path).await {
+                freed_bytes += meta_info.len();
+            }
+            let _ = tokio::fs::remove_file(&meta_path).await;
+            removed_tags.push(tag);
+        }
+    }
+
+    // prepared/<версия>/<тег>
+    let prepared_root = paths.horizon_dir(data_dir).join("prepared");
+    if let Ok(mut versions) = tokio::fs::read_dir(&prepared_root).await {
+        while let Ok(Some(version_entry)) = versions.next_entry().await {
+            let version_dir = version_entry.path();
+            if !version_dir.is_dir() {
+                continue;
+            }
+            let Ok(mut tag_dirs) = tokio::fs::read_dir(&version_dir).await else {
+                continue;
+            };
+            let mut kept_any = false;
+            while let Ok(Some(tag_entry)) = tag_dirs.next_entry().await {
+                let tag_dir = tag_entry.path();
+                if !tag_dir.is_dir() {
+                    kept_any = true;
+                    continue;
+                }
+                let tag_name = tag_entry.file_name().to_string_lossy().to_string();
+                if used.contains(&tag_name) {
+                    kept_any = true;
+                    continue;
+                }
+                freed_bytes += directory_size(&tag_dir).await;
+                if tokio::fs::remove_dir_all(&tag_dir).await.is_ok()
+                    && !removed_tags
+                        .iter()
+                        .any(|tag| crate::storage::paths::sanitize_tag(tag) == tag_name)
+                {
+                    removed_tags.push(tag_name);
+                }
+            }
+            if !kept_any {
+                let _ = tokio::fs::remove_dir(&version_dir).await;
+            }
+        }
+    }
+
+    Ok(HorizonCleanupResult {
+        removed_tags,
+        freed_bytes,
+    })
+}
+
+/// Размер папки без перехода по символическим ссылкам.
+async fn directory_size(path: &Path) -> u64 {
+    let mut total = 0u64;
+    let mut stack = vec![path.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let Ok(mut entries) = tokio::fs::read_dir(&dir).await else {
+            continue;
+        };
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            let Ok(file_type) = entry.file_type().await else {
+                continue;
+            };
+            if file_type.is_symlink() {
+                continue;
+            }
+            if file_type.is_dir() {
+                stack.push(entry.path());
+            } else if let Ok(meta) = entry.metadata().await {
+                total = total.saturating_add(meta.len());
+            }
+        }
+    }
+    total
+}
+
 pub async fn ensure_horizon_binaries(
     app: &AppHandle,
     paths: &AppPaths,

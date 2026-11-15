@@ -121,6 +121,68 @@ pub async fn delete_instance(
     Ok(())
 }
 
+/// Создаёт копию сборки вместе со всеми файлами и настройками.
+pub async fn duplicate_instance(
+    paths: &AppPaths,
+    data_dir: &Path,
+    instance_id: &str,
+) -> AppResult<Instance> {
+    let mut store: InstancesStore = read_json_or_default(&paths.instances_file(data_dir)).await?;
+    let source = store
+        .instances
+        .iter()
+        .find(|i| i.id == instance_id)
+        .cloned()
+        .ok_or_else(|| AppError::NotFound("Сборка не найдена".into()))?;
+
+    let new_id = Uuid::new_v4().to_string();
+    let source_dir = paths.instance_dir(data_dir, instance_id);
+    let target_dir = paths.instance_dir(data_dir, &new_id);
+
+    if tokio::fs::try_exists(&source_dir).await? {
+        copy_dir_recursive(&source_dir, &target_dir).await?;
+    } else {
+        tokio::fs::create_dir_all(paths.instance_game_dir(data_dir, &new_id)).await?;
+    }
+
+    let mut copy = source;
+    copy.id = new_id;
+    copy.name = format!("{} (копия)", copy.name);
+    copy.created_at = Utc::now().to_rfc3339();
+    copy.last_played_at = None;
+    copy.play_time_seconds = 0;
+
+    store.instances.push(copy.clone());
+    if let Err(err) = write_json_atomic(&paths.instances_file(data_dir), &store).await {
+        let _ = tokio::fs::remove_dir_all(&target_dir).await;
+        return Err(err);
+    }
+
+    Ok(copy)
+}
+
+/// Рекурсивно копирует папку, пропуская символические ссылки.
+async fn copy_dir_recursive(source: &Path, target: &Path) -> AppResult<()> {
+    let mut stack = vec![(source.to_path_buf(), target.to_path_buf())];
+    while let Some((from, to)) = stack.pop() {
+        tokio::fs::create_dir_all(&to).await?;
+        let mut entries = tokio::fs::read_dir(&from).await?;
+        while let Some(entry) = entries.next_entry().await? {
+            let file_type = entry.file_type().await?;
+            if file_type.is_symlink() {
+                continue;
+            }
+            let dest = to.join(entry.file_name());
+            if file_type.is_dir() {
+                stack.push((entry.path(), dest));
+            } else {
+                tokio::fs::copy(entry.path(), dest).await?;
+            }
+        }
+    }
+    Ok(())
+}
+
 pub async fn record_play_session(
     paths: &AppPaths,
     data_dir: &Path,

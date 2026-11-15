@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { AlertCircle, Check, Loader2, X } from 'lucide-react';
 import { useInstancesStore } from '../stores/instancesStore';
 import { useLaunchStore } from '../stores/launchStore';
+import { useNotifyStore } from '../stores/notifyStore';
+import { cn } from '../utils/cn';
 import { ProgressBar } from './ui/ProgressBar';
 
 /** Всплывающие стеклянные уведомления в правом верхнем углу. */
@@ -10,6 +12,8 @@ export function ToastHost() {
   const clearProgress = useLaunchStore((s) => s.clearProgress);
   const error = useInstancesStore((s) => s.error);
   const clearError = useInstancesStore((s) => s.clearError);
+  const notices = useNotifyStore((s) => s.notices);
+  const dismissNotice = useNotifyStore((s) => s.dismiss);
 
   // Автоматически скрываем уведомление об ошибке через 3 секунды
   useEffect(() => {
@@ -20,7 +24,7 @@ export function ToastHost() {
     return () => window.clearTimeout(timer);
   }, [error, clearError]);
 
-  if (!progress && !error) return null;
+  if (!progress && !error && notices.length === 0) return null;
 
   const isDone = progress ? progress.stage === 'done' || progress.percent >= 100 : false;
 
@@ -82,6 +86,37 @@ export function ToastHost() {
           </button>
         </div>
       )}
+
+      {notices.map((notice) => (
+        <div
+          key={notice.id}
+          className="pointer-events-auto deck-surface hl-toast-in flex items-start gap-2.5 rounded-[12px] px-3.5 py-3 shadow-[0_20px_44px_-16px_rgba(0,0,0,0.75)]"
+        >
+          <div
+            className={cn(
+              'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full',
+              notice.tone === 'error' ? 'bg-danger/15 text-danger' : 'bg-accent/15 text-accent',
+            )}
+          >
+            {notice.tone === 'error' ? (
+              <AlertCircle size={13} />
+            ) : (
+              <Check size={12} strokeWidth={2.5} />
+            )}
+          </div>
+          <p className="min-w-0 flex-1 text-[12px] leading-relaxed break-words text-ink">
+            {notice.message}
+          </p>
+          <button
+            type="button"
+            onClick={() => dismissNotice(notice.id)}
+            aria-label="Закрыть уведомление"
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] text-muted transition-colors hover:bg-surface-2 hover:text-ink"
+          >
+            <X size={12} />
+          </button>
+        </div>
+      ))}
     </div>
   );
 }

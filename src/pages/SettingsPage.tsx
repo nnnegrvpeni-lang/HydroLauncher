@@ -16,11 +16,12 @@ import { Modal } from '../components/ui/Modal';
 import { Switch } from '../components/ui/Switch';
 import { useAccountsStore } from '../stores/accountsStore';
 import { useInstancesStore } from '../stores/instancesStore';
+import { useNotifyStore } from '../stores/notifyStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUpdateStore } from '../stores/updateStore';
 import { api, type JavaRuntime, type OfflineAccount, type ThemeMode } from '../api';
 import { cn } from '../utils/cn';
-import { formatMemory } from '../utils/format';
+import { formatBytes, formatMemory } from '../utils/format';
 
 type TabId = 'profiles' | 'launch' | 'java' | 'storage';
 
@@ -316,6 +317,22 @@ function PerformanceGroup() {
       <div className="flex items-center justify-between gap-4 px-5 py-3.5">
         <div>
           <p className="text-[13px] font-medium text-ink">
+            Сворачивать в трей при закрытии
+          </p>
+          <p className="text-xs text-muted">
+            Крестик скрывает окно, лаунчер остаётся в трее. Выход — через меню трея
+          </p>
+        </div>
+        <Switch
+          checked={settings.closeToTray}
+          onChange={(checked) => void save({ ...settings, closeToTray: checked })}
+          label="Сворачивать в трей при закрытии"
+        />
+      </div>
+
+      <div className="flex items-center justify-between gap-4 px-5 py-3.5">
+        <div>
+          <p className="text-[13px] font-medium text-ink">
             Показывать снапшоты при создании сборки
           </p>
           <p className="text-xs text-muted">
@@ -462,9 +479,27 @@ function StorageGroup() {
   const settings = useSettingsStore((s) => s.settings);
   const save = useSettingsStore((s) => s.save);
   const systemInfo = useSettingsStore((s) => s.systemInfo);
+  const notify = useNotifyStore((s) => s.push);
   const [error, setError] = useState<string | null>(null);
+  const [cleaning, setCleaning] = useState(false);
 
   if (!settings) return null;
+
+  const cleanupHorizon = async () => {
+    setCleaning(true);
+    try {
+      const result = await api.cleanupHorizonCache();
+      if (result.freedBytes > 0) {
+        notify(`Очищено ${formatBytes(result.freedBytes)} кэша Horizon`);
+      } else {
+        notify('Нечего удалять: все версии Horizon используются сборками');
+      }
+    } catch (err) {
+      notify(String(err), 'error');
+    } finally {
+      setCleaning(false);
+    }
+  };
 
   const pick = async () => {
     const dir = await api.pickDirectory();
@@ -507,6 +542,25 @@ function StorageGroup() {
             {error}
           </p>
         )}
+      </div>
+
+      <div className="flex items-center justify-between gap-4 border-t border-line px-5 py-3.5">
+        <div>
+          <p className="text-[13px] font-medium text-ink">Кэш движка Horizon</p>
+          <p className="text-xs text-muted">
+            Удаляет бинарники и подготовленные ресурсы версий, которые не использует
+            ни одна сборка
+          </p>
+        </div>
+        <Button
+          size="md"
+          variant="secondary"
+          onClick={() => void cleanupHorizon()}
+          disabled={cleaning}
+        >
+          {cleaning ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+          Очистить
+        </Button>
       </div>
     </Group>
   );

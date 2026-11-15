@@ -44,3 +44,10 @@ export function formatCompactNumber(num: number): string {
   if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
   return String(num);
 }
+
+export function formatBytes(bytes: number): string {
+  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} ГБ`;
+  if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(1)} МБ`;
+  if (bytes <= 0) return '0 КБ';
+  return `${Math.max(1, Math.round(bytes / 1024))} КБ`;
+}

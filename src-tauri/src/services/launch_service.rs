@@ -384,7 +384,7 @@ pub async fn launch(
 
     // Сворачиваем окно, чтобы не мешать игре (настройка «сворачивать при запуске»).
     if settings.close_on_launch {
-        set_window_minimized(&app, true);
+        hide_window_on_launch(&app, settings.close_to_tray);
     }
 
     // 7. Наблюдение за завершением процесса (без удержания Mutex во время wait)
@@ -425,7 +425,7 @@ pub async fn launch(
         emit_state_with_code(&watcher_app, &watcher_instance.id, state, exit_code);
 
         if restore_window {
-            set_window_minimized(&watcher_app, false);
+            restore_main_window(&watcher_app);
         }
     });
 
@@ -557,16 +557,26 @@ fn classify_exit(was_killed: bool, exit_code: Option<i32>) -> &'static str {
     }
 }
 
-fn set_window_minimized(app: &AppHandle, minimized: bool) {
+/// Прячет окно при запуске игры: в трей или в панель задач.
+fn hide_window_on_launch(app: &AppHandle, to_tray: bool) {
     let Some(window) = app.get_webview_window("main") else {
         return;
     };
-    if minimized {
-        let _ = window.minimize();
+    if to_tray {
+        let _ = window.hide();
     } else {
-        let _ = window.unminimize();
-        let _ = window.set_focus();
+        let _ = window.minimize();
     }
+}
+
+/// Возвращает окно после выхода из игры — из трея или из панели задач.
+fn restore_main_window(app: &AppHandle) {
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+    let _ = window.show();
+    let _ = window.unminimize();
+    let _ = window.set_focus();
 }
 
 #[cfg(test)]

@@ -1097,3 +1097,231 @@ async fn install_mrpack_from_bytes(
 async fn rollback_mrpack_install(paths: &AppPaths, data_dir: &Path, instance_id: &str) {
     let _ = crate::services::instance_service::delete_instance(paths, data_dir, instance_id).await;
 }
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportedMrpack {
+    pub path: String,
+    pub size_bytes: u64,
+}
+
+/// Собирает `.mrpack` из установленной сборки: известные моды Modrinth
+/// описываются ссылками на скачивание, всё остальное кладётся в `overrides/`.
+pub async fn export_instance_mrpack(
+    paths: &AppPaths,
+    data_dir: &Path,
+    instance: &Instance,
+    target: &Path,
+) -> AppResult<ExportedMrpack> {
+    let instance_dir = paths.instance_dir(data_dir, &instance.id);
+    let mods_dir = instance_dir.join("game").join("mods");
+    let game_dir = instance_dir.join("game");
+    let meta_path = instance_dir.join("mods-meta.json");
+    let meta_list: Vec<ModMetaEntry> =
+        crate::storage::json_store::read_json_or_default(&meta_path)
+            .await
+            .unwrap_or_default();
+
+    let mut index_files: Vec<serde_json::Value> = Vec::new();
+    let mut overrides: Vec<(String, std::path::PathBuf)> = Vec::new();
+
+    if mods_dir.is_dir() {
+        let client = downloader::build_client()?;
+        let mut entries = tokio::fs::read_dir(&mods_dir).await?;
+        while let Some(entry) = entries.next_entry().await? {
+            let meta = entry.metadata().await?;
+            if !meta.is_file() {
+                continue;
+            }
+            let name = entry.file_name().to_string_lossy().to_string();
+            let is_jar = name.ends_with(".jar");
+            if !is_jar && !name.ends_with(".jar.disabled") {
+                continue;
+            }
+            let archive_path = format!("mods/{name}");
+            let resolved = if is_jar {
+                resolve_mrpack_file(&client, &meta_list, &name).await
+            } else {
+                None
+            };
+            match resolved {
+                Some((download_url, hashes)) => {
+                    index_files.push(serde_json::json!({
+                        "path": archive_path,
+                        "hashes": hashes,
+                        "env": { "client": "required", "server": "required" },
+                        "downloads": [download_url],
+                        "fileSize": meta.len(),
+                    }));
+                }
+                None => overrides.push((archive_path, entry.path())),
+            }
+        }
+    }
+
+    // Настройки и ресурспаки переносим как есть, иначе сборка потеряет конфиги.
+    let options_txt = game_dir.join("options.txt");
+    if options_txt.is_file() {
+        overrides.push(("options.txt".to_string(), options_txt));
+    }
+    for folder in ["config", "defaultconfigs", "resourcepacks", "shaderpacks"] {
+        collect_mrpack_overrides(&game_dir.join(folder), folder, &mut overrides).await;
+    }
+
+    let index = serde_json::json!({
+        "formatVersion": 1,
+        "game": "minecraft",
+        "versionId": format!(
+            "export-{}",
+            chrono::Local::now().format("%Y%m%d-%H%M%S")
+        ),
+        "name": instance.name,
+        "summary": format!("Экспорт сборки «{}»", instance.name),
+        "files": index_files,
+        "dependencies": mrpack_dependencies(instance),
+    });
+    let index_bytes = serde_json::to_vec_pretty(&index)?;
+
+    let target_owned = target.to_path_buf();
+    tokio::task::spawn_blocking(move || write_mrpack(&target_owned, &index_bytes, &overrides))
+        .await
+        .map_err(|e| AppError::Process(format!("Не удалось собрать .mrpack: {e}")))??;
+
+    let size_bytes = tokio::fs::metadata(target).await?.len();
+    Ok(ExportedMrpack {
+        path: target.to_string_lossy().into_owned(),
+        size_bytes,
+    })
+}
+
+async fn collect_mrpack_overrides(
+    root: &Path,
+    prefix: &str,
+    out: &mut Vec<(String, std::path::PathBuf)>,
+) {
+    if !root.exists() {
+        return;
+    }
+    let mut stack = vec![(root.to_path_buf(), prefix.to_string())];
+    while let Some((dir, rel)) = stack.pop() {
+        let Ok(mut entries) = tokio::fs::read_dir(&dir).await else {
+            continue;
+        };
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            let Ok(file_type) = entry.file_type().await else {
+                continue;
+            };
+            if file_type.is_symlink() {
+                continue;
+            }
+            let name = entry.file_name().to_string_lossy().to_string();
+            let child_rel = format!("{rel}/{name}");
+            if file_type.is_dir() {
+                stack.push((entry.path(), child_rel));
+            } else {
+                out.push((child_rel, entry.path()));
+            }
+        }
+    }
+}
+
+fn mrpack_dependencies(instance: &Instance) -> serde_json::Value {
+    let mut deps = serde_json::Map::new();
+    deps.insert(
+        "minecraft".to_string(),
+        serde_json::Value::String(instance.minecraft_version.clone()),
+    );
+    if let Some(version) = instance
+        .loader_version
+        .as_deref()
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+    {
+        let key = match instance.loader {
+            ModLoaderKind::Fabric => Some("fabric-loader"),
+            ModLoaderKind::Quilt => Some("quilt-loader"),
+            ModLoaderKind::Forge => Some("forge"),
+            ModLoaderKind::NeoForge => Some("neoforge"),
+            ModLoaderKind::Vanilla => None,
+        };
+        if let Some(key) = key {
+            deps.insert(
+                key.to_string(),
+                serde_json::Value::String(version.to_string()),
+            );
+        }
+    }
+    serde_json::Value::Object(deps)
+}
+
+/// Ищет файл версии на Modrinth, чтобы сохранить прямую ссылку и хеши.
+async fn resolve_mrpack_file(
+    client: &reqwest::Client,
+    meta_list: &[ModMetaEntry],
+    file_name: &str,
+) -> Option<(String, serde_json::Value)> {
+    let meta = meta_list.iter().find(|m| m.file_name == file_name)?;
+    let url = format!("{MODRINTH_API_BASE_URL}/version/{}", meta.version_id);
+    let response = client
+        .get(&url)
+        .header("User-Agent", downloader::USER_AGENT)
+        .send()
+        .await
+        .ok()?
+        .error_for_status()
+        .ok()?;
+    let version: ApiVersion = response.json().await.ok()?;
+    let file = version
+        .files
+        .iter()
+        .find(|f| f.filename == file_name)
+        .or_else(|| {
+            if version.files.len() == 1 {
+                version.files.first()
+            } else {
+                None
+            }
+        })?;
+
+    let mut hashes = serde_json::Map::new();
+    for key in ["sha1", "sha512"] {
+        if let Some(value) = file.hashes.get(key) {
+            hashes.insert(
+                key.to_string(),
+                serde_json::Value::String(value.clone()),
+            );
+        }
+    }
+    if hashes.is_empty() {
+        return None;
+    }
+    Some((file.url.clone(), serde_json::Value::Object(hashes)))
+}
+
+fn write_mrpack(
+    target: &Path,
+    index: &[u8],
+    overrides: &[(String, std::path::PathBuf)],
+) -> AppResult<()> {
+    use std::io::Write;
+    use zip::write::SimpleFileOptions;
+
+    if let Some(parent) = target.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let file = std::fs::File::create(target)?;
+    let mut zip = zip::ZipWriter::new(file);
+    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+
+    zip.start_file("modrinth.index.json", options)?;
+    zip.write_all(index)?;
+
+    for (archive_path, source) in overrides {
+        zip.start_file(format!("overrides/{archive_path}"), options)?;
+        let mut input = std::fs::File::open(source)?;
+        std::io::copy(&mut input, &mut zip)?;
+    }
+
+    zip.finish()?;
+    Ok(())
+}

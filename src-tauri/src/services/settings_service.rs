@@ -50,6 +50,7 @@ pub async fn load_or_init_settings(paths: &AppPaths) -> AppResult<AppSettings> {
         default_memory_mb: compute_recommended_memory_mb(sys_info.total_memory_mb),
         max_concurrent_downloads: DEFAULT_CONCURRENT_DOWNLOADS,
         close_on_launch: false,
+        close_to_tray: false,
         show_snapshots: false,
         custom_java_paths: Vec::new(),
     };

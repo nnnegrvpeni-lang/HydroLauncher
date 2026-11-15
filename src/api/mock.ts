@@ -39,6 +39,7 @@ let settings: AppSettings = {
   defaultMemoryMb: 4096,
   maxConcurrentDownloads: 8,
   closeOnLaunch: false,
+  closeToTray: false,
   showSnapshots: false,
   customJavaPaths: [],
 };
@@ -356,6 +357,20 @@ export async function mockInvoke<T>(
     case 'delete_instance':
       instances = instances.filter((i) => i.id !== args?.instanceId);
       return undefined as T;
+    case 'duplicate_instance': {
+      const source = instances.find((i) => i.id === args?.instanceId);
+      if (!source) throw 'Сборка не найдена';
+      const copy: Instance = {
+        ...source,
+        id: `inst-${Date.now()}`,
+        name: `${source.name} (копия)`,
+        createdAt: now(),
+        lastPlayedAt: null,
+        playTimeSeconds: 0,
+      };
+      instances = [...instances, copy];
+      return structuredClone(copy) as T;
+    }
     case 'open_instance_folder':
       return undefined as T;
 
@@ -572,6 +587,29 @@ export async function mockInvoke<T>(
       return [] as T;
     case 'get_instance_screenshots':
       return [] as T;
+    case 'list_instance_worlds':
+      return [
+        {
+          folderName: 'Новый мир',
+          modifiedMs: Date.now() - 3_600_000,
+          sizeBytes: 48 * 1024 * 1024,
+          iconDataUrl: null,
+        },
+        {
+          folderName: 'Тестовый мир',
+          modifiedMs: Date.now() - 86_400_000,
+          sizeBytes: 12 * 1024 * 1024,
+          iconDataUrl: null,
+        },
+      ] as T;
+    case 'backup_instance_world':
+      return {
+        fileName: `${String(args?.folderName ?? 'world')}-backup.zip`,
+        path: `C:\\HydroLauncher\\data\\instances\\${String(args?.instanceId ?? 'inst')}\\backups\\backup.zip`,
+        sizeBytes: 18 * 1024 * 1024,
+      } as T;
+    case 'delete_instance_world':
+      return undefined as T;
     case 'delete_instance_screenshot':
     case 'open_screenshot_file':
       return undefined as T;
@@ -591,6 +629,8 @@ export async function mockInvoke<T>(
         currentUpdatedAt: now(),
         latestUpdatedAt: now(),
       } as T;
+    case 'cleanup_horizon_cache':
+      return { removedTags: [], freedBytes: 0 } as T;
 
     // Модлоадеры и обновления модов
     case 'get_loader_versions':
@@ -626,6 +666,11 @@ export async function mockInvoke<T>(
     }
     case 'pick_mrpack_file':
       return null as T;
+    case 'export_instance_mrpack':
+      return {
+        path: 'C:\\Users\\Public\\HydroLauncher-export.mrpack',
+        sizeBytes: 3 * 1024 * 1024,
+      } as T;
     case 'open_external_url':
       return undefined as T;
 
