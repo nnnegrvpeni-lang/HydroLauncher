@@ -3,7 +3,7 @@
 [![Release](https://img.shields.io/github/v/release/nnnegrvpeni-lang/HydroLauncher?label=release&color=b4cdb0)](https://github.com/nnnegrvpeni-lang/HydroLauncher/releases/latest)
 [![Build](https://img.shields.io/github/actions/workflow/status/nnnegrvpeni-lang/HydroLauncher/release.yml?label=build)](https://github.com/nnnegrvpeni-lang/HydroLauncher/actions/workflows/release.yml)
 
-Десктопный лаунчер Minecraft на базе **Tauri v2 + React 19 + Rust** с интерфейсом в стиле «жидкое стекло». Поддерживает классическую **Java Edition** (Vanilla, Fabric, Forge, NeoForge, Quilt) и нативный Rust-движок **Horizon**.
+Десктопный лаунчер Minecraft на базе **Tauri v2 + React 19 + Rust** с интерфейсом в стиле «жидкое стекло». Поддерживает классическую **Java Edition** (Vanilla, Fabric, Forge, NeoForge, Quilt) и нативный Rust-движок **Horizon**. Собирается под Windows, Linux и macOS.
 
 ---
 
@@ -35,7 +35,7 @@ _Скриншоты сделаны в 0.1.x; в актуальной верси�
 - **Изолированные сборки** — отдельные папки игры, миры, моды, шейдеры, ресурспаки, скриншоты и параметры для каждого профиля.
 - **Модлоадеры Java Edition** — автоматическая установка **Vanilla**, **Fabric**, **Forge**, **NeoForge** и **Quilt**.
 - **Интеграция с Modrinth** — поиск и установка модов, шейдеров, ресурспаков и модпаков (`.mrpack`), автоматическое разрешение зависимостей, переключение версий и проверка обновлений.
-- **Поддержка Horizon (Rust)** — запуск сборок на нативном движке Horizon, выбор версии бинарников с отдельным хранением для каждого релиза, автообновление Nightly-сборок и каталог модов Horizon (`.hmod`, `.hnmod`, `.hshader`, `.zip`).
+- **Поддержка Horizon (Rust)** — запуск сборок на нативном движке Horizon, выбор версии бинарников с отдельным хранением для каждого релиза, автообновление Nightly-сборок и каталог модов Horizon (`.hmod`, `.hnmod`, `.hshader`, `.zip`). Бинарники движка зависят от платформы и наличия их в релизах Horizon; Java Edition работает везде.
 - **Автоопределение и скачивание Java** — автоматический поиск установленной Java (управляемой или системной) и загрузка подходящей версии **Adoptium Temurin JRE** при её отсутствии.
 - **Изолированная консоль** — отдельные логи для каждой сборки с копированием и очисткой прямо в окне сборки и на главной странице.
 - **Быстрый запуск (Quick Play)** — быстрый вход в сохранённые миры и на серверы с главной страницы: онлайн, число игроков, задержка и избранное.
@@ -107,7 +107,10 @@ HydroLauncher/
 
 - [Node.js](https://nodejs.org/) 20+
 - [Rust](https://www.rust-lang.org/) (актуальная stable-версия)
-- Системные зависимости для [Tauri v2](https://v2.tauri.app/start/prerequisites/)
+- Системные зависимости для [Tauri v2](https://v2.tauri.app/start/prerequisites/):
+  - Windows: WebView2 (установщик ставит его сам, если его нет) и MSVC Build Tools.
+  - Linux: `libwebkit2gtk-4.1-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`, `patchelf` и GTK-зависимости Tauri.
+  - macOS: Xcode Command Line Tools.
 
 ### Установка и запуск в dev-режиме
 
@@ -136,9 +139,14 @@ npm run tauri build
 ## Релизы
 
 Релизы собираются автоматически: пуш тега `v*` запускает workflow
-[`.github/workflows/release.yml`](.github/workflows/release.yml) на `windows-latest`,
-который собирает портативный `.exe`, установщики NSIS и MSI и прикрепляет их к
-релизу. Список изменений — в [CHANGELOG.md](CHANGELOG.md).
+[`.github/workflows/release.yml`](.github/workflows/release.yml), который собирает:
+
+- Windows x64: портативный `.exe`, установщики NSIS и MSI;
+- Linux x86_64: `.deb` и `.AppImage`;
+- macOS: universal `.dmg` для Apple Silicon и Intel.
+
+К релизу прикладывается `SHA256SUMS.txt` с контрольными суммами всех файлов.
+Список изменений — в [CHANGELOG.md](CHANGELOG.md).
 
 ---
 

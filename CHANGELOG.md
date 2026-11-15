@@ -4,6 +4,20 @@
 [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/), версии следуют
 [семантическому версионированию](https://semver.org/lang/ru/).
 
+## [0.2.6] — 2026-11-15
+
+### Добавлено
+- Сборки для Linux x86_64 (`.deb` и `.AppImage`) и macOS (universal `.dmg` для
+  Apple Silicon и Intel).
+- Установщик Windows явно проверяет Microsoft Edge WebView2 и при отсутствии
+  устанавливает его сам (`embedBootstrapper`, нужен интернет).
+
+### Изменено
+- Релизный workflow собирает три платформы параллельно, а контрольные суммы
+  генерируются отдельной job уже по всем загруженным файлам.
+- macOS-сборка подписывается ad-hoc: Gatekeeper может потребовать
+  «Открыть» через правый клик или `xattr -cr`.
+
 ## [0.2.5] — 2026-11-15
 
 ### Исправлено
@@ -157,6 +171,7 @@
 - Изолированная консоль для каждой сборки с копированием и очисткой логов.
 - Три темы оформления — «Сумерки», «Ночь», «День» — в стиле «жидкого стекла».
 
+[0.2.6]: https://github.com/nnnegrvpeni-lang/HydroLauncher/releases/tag/v0.2.6
 [0.2.5]: https://github.com/nnnegrvpeni-lang/HydroLauncher/releases/tag/v0.2.5
 [0.2.0]: https://github.com/nnnegrvpeni-lang/HydroLauncher/releases/tag/v0.2.0
 [0.1.1]: https://github.com/nnnegrvpeni-lang/HydroLauncher/releases/tag/v0.1.1

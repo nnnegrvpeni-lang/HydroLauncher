@@ -9,9 +9,25 @@ permissions:
   contents: write
 
 jobs:
-  publish:
-    name: Build and publish (Windows x64)
-    runs-on: windows-latest
+  build:
+    name: Build (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: windows
+            args: --bundles nsis,msi
+            rust_targets: ''
+          - os: ubuntu-22.04
+            label: linux
+            args: --bundles deb,appimage
+            rust_targets: ''
+          - os: macos-latest
+            label: macos
+            args: --target universal-apple-darwin --bundles dmg
+            rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
 
     steps:
       - name: Checkout
@@ -25,11 +41,30 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_targets }}
 
       - name: Cache Rust build
         uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          key: ${{ matrix.label }}
+
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
 
       - name: Install frontend dependencies
         run: npm ci
@@ -42,31 +77,43 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: HydroLauncher ${{ github.ref_name }}
           releaseBody: |
-            HydroLauncher ${{ github.ref_name }} для Windows x64.
+            HydroLauncher ${{ github.ref_name }}: Windows, Linux и macOS.
 
             ### Что нового
             Полный список изменений — в [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md).
 
-            ### Как установить
+            ### Windows
             - `HydroLauncher_*_x64-setup.exe` — обычный установщик (NSIS), рекомендуется большинству.
             - `HydroLauncher_*_x64_en-US.msi` — MSI для установки через GPO или командную строку.
             - `HydroLauncher_*_x64_portable.exe` — портативная версия без установки.
 
-            ### Требования
-            - Windows 10 или 11, x64.
-            - Microsoft Edge WebView2 Runtime (в Windows 11 уже установлен; на Windows 10 может понадобиться доустановить).
+            Установщик проверяет Microsoft Edge WebView2 и при отсутствии ставит его сам (нужен интернет). На Windows 11 runtime уже установлен.
+
+            ### Linux (x86_64)
+            - `HydroLauncher_*_amd64.deb` — пакет для Debian/Ubuntu.
+            - `HydroLauncher_*_amd64.AppImage` — портативный запуск: `chmod +x` и запустить файл.
+
+            Нужен WebKitGTK 4.1 (в свежих дистрибутивах уже есть).
+
+            ### macOS (universal: Apple Silicon и Intel)
+            - `HydroLauncher_*.dmg` — перетащите приложение в Applications.
+
+            Сборка не подписана сертификатом Apple. Если Gatekeeper её блокирует: правый клик → «Открыть» или `xattr -cr /Applications/HydroLauncher.app`.
+
+            ### Horizon
+            Java Edition работает на всех платформах. Horizon зависит от наличия бинарников движка под вашу ОС в его релизах; на Windows они есть всегда.
 
             ### Проверка файлов
             SHA-256 всех файлов лежит в `SHA256SUMS.txt` и рядом с каждым asset на этой странице.
-
-            Сборки не подписаны сертификатом, поэтому SmartScreen может показать предупреждение. Перед запуском сверьте SHA-256.
 
             ### Обратная связь
             Баги и предложения — в [Issues](https://github.com/${{ github.repository }}/issues/new/choose).
           releaseDraft: false
           prerelease: false
+          args: ${{ matrix.args }}
 
       - name: Prepare portable binary
+        if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
           $version = "${{ github.ref_name }}" -replace '^v', ''
@@ -74,26 +121,37 @@ jobs:
           Copy-Item "src-tauri/target/release/hydro-launcher.exe" $name
           "PORTABLE_NAME=$name" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      - name: Prepare checksums
-        shell: pwsh
-        run: |
-          $version = "${{ github.ref_name }}" -replace '^v', ''
-          $portable = "HydroLauncher_${version}_x64_portable.exe"
-          $files = @()
-          $files += Get-ChildItem "src-tauri/target/release/bundle/nsis/*.exe" -ErrorAction SilentlyContinue
-          $files += Get-ChildItem "src-tauri/target/release/bundle/msi/*.msi" -ErrorAction SilentlyContinue
-          if (Test-Path $portable) { $files += Get-Item $portable }
-          $lines = foreach ($file in $files) {
-            $hash = (Get-FileHash -Algorithm SHA256 -Path $file.FullName).Hash.ToLower()
-            "$hash  $($file.Name)"
-          }
-          $lines | Set-Content -Path SHA256SUMS.txt -Encoding ascii
-          Get-Content SHA256SUMS.txt
-
-      - name: Upload portable binary and checksums
+      - name: Upload portable binary
+        if: matrix.os == 'windows-latest'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          files: |
-            ${{ env.PORTABLE_NAME }}
-            SHA256SUMS.txt
+          files: ${{ env.PORTABLE_NAME }}
+
+  checksums:
+    name: Checksums
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p dist
+          gh release download "${GITHUB_REF_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --dir dist \
+            --pattern "HydroLauncher_*"
+
+      - name: Generate SHA256SUMS.txt
+        working-directory: dist
+        run: |
+          sha256sum HydroLauncher_* | sort -k2 > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Upload checksums
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: dist/SHA256SUMS.txt
