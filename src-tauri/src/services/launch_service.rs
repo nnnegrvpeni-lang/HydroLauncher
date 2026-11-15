@@ -13,6 +13,7 @@ use chrono::Utc;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
@@ -394,16 +395,35 @@ pub async fn launch(
         }
     };
 
+    // Лог процесса пишем в файл: он переживёт перезапуск лаунчера.
+    let log_path = paths
+        .instance_dir(&data_dir, &instance.id)
+        .join("logs")
+        .join("latest.log");
+    let log_sink = prepare_log_sink(&log_path).await;
+
     if let Some(stdout) = child.stdout.take() {
-        spawn_log_pipe(app.clone(), instance.id.clone(), "stdout", stdout);
+        spawn_log_pipe(
+            app.clone(),
+            instance.id.clone(),
+            "stdout",
+            stdout,
+            log_sink.clone(),
+        );
     }
     if let Some(stderr) = child.stderr.take() {
-        spawn_log_pipe(app.clone(), instance.id.clone(), "stderr", stderr);
+        spawn_log_pipe(
+            app.clone(),
+            instance.id.clone(),
+            "stderr",
+            stderr,
+            log_sink.clone(),
+        );
     }
+    let log_sink_watcher = log_sink.clone();
 
     let (kill_tx, mut kill_rx) = tokio::sync::oneshot::channel::<()>();
     registry.insert(instance.id.clone(), kill_tx).await;
-
     emit_state(&app, &instance.id, "running");
     account_service::mark_account_used(&paths, &data_dir, &account.id).await?;
 
@@ -447,6 +467,18 @@ pub async fn launch(
 
         // Нормальный выход — только код 0. Ненулевой код или сигнал считаем падением.
         let state = classify_exit(was_killed, exit_code);
+
+        // Сначала дописываем файл, потом уведомляем интерфейс: он может сразу
+        // открыть лог для отчёта о краше.
+        if let Some(sink) = &log_sink_watcher {
+            let code = exit_code
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "—".to_string());
+            let footer = format!("=== Игра завершилась: {state} (код {code}) ===\n");
+            let mut file = sink.lock().await;
+            let _ = file.write_all(footer.as_bytes()).await;
+        }
+
         emit_state_with_code(&watcher_app, &watcher_instance.id, state, exit_code);
 
         if restore_window {
@@ -530,16 +562,54 @@ async fn resolve_java_exec(
     Ok(runtime.path)
 }
 
+type LogSink = Arc<tokio::sync::Mutex<tokio::fs::File>>;
+
+/// Готовит `logs/latest.log`, сохраняя прошлый запуск как `previous.log`.
+async fn prepare_log_sink(path: &std::path::Path) -> Option<LogSink> {
+    if let Some(parent) = path.parent() {
+        tokio::fs::create_dir_all(parent).await.ok()?;
+    }
+
+    let previous = path.with_file_name("previous.log");
+    let _ = tokio::fs::remove_file(&previous).await;
+    let _ = tokio::fs::rename(path, &previous).await;
+
+    let file = tokio::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .await
+        .ok()?;
+    let sink = Arc::new(tokio::sync::Mutex::new(file));
+    let header = format!(
+        "=== HydroLauncher: запуск {} ===\n",
+        chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
+    );
+    sink.lock().await.write_all(header.as_bytes()).await.ok()?;
+    Some(sink)
+}
+
 fn spawn_log_pipe(
     app: AppHandle,
     instance_id: String,
     stream: &'static str,
     reader: impl tokio::io::AsyncRead + Unpin + Send + 'static,
+    sink: Option<LogSink>,
 ) {
     tokio::spawn(async move {
         use tokio::io::{AsyncBufReadExt, BufReader};
         let mut lines = BufReader::new(reader).lines();
         while let Ok(Some(line)) = lines.next_line().await {
+            if let Some(sink) = &sink {
+                let entry = format!(
+                    "[{}] [{}] {}\n",
+                    chrono::Local::now().format("%H:%M:%S"),
+                    stream,
+                    line
+                );
+                let mut file = sink.lock().await;
+                let _ = file.write_all(entry.as_bytes()).await;
+            }
             let _ = app.emit(
                 "launch://log",
                 GameLogEvent {

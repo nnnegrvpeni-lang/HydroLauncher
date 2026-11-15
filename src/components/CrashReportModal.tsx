@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
-import { Check, Copy, RotateCcw } from 'lucide-react';
-import type { GameLog } from '../api';
+import { useEffect, useMemo, useState } from 'react';
+import { Check, Copy, FolderOpen, RotateCcw } from 'lucide-react';
+import { api, type GameLog } from '../api';
 import { useI18n } from '../i18n';
 import { useInstancesStore } from '../stores/instancesStore';
 import { useLaunchStore } from '../stores/launchStore';
@@ -24,10 +24,41 @@ export function CrashReportModal() {
   const notify = useNotifyStore((s) => s.push);
   const { t, language } = useI18n();
   const [copied, setCopied] = useState(false);
+  const [fileTail, setFileTail] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!crash) {
+      setFileTail([]);
+      return;
+    }
+    let active = true;
+    void api
+      .readInstanceLog(crash.instanceId, 200)
+      .then((lines) => {
+        if (active) setFileTail(lines);
+      })
+      .catch(() => {
+        if (active) setFileTail([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [crash]);
+
+  // Файл лога полнее памяти: в нём есть строки, которые уже вытеснены из UI.
+  const reportLogs = useMemo<GameLog[]>(() => {
+    if (fileTail.length === 0) return logs;
+    return fileTail.map((line, index) => ({
+      instanceId: crash?.instanceId ?? '',
+      stream: 'file',
+      line,
+      timestamp: String(index),
+    }));
+  }, [fileTail, logs, crash?.instanceId]);
 
   const report = useMemo(
-    () => (crash ? formatCrashReport(instance, crash, logs, language) : ''),
-    [crash, instance, logs, language],
+    () => (crash ? formatCrashReport(instance, crash, reportLogs, language) : ''),
+    [crash, instance, reportLogs, language],
   );
 
   if (!crash) return null;
@@ -43,7 +74,7 @@ export function CrashReportModal() {
     }
   };
 
-  const tail = logs.slice(-60);
+  const tail = reportLogs.slice(-60);
 
   return (
     <Modal
@@ -56,6 +87,15 @@ export function CrashReportModal() {
         <>
           <Button variant="ghost" onClick={clearCrash}>
             {t('Закрыть')}
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              if (crash) void api.openInstanceLog(crash.instanceId).catch(() => undefined);
+            }}
+          >
+            <FolderOpen size={13} />
+            {t('Открыть лог')}
           </Button>
           <Button variant="secondary" onClick={() => void copyReport()}>
             {copied ? <Check size={13} className="text-led" /> : <Copy size={13} />}

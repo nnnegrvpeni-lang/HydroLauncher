@@ -93,9 +93,9 @@ function formatDownloads(count: number): string {
   return String(count);
 }
 
-function formatShortDate(iso: string): string {
+function formatShortDate(iso: string, language: 'ru' | 'en'): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('ru-RU', {
+  return new Date(iso).toLocaleDateString(language === 'en' ? 'en-US' : 'ru-RU', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -363,7 +363,7 @@ export function ModsPage({
   }, [versionCatalog, ensureVersionCatalog]);
 
   const appLinks = useLinksStore((s) => s.links);
-  const { t, tf } = useI18n();
+  const { t, tf, language } = useI18n();
 
   // Подгружаем поддерживаемые версии выбранного модлоадера и сбрасываем несовместимую версию игры
   useEffect(() => {
@@ -954,7 +954,7 @@ export function ModsPage({
                               {ver.loaders.map(formatLoaderLabel).join(', ')} ·{' '}
                               {ver.gameVersions.slice(0, 5).join(', ')}
                               {ver.gameVersions.length > 5 ? '…' : ''} ·{' '}
-                              {formatShortDate(ver.datePublished)}
+                              {formatShortDate(ver.datePublished, language)}
                             </p>
                           </div>
 

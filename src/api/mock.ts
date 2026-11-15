@@ -611,6 +611,13 @@ export async function mockInvoke<T>(
       } as T;
     case 'delete_instance_world':
       return undefined as T;
+    case 'read_instance_log':
+      return [
+        '[12:00:00] [stdout] Starting Minecraft',
+        '[12:00:01] [stdout] Loaded 42 mods',
+      ] as T;
+    case 'open_instance_log':
+      return undefined as T;
     case 'delete_instance_screenshot':
     case 'open_screenshot_file':
       return undefined as T;

@@ -525,7 +525,8 @@ function StorageGroup() {
   const save = useSettingsStore((s) => s.save);
   const systemInfo = useSettingsStore((s) => s.systemInfo);
   const notify = useNotifyStore((s) => s.push);
-  const { t, tf } = useI18n();
+  const running = useInstancesStore((s) => s.running);
+  const { t, tf, language } = useI18n();
   const [error, setError] = useState<string | null>(null);
   const [cleaning, setCleaning] = useState(false);
 
@@ -536,7 +537,7 @@ function StorageGroup() {
     try {
       const result = await api.cleanupHorizonCache();
       if (result.freedBytes > 0) {
-        notify(tf('Очищено {size} кэша Horizon', { size: formatBytes(result.freedBytes) }));
+        notify(tf('Очищено {size} кэша Horizon', { size: formatBytes(result.freedBytes, language) }));
       } else {
         notify(t('Нечего удалять: все версии Horizon используются сборками'));
       }
@@ -548,6 +549,10 @@ function StorageGroup() {
   };
 
   const pick = async () => {
+    if (running.size > 0) {
+      setError(t('Остановите игру перед сменой папки данных'));
+      return;
+    }
     const dir = await api.pickDirectory();
     if (!dir) return;
     try {
@@ -578,7 +583,15 @@ function StorageGroup() {
             <FolderOpen size={13.5} />
             {t('Открыть папку')}
           </Button>
-          <Button size="md" variant="secondary" onClick={() => void pick()}>
+          <Button
+            size="md"
+            variant="secondary"
+            onClick={() => void pick()}
+            disabled={running.size > 0}
+            title={
+              running.size > 0 ? t('Остановите игру перед сменой папки данных') : undefined
+            }
+          >
             {t('Изменить')}
           </Button>
         </div>

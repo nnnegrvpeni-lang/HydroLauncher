@@ -2,7 +2,7 @@ use crate::models::instance::{Instance, InstancesStore};
 use crate::services::instance_service;
 use crate::state::AppState;
 use crate::storage::json_store;
-use crate::{commands::shared, models::instance::CreateInstanceRequest, AppError};
+use crate::{commands::shared, models::instance::CreateInstanceRequest, AppError, AppResult};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
@@ -457,6 +457,39 @@ async fn world_icon_data_url(world_path: &Path) -> Option<String> {
         .map(|bytes| format!("data:image/png;base64,{}", encode_base64(&bytes)))
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WorldSizeCacheEntry {
+    stamp_ms: u64,
+    size_bytes: u64,
+}
+
+/// Дешёвая проверка изменений мира: максимальный mtime среди прямых детей.
+/// Рекурсивно не обходим — `level.dat` переписывается при сохранении.
+async fn world_change_stamp(path: &Path) -> u64 {
+    let mut stamp = tokio::fs::metadata(path)
+        .await
+        .ok()
+        .and_then(|meta| meta.modified().ok())
+        .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(0);
+
+    let Ok(mut entries) = tokio::fs::read_dir(path).await else {
+        return stamp;
+    };
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        if let Ok(meta) = entry.metadata().await {
+            if let Ok(modified) = meta.modified() {
+                if let Ok(duration) = modified.duration_since(UNIX_EPOCH) {
+                    stamp = stamp.max(duration.as_millis() as u64);
+                }
+            }
+        }
+    }
+    stamp
+}
+
 #[tauri::command]
 pub async fn list_instance_worlds(
     state: State<'_, AppState>,
@@ -467,6 +500,17 @@ pub async fn list_instance_worlds(
     if !saves_dir.exists() {
         return Ok(Vec::new());
     }
+
+    // Размер больших миров считаем один раз и переиспользуем, пока мир не изменился.
+    let cache_path = paths
+        .instance_dir(&data_dir, &instance_id)
+        .join("worlds-cache.json");
+    let mut cache: std::collections::HashMap<String, WorldSizeCacheEntry> =
+        json_store::read_json_or_default(&cache_path)
+            .await
+            .unwrap_or_default();
+    let mut cache_changed = false;
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     let mut worlds = Vec::new();
     let mut entries = tokio::fs::read_dir(&saves_dir).await?;
@@ -485,12 +529,39 @@ pub async fn list_instance_worlds(
             .map(|d| d.as_millis() as u64)
             .unwrap_or(0);
 
+        let stamp = world_change_stamp(&path).await;
+        let size_bytes = match cache.get(&folder_name) {
+            Some(cached) if stamp > 0 && cached.stamp_ms >= stamp => cached.size_bytes,
+            _ => {
+                let size = directory_size(&path).await;
+                cache.insert(
+                    folder_name.clone(),
+                    WorldSizeCacheEntry {
+                        stamp_ms: stamp,
+                        size_bytes: size,
+                    },
+                );
+                cache_changed = true;
+                size
+            }
+        };
+        seen.insert(folder_name.clone());
+
         worlds.push(InstanceWorld {
             icon_data_url: world_icon_data_url(&path).await,
             folder_name,
             modified_ms,
-            size_bytes: directory_size(&path).await,
+            size_bytes,
         });
+    }
+
+    let entries_before = cache.len();
+    cache.retain(|name, _| seen.contains(name));
+    if cache.len() != entries_before {
+        cache_changed = true;
+    }
+    if cache_changed {
+        let _ = json_store::write_json_atomic(&cache_path, &cache).await;
     }
 
     worlds.sort_by(|a, b| b.modified_ms.cmp(&a.modified_ms));
@@ -593,5 +664,138 @@ pub async fn delete_instance_world(
         return Err(AppError::NotFound("Мир не найден".into()));
     }
     tokio::fs::remove_dir_all(&target).await?;
+    // Сбрасываем кэш размеров: записи удалённого мира больше не нужны.
+    let _ = tokio::fs::remove_file(
+        paths
+            .instance_dir(&data_dir, &instance_id)
+            .join("worlds-cache.json"),
+    )
+    .await;
     Ok(())
+}
+
+fn instance_latest_log(
+    paths: &crate::storage::paths::AppPaths,
+    data_dir: &Path,
+    instance_id: &str,
+) -> PathBuf {
+    paths
+        .instance_dir(data_dir, instance_id)
+        .join("logs")
+        .join("latest.log")
+}
+
+const LOG_TAIL_BYTES: u64 = 512 * 1024;
+
+/// Читает последние строки лога, не загружая весь файл в память.
+async fn read_log_tail(path: &Path, max_lines: usize) -> AppResult<Vec<String>> {
+    if !path.is_file() {
+        return Ok(Vec::new());
+    }
+
+    use tokio::io::{AsyncReadExt, AsyncSeekExt};
+
+    let size = tokio::fs::metadata(path).await?.len();
+    let start = size.saturating_sub(LOG_TAIL_BYTES);
+
+    let mut file = tokio::fs::File::open(path).await?;
+    if start > 0 {
+        file.seek(std::io::SeekFrom::Start(start)).await?;
+    }
+
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer).await?;
+
+    // Первая строка обрезанного куска почти наверняка неполная.
+    if start > 0 {
+        if let Some(position) = buffer.iter().position(|byte| *byte == b'\n') {
+            buffer.drain(..=position);
+        }
+    }
+
+    let text = String::from_utf8_lossy(&buffer);
+    let mut lines: Vec<String> = text.lines().map(str::to_string).collect();
+    if lines.len() > max_lines {
+        lines = lines.split_off(lines.len() - max_lines);
+    }
+    Ok(lines)
+}
+
+#[tauri::command]
+pub async fn read_instance_log(
+    state: State<'_, AppState>,
+    instance_id: String,
+    max_lines: Option<usize>,
+) -> Result<Vec<String>, AppError> {
+    let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
+    let path = instance_latest_log(&paths, &data_dir, &instance_id);
+    let limit = max_lines.unwrap_or(200).clamp(1, 5000);
+    read_log_tail(&path, limit).await
+}
+
+#[tauri::command]
+pub async fn open_instance_log(
+    state: State<'_, AppState>,
+    instance_id: String,
+) -> Result<(), AppError> {
+    let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
+    let target = instance_latest_log(&paths, &data_dir, &instance_id);
+    if !target.is_file() {
+        return Err(AppError::NotFound(
+            "Лог ещё не создан: запустите игру".into(),
+        ));
+    }
+
+    #[cfg(target_os = "windows")]
+    std::process::Command::new("explorer")
+        .arg(&target)
+        .spawn()
+        .map_err(|e| AppError::Process(format!("Не удалось открыть лог: {e}")))?;
+
+    #[cfg(target_os = "macos")]
+    std::process::Command::new("open")
+        .arg(&target)
+        .spawn()
+        .map_err(|e| AppError::Process(format!("Не удалось открыть лог: {e}")))?;
+
+    #[cfg(target_os = "linux")]
+    std::process::Command::new("xdg-open")
+        .arg(&target)
+        .spawn()
+        .map_err(|e| AppError::Process(format!("Не удалось открыть лог: {e}")))?;
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::read_log_tail;
+
+    #[tokio::test]
+    async fn reads_only_the_tail() {
+        let dir = std::env::temp_dir().join(format!("hydro-log-{}", uuid::Uuid::new_v4()));
+        tokio::fs::create_dir_all(&dir).await.unwrap();
+        let path = dir.join("latest.log");
+        let content = (0..500)
+            .map(|index| format!("line {index}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        tokio::fs::write(&path, content).await.unwrap();
+
+        let lines = read_log_tail(&path, 10).await.unwrap();
+        assert_eq!(lines.len(), 10);
+        assert_eq!(lines.first().unwrap(), "line 490");
+        assert_eq!(lines.last().unwrap(), "line 499");
+
+        let _ = tokio::fs::remove_dir_all(&dir).await;
+    }
+
+    #[tokio::test]
+    async fn missing_log_returns_empty_list() {
+        let path = std::env::temp_dir().join(format!(
+            "hydro-missing-{}.log",
+            uuid::Uuid::new_v4()
+        ));
+        assert!(read_log_tail(&path, 10).await.unwrap().is_empty());
+    }
 }

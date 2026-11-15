@@ -462,7 +462,7 @@ export function HomePage({
               {featured.playTimeSeconds > 0 && (
                 <>
                   <span className="text-faint">·</span>
-                  <span>{formatPlayTime(featured.playTimeSeconds)}</span>
+                  <span>{formatPlayTime(featured.playTimeSeconds, language)}</span>
                 </>
               )}
             </div>

@@ -374,6 +374,10 @@ export const api = {
     invoke<void>('delete_instance_screenshot', { instanceId, fileName }),
   openScreenshotFile: (instanceId: string, fileName: string) =>
     invoke<void>('open_screenshot_file', { instanceId, fileName }),
+  readInstanceLog: (instanceId: string, maxLines?: number) =>
+    invoke<string[]>('read_instance_log', { instanceId, maxLines }),
+  openInstanceLog: (instanceId: string) =>
+    invoke<void>('open_instance_log', { instanceId }),
   listInstanceWorlds: (instanceId: string) =>
     invoke<InstanceWorld[]>('list_instance_worlds', { instanceId }),
   backupInstanceWorld: (instanceId: string, folderName: string) =>

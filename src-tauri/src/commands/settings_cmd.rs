@@ -21,9 +21,30 @@ pub async fn get_settings(state: State<'_, AppState>) -> Result<AppSettings, App
 #[tauri::command]
 pub async fn save_settings_cmd(
     state: State<'_, AppState>,
+    registry: State<'_, crate::services::launch_service::LaunchRegistry>,
     settings: AppSettings,
 ) -> Result<AppSettings, AppError> {
     let paths = AppPaths::discover()?;
+
+    // Папку данных нельзя менять на ходу: запущенная игра пишет в старую.
+    if registry.has_running() {
+        let current_dir = {
+            let current = state.settings.lock().await;
+            current.as_ref().map(|saved| saved.data_dir.clone())
+        };
+        let current_dir = match current_dir {
+            Some(dir) => dir,
+            None => settings_service::load_or_init_settings(&paths)
+                .await?
+                .data_dir,
+        };
+        if settings.data_dir.trim() != current_dir.trim() {
+            return Err(AppError::Validation(
+                "Остановите игру перед сменой папки данных".into(),
+            ));
+        }
+    }
+
     let saved = settings_service::save_settings(&paths, settings).await?;
     state.apply_window_prefs(&saved);
     {

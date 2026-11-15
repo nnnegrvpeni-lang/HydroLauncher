@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import { AlertCircle, Check, Loader2, X } from 'lucide-react';
+import { localizeProgressMessage } from '../i18n/progress';
+import { useI18n } from '../i18n';
 import { useInstancesStore } from '../stores/instancesStore';
 import { useLaunchStore } from '../stores/launchStore';
 import { useNotifyStore } from '../stores/notifyStore';
@@ -14,6 +16,7 @@ export function ToastHost() {
   const clearError = useInstancesStore((s) => s.clearError);
   const notices = useNotifyStore((s) => s.notices);
   const dismissNotice = useNotifyStore((s) => s.dismiss);
+  const { language } = useI18n();
 
   // Автоматически скрываем уведомление об ошибке через 3 секунды
   useEffect(() => {
@@ -45,7 +48,7 @@ export function ToastHost() {
                 <Loader2 size={14} className="shrink-0 animate-spin text-accent" />
               )}
               <span className="truncate text-[12.5px] font-medium text-ink">
-                {progress.message}
+                {localizeProgressMessage(progress.message, language)}
               </span>
             </div>
 

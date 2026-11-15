@@ -185,6 +185,30 @@ export const en: Record<string, string> = {
   'Остановить игру и выйти': 'Stop the game and quit',
   'Остановите игру перед установкой модов': 'Stop the game before installing mods',
 
+  // Прогресс подготовки сборки
+  'Файлы готовы к запуску': 'Files are ready to launch',
+  'Скачивание клиента Minecraft…': 'Downloading the Minecraft client…',
+  'Клиент скачан': 'Client downloaded',
+  'Загрузка индекса ассетов…': 'Loading the asset index…',
+  'Индекс ассетов загружен': 'Asset index loaded',
+  'Ассеты скачаны': 'Assets downloaded',
+  'Библиотеки скачаны': 'Libraries downloaded',
+  'Распаковка нативных библиотек…': 'Extracting native libraries…',
+  'Получение информации о релизе Horizon…': 'Fetching Horizon release info…',
+  'Распаковка движка Horizon…': 'Extracting the Horizon engine…',
+  'Движок Horizon установлен': 'Horizon engine installed',
+  'Скачивание server.jar для подготовки ресурсов Horizon…':
+    'Downloading server.jar to prepare Horizon resources…',
+  'Подготовка ресурсов Minecraft 26.3 для Horizon…':
+    'Preparing Minecraft 26.3 resources for Horizon…',
+  'Подготовка ресурсов Horizon…': 'Preparing Horizon resources…',
+  'Ресурсы Horizon готовы к запуску': 'Horizon resources are ready to launch',
+  'Остановите игру перед сменой папки данных':
+    'Stop the game before changing the data folder',
+  'Открыть лог': 'Open log',
+  'Логов пока нет — запустите сборку, чтобы увидеть вывод процесса.':
+    'No logs yet — launch the instance to see the process output.',
+
   // Главная: быстрый запуск и док
   'Войти на {address}': 'Join {address}',
   'Удалить сервер': 'Remove server',

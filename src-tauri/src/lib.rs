@@ -17,7 +17,8 @@ use commands::{
         add_quick_server, backup_instance_world, create_instance, delete_instance,
         delete_instance_screenshot, delete_instance_world, duplicate_instance,
         get_instance_quick_play, get_instance_screenshots, get_instances, list_instance_worlds,
-        open_instance_folder, open_screenshot_file, remove_quick_server, update_instance,
+        open_instance_folder, open_instance_log, open_screenshot_file, read_instance_log,
+        remove_quick_server, update_instance,
     },
     java_cmd::{download_java_runtime, get_java_runtimes},
     mods::{
@@ -159,6 +160,8 @@ pub fn run() {
             list_instance_worlds,
             backup_instance_world,
             delete_instance_world,
+            read_instance_log,
+            open_instance_log,
             get_instance_screenshots,
             delete_instance_screenshot,
             open_screenshot_file,

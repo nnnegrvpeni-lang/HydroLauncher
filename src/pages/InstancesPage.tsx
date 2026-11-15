@@ -24,6 +24,7 @@ import { useLaunchStore } from '../stores/launchStore';
 import { useNotifyStore } from '../stores/notifyStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useI18n } from '../i18n';
+import { localizeProgressMessage } from '../i18n/progress';
 import { cn } from '../utils/cn';
 import { formatMemory, formatPlayTime } from '../utils/format';
 import { api, type Instance, type ModLoaderKind } from '../api';
@@ -73,7 +74,7 @@ export function InstancesPage({
   const progress = useLaunchStore((s) => s.progress);
   const settings = useSettingsStore((s) => s.settings);
   const activeAccount = useAccountsStore((s) => s.activeAccount);
-  const { t, tf } = useI18n();
+  const { t, tf, language } = useI18n();
 
   const [query, setQuery] = useState('');
   const [loaderFilter, setLoaderFilter] = useState<'all' | ModLoaderKind>('all');
@@ -269,7 +270,7 @@ export function InstancesPage({
                           <>
                             <span className="text-faint">·</span>
                             <span className="tabular-nums">
-                              {formatPlayTime(instance.playTimeSeconds)}
+                              {formatPlayTime(instance.playTimeSeconds, language)}
                             </span>
                           </>
                         )}
@@ -280,7 +281,9 @@ export function InstancesPage({
                   {instProgress && (
                     <div className="mx-2 mb-2 rounded-[8px] border border-line bg-bg-well/70 px-3 py-2">
                       <div className="mb-1 flex items-center justify-between text-[11px] text-muted">
-                        <span className="truncate">{instProgress.message}</span>
+                        <span className="truncate">
+                          {localizeProgressMessage(instProgress.message, language)}
+                        </span>
                         <span className="font-mono text-ink tabular-nums">
                           {Math.round(instProgress.percent)}%
                         </span>

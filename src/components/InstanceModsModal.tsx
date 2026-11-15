@@ -41,7 +41,7 @@ import { useLaunchStore } from '../stores/launchStore';
 import { useNotifyStore } from '../stores/notifyStore';
 import { useI18n } from '../i18n';
 import { cn } from '../utils/cn';
-import { formatLoaderLabel } from '../utils/format';
+import { formatBytes, formatLoaderLabel } from '../utils/format';
 import { VoxelEmblem } from './VoxelEmblem';
 import { Button } from './ui/Button';
 import { Switch } from './ui/Switch';
@@ -57,10 +57,7 @@ interface InstanceModsModalProps {
   onOpenSettings?: () => void;
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`;
-  return `${Math.max(1, Math.round(bytes / 1024))} КБ`;
-}
+
 
 function formatWorldDate(ms: number, language: 'ru' | 'en' = 'ru'): string {
   if (!ms) return '—';
@@ -724,6 +721,14 @@ export function InstanceModsModal({
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => void api.openInstanceLog(instance.id).catch(() => undefined)}
+                  className="inline-flex h-7 items-center gap-1.5 rounded-[7px] px-2.5 text-[11.5px] text-muted transition-colors hover:bg-surface-2 hover:text-ink"
+                >
+                  <FolderOpen size={12} />
+                  {t('Открыть лог')}
+                </button>
                 {instanceLogs.length > 0 && (
                   <>
                     <button
@@ -736,7 +741,7 @@ export function InstanceModsModal({
                       ) : (
                         <Copy size={12} />
                       )}
-                      {logsCopied ? 'Скопировано' : 'Копировать'}
+                      {logsCopied ? t('Скопировано') : t('Копировать')}
                     </button>
                     <button
                       type="button"
@@ -744,7 +749,7 @@ export function InstanceModsModal({
                       className="inline-flex h-7 items-center gap-1.5 rounded-[7px] px-2.5 text-[11.5px] text-muted transition-colors hover:bg-surface-2 hover:text-ink"
                     >
                       <Trash2 size={12} />
-                      Очистить
+                      {t('Очистить')}
                     </button>
                   </>
                 )}
@@ -756,7 +761,7 @@ export function InstanceModsModal({
             >
               {instanceLogs.length === 0 ? (
                 <p className="text-muted">
-                  Логов пока нет — запустите сборку, чтобы увидеть вывод процесса.
+                  {t('Логов пока нет — запустите сборку, чтобы увидеть вывод процесса.')}
                 </p>
               ) : (
                 instanceLogs.map((log, i) => (
@@ -816,7 +821,7 @@ export function InstanceModsModal({
                           {shot.fileName}
                         </p>
                         <p className="font-mono text-[10.5px] text-muted">
-                          {formatBytes(shot.sizeBytes)}
+                          {formatBytes(shot.sizeBytes, language)}
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
@@ -882,7 +887,7 @@ export function InstanceModsModal({
                         {world.folderName}
                       </p>
                       <p className="mt-0.5 font-mono text-[11px] text-muted">
-                        {formatBytes(world.sizeBytes)} · {formatWorldDate(world.modifiedMs, language)}
+                        {formatBytes(world.sizeBytes, language)} · {formatWorldDate(world.modifiedMs, language)}
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
@@ -1126,7 +1131,7 @@ export function InstanceModsModal({
                               )}
                             </p>
                             <p className="mt-0.5 truncate font-mono text-[11px] text-muted">
-                              {mod.versionNumber ?? mod.fileName} · {formatBytes(mod.sizeBytes)}
+                              {mod.versionNumber ?? mod.fileName} · {formatBytes(mod.sizeBytes, language)}
                               {isNativeHorizonMod && (
                                 <span className="text-warn"> · {t('требует пересборки (.hnmod)')}</span>
                               )}
