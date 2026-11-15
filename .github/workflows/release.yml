@@ -134,24 +134,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download release assets
+      - name: Generate SHA256SUMS.txt from release metadata
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mkdir -p dist
-          gh release download "${GITHUB_REF_NAME}" \
-            --repo "${GITHUB_REPOSITORY}" \
-            --dir dist \
-            --pattern "HydroLauncher_*"
-
-      - name: Generate SHA256SUMS.txt
-        working-directory: dist
-        run: |
-          sha256sum HydroLauncher_* | sort -k2 > SHA256SUMS.txt
+          # GitHub сам считает SHA-256 для загруженных ассетов, поэтому
+          # скачивать файлы ради контрольных сумм не нужно.
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${GITHUB_REF_NAME}" \
+            --jq '.assets[]
+              | select(.name | startswith("HydroLauncher_"))
+              | select(.digest != null)
+              | "\(.digest | sub("^sha256:"; ""))  \(.name)"' \
+            | sort -k2 > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - name: Upload checksums
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          files: dist/SHA256SUMS.txt
+          files: SHA256SUMS.txt
