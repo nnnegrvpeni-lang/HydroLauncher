@@ -47,3 +47,17 @@ jobs:
             Полный список изменений — в [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md).
           releaseDraft: false
           prerelease: false
+
+      - name: Prepare portable binary
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}" -replace '^v', ''
+          $name = "HydroLauncher_${version}_x64_portable.exe"
+          Copy-Item "src-tauri/target/release/hydro-launcher.exe" $name
+          "PORTABLE_NAME=$name" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Upload portable binary
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: ${{ env.PORTABLE_NAME }}

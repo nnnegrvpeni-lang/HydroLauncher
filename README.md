@@ -7,6 +7,27 @@
 
 ---
 
+## Скриншоты
+
+![Главная страница — тема «Сумерки»](screenshots/main.png)
+
+| Сборки | Каталог модов (Modrinth) |
+| --- | --- |
+| ![Сборки](screenshots/instances.png) | ![Моды](screenshots/mods.png) |
+
+![Настройки](screenshots/settings.png)
+
+<details>
+<summary>Другие темы оформления («Ночь» и «День»)</summary>
+
+| Ночь | День |
+| --- | --- |
+| ![Главная — тема «Ночь»](screenshots/main-night.png) | ![Главная — тема «День»](screenshots/main-day.png) |
+
+</details>
+
+---
+
 ## Возможности
 
 - **Изолированные сборки** — отдельные папки игры, миры, моды, шейдеры, ресурспаки, скриншоты и параметры для каждого профиля.
@@ -105,8 +126,8 @@ npm run tauri build
 
 Релизы собираются автоматически: пуш тега `v*` запускает workflow
 [`.github/workflows/release.yml`](.github/workflows/release.yml) на `windows-latest`,
-который собирает установщики NSIS и MSI и прикрепляет их к релизу.
-Список изменений — в [CHANGELOG.md](CHANGELOG.md).
+который собирает портативный `.exe`, установщики NSIS и MSI и прикрепляет их к
+релизу. Список изменений — в [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
