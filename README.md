@@ -105,8 +105,8 @@ npm run tauri build
 
 Релизы собираются автоматически: пуш тега `v*` запускает workflow
 [`.github/workflows/release.yml`](.github/workflows/release.yml) на `windows-latest`,
-который собирает портативный `.exe`, установщики NSIS и MSI и прикрепляет их к
-релизу. Список изменений — в [CHANGELOG.md](CHANGELOG.md).
+который собирает установщики NSIS и MSI и прикрепляет их к релизу.
+Список изменений — в [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
