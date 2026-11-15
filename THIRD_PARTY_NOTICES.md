@@ -12,8 +12,9 @@ HydroLauncher распространяется под GNU General Public License
 - **Лицензия:** GNU General Public License v3.0 only.
   Текст лицензии приложен в `public/instance-icons/LICENSE`.
 - **Изменения:** PNG-файлы не изменялись. Из набора исключён `wrench-rinth.png`
-  (зелёный гаечный ключ — элемент брендинга Modrinth). Логотипы, название и
-  другие элементы брендинга Modrinth в интерфейсе HydroLauncher не используются.
+  (зелёный гаечный ключ — элемент брендинга Modrinth). Логотипы и другие элементы
+  брендинга Modrinth в оформлении HydroLauncher не используются; название
+  упоминается только как источник материалов и каталога модов.
 
 Фоны оформления (градиенты) заданы в коде HydroLauncher
 (`src/utils/instanceIcons.ts`) и не являются материалами Modrinth.
