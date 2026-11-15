@@ -20,14 +20,15 @@ use commands::{
         get_instance_screenshots, get_instances, import_instance_archive, list_instance_worlds,
         list_world_backups, open_instance_folder, open_instance_log, open_screenshot_file,
         pick_instance_archive, read_instance_log, remove_quick_server, restore_world_backup,
-        update_instance,
+        toggle_quick_server_favorite, update_instance,
     },
     java_cmd::{download_java_runtime, get_java_runtimes},
     mods::{
         check_mod_updates, export_instance_mrpack, get_horizon_mod_details, get_installed_mods,
         get_modrinth_project, get_modrinth_versions, import_mrpack_file, install_horizon_mod,
-        install_modrinth_mod, install_modrinth_modpack, pick_mrpack_file, remove_installed_mod,
-        search_horizon_mods, search_modrinth_mods, toggle_installed_mod,
+        install_local_mod, install_modrinth_mod, install_modrinth_modpack, pick_local_mod,
+        pick_mrpack_file, remove_installed_mod, search_horizon_mods, search_modrinth_mods,
+        toggle_installed_mod,
     },
     settings_cmd::{
         check_launcher_update, get_app_links, get_settings, get_system_info, open_data_dir,
@@ -37,14 +38,14 @@ use commands::{
         check_horizon_update, cleanup_horizon_cache, ensure_java_runtime, get_install_status,
         get_loader_supported_mc_versions, get_loader_versions, get_running_instances,
         get_version_catalog, launch_instance, list_horizon_releases,
-        list_installed_horizon_binaries, prepare_instance, terminate_instance,
+        list_installed_horizon_binaries, ping_server, prepare_instance, terminate_instance,
         update_horizon_binaries,
     },
 };
 use state::AppState;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{Emitter, Manager};
+use tauri::{Emitter, Listener, Manager};
 
 pub const QUIT_REQUESTED_EVENT: &str = "app://quit-requested";
 
@@ -108,6 +109,7 @@ fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .manage(AppState::new())
         .manage(services::launch_service::LaunchRegistry::new())
         .setup(|app| {
@@ -123,6 +125,42 @@ pub fn run() {
                 }
             });
             setup_tray(app)?;
+
+            // Прогресс подготовки и запуска показываем в подсказке трея.
+            let progress_handle = app.handle().clone();
+            app.listen("launch://progress", move |event| {
+                let Ok(progress) = serde_json::from_str::<
+                    crate::models::events::LaunchProgressEvent,
+                >(event.payload())
+                else {
+                    return;
+                };
+                let Some(tray) = progress_handle.tray_by_id("hydro-tray") else {
+                    return;
+                };
+                let text = if progress.percent >= 100.0 {
+                    "HydroLauncher — готово".to_string()
+                } else {
+                    format!("HydroLauncher — {:.0}%", progress.percent)
+                };
+                let _ = tray.set_tooltip(Some(&text));
+            });
+
+            let state_handle = app.handle().clone();
+            app.listen("launch://state", move |event| {
+                let Ok(state) = serde_json::from_str::<
+                    crate::models::events::GameStateEvent,
+                >(event.payload())
+                else {
+                    return;
+                };
+                if matches!(state.state.as_str(), "running" | "exited" | "crashed") {
+                    if let Some(tray) = state_handle.tray_by_id("hydro-tray") {
+                        let _ = tray.set_tooltip(Some("HydroLauncher"));
+                    }
+                }
+            });
+
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -159,6 +197,7 @@ pub fn run() {
             get_instance_quick_play,
             add_quick_server,
             remove_quick_server,
+            toggle_quick_server_favorite,
             list_instance_worlds,
             backup_instance_world,
             list_world_backups,
@@ -202,6 +241,7 @@ pub fn run() {
             check_horizon_update,
             update_horizon_binaries,
             cleanup_horizon_cache,
+            ping_server,
             // Моды (Modrinth & Horizon)
             search_modrinth_mods,
             get_modrinth_project,
@@ -215,6 +255,8 @@ pub fn run() {
             import_mrpack_file,
             export_instance_mrpack,
             pick_mrpack_file,
+            pick_local_mod,
+            install_local_mod,
             search_horizon_mods,
             get_horizon_mod_details,
             install_horizon_mod,

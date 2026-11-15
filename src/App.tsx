@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Package } from 'lucide-react';
+import { getCurrentWebview } from '@tauri-apps/api/webview';
+import { api } from './api';
+import { isMockEnabled } from './api/mock';
 import { CreateInstanceModal } from './components/CreateInstanceModal';
 import { CrashReportModal } from './components/CrashReportModal';
 import { QuickAccountModal } from './components/QuickAccountModal';
@@ -8,17 +11,20 @@ import { TitleBar } from './components/TitleBar';
 import { ToastHost } from './components/ToastHost';
 import { listenQuitRequested } from './api';
 import { useHashRoute } from './hooks/useHashRoute';
+import { translate } from './i18n';
 import { HomePage } from './pages/HomePage';
 import { InstancesPage } from './pages/InstancesPage';
 import { ModsPage } from './pages/ModsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { useInitAccounts } from './stores/accountsStore';
 import { useInitCatalogPreload } from './stores/catalogStore';
-import { useInitInstances } from './stores/instancesStore';
+import { useInitInstances, useInstancesStore } from './stores/instancesStore';
 import { useInitLinks } from './stores/linksStore';
 import { useInitLaunchListeners } from './stores/launchStore';
 import { useInitSettings, useSettingsStore } from './stores/settingsStore';
 import { useInitLauncherUpdate } from './stores/updateStore';
+import { useNotifyStore } from './stores/notifyStore';
+import { useGameNotifications } from './hooks/useGameNotifications';
 
 function WorldBackdrop({ showSun }: { showSun: boolean }) {
   return (
@@ -44,6 +50,7 @@ export default function App() {
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [quickAccountOpen, setQuickAccountOpen] = useState(false);
   const [quitPromptOpen, setQuitPromptOpen] = useState(false);
+  const [dropActive, setDropActive] = useState(false);
   const loading = useSettingsStore((s) => s.loading);
 
   useInitSettings();
@@ -53,6 +60,7 @@ export default function App() {
   useInitCatalogPreload();
   useInitLauncherUpdate();
   useInitLinks();
+  useGameNotifications();
 
   // Отключаем стандартное браузерное контекстное меню на ПКМ
   useEffect(() => {
@@ -76,6 +84,63 @@ export default function App() {
       unlisten?.();
     };
   }, []);
+
+  // Перетаскивание .mrpack или архива сборки прямо в окно.
+  useEffect(() => {
+    if (isMockEnabled()) return;
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+
+    const importDropped = async (paths: string[]) => {
+      const files = paths.filter((path) => /\.(mrpack|zip)$/i.test(path));
+      if (files.length === 0) {
+        useNotifyStore
+          .getState()
+          .push(translate('Поддерживаются файлы .mrpack и .zip'), 'error');
+        return;
+      }
+      for (const path of files) {
+        try {
+          if (/\.mrpack$/i.test(path)) {
+            const created = await api.importMrpackFile(path);
+            useNotifyStore.getState().push(
+              translate('Импортирована сборка: {name}', { name: created.name }),
+            );
+          } else {
+            const created = await api.importInstanceArchive(path);
+            useNotifyStore.getState().push(
+              translate('Сборка импортирована: {name}', { name: created.name }),
+            );
+          }
+        } catch (err) {
+          useNotifyStore.getState().push(String(err), 'error');
+        }
+      }
+      await useInstancesStore.getState().load();
+      setPage('instances');
+    };
+
+    void getCurrentWebview()
+      .onDragDropEvent((event) => {
+        if (event.payload.type === 'enter' || event.payload.type === 'over') {
+          setDropActive(true);
+        } else if (event.payload.type === 'leave') {
+          setDropActive(false);
+        } else if (event.payload.type === 'drop') {
+          setDropActive(false);
+          void importDropped(event.payload.paths);
+        }
+      })
+      .then((fn) => {
+        if (disposed) fn();
+        else unlisten = fn;
+      });
+
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [setPage]);
 
   if (loading) {
     return (
@@ -148,6 +213,20 @@ export default function App() {
       <ToastHost />
       <CrashReportModal />
       <QuitConfirmModal open={quitPromptOpen} onClose={() => setQuitPromptOpen(false)} />
+
+      {dropActive && (
+        <div className="pointer-events-none fixed inset-0 z-[60] flex items-center justify-center bg-bg/55 backdrop-blur-sm">
+          <div className="deck-surface hl-pop-in rounded-[16px] border border-accent/40 px-8 py-6 text-center">
+            <Package size={28} className="mx-auto text-accent" />
+            <p className="mt-2 text-sm font-medium text-ink">
+              {translate('Отпустите файл, чтобы импортировать')}
+            </p>
+            <p className="mt-1 text-xs text-muted">
+              {translate('.mrpack — модпак, .zip — архив сборки')}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

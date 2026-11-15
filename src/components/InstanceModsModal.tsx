@@ -23,6 +23,7 @@ import {
   Square,
   Terminal,
   Trash2,
+  Upload,
   X,
 } from 'lucide-react';
 import {
@@ -41,6 +42,7 @@ import { useInstancesStore } from '../stores/instancesStore';
 import { useLaunchStore } from '../stores/launchStore';
 import { useNotifyStore } from '../stores/notifyStore';
 import { useI18n } from '../i18n';
+import { localizeError } from '../i18n/errors';
 import { cn } from '../utils/cn';
 import { formatBytes, formatLoaderLabel } from '../utils/format';
 import { VoxelEmblem } from './VoxelEmblem';
@@ -116,6 +118,8 @@ export function InstanceModsModal({
   const [updates, setUpdates] = useState<Record<string, ModUpdateInfo>>({});
   const [checkingUpdates, setCheckingUpdates] = useState(false);
   const [updatingFile, setUpdatingFile] = useState<string | null>(null);
+  const [updatingAll, setUpdatingAll] = useState(false);
+  const [installingLocal, setInstallingLocal] = useState(false);
   const [updatesCheckedOnce, setUpdatesCheckedOnce] = useState(false);
 
   const [versionPickerMod, setVersionPickerMod] = useState<InstalledModFile | null>(null);
@@ -342,6 +346,49 @@ export function InstanceModsModal({
       setError(String(err));
     } finally {
       setUpdatingFile(null);
+    }
+  };
+
+  const handleApplyAllUpdates = async () => {
+    if (!instance) return;
+    const pending = Object.values(updates);
+    if (pending.length === 0) return;
+
+    setUpdatingAll(true);
+    setError(null);
+    let done = 0;
+    for (const upd of pending) {
+      try {
+        await api.installModrinthMod(instance.id, upd.projectId, upd.latestVersionId);
+        done += 1;
+        setUpdates((prev) => {
+          const next = { ...prev };
+          delete next[upd.fileName];
+          return next;
+        });
+      } catch (err) {
+        setError(String(err));
+      }
+    }
+    await loadMods(instance.id);
+    setUpdatingAll(false);
+    useNotifyStore.getState().push(tf('Обновлено модов: {count}', { count: done }));
+  };
+
+  const handleInstallLocalMod = async () => {
+    if (!instance) return;
+    try {
+      const path = await api.pickLocalMod();
+      if (!path) return;
+      setInstallingLocal(true);
+      setError(null);
+      await api.installLocalMod(instance.id, path);
+      await loadMods(instance.id);
+      useNotifyStore.getState().push(t('Мод добавлен в сборку'));
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setInstallingLocal(false);
     }
   };
 
@@ -621,11 +668,43 @@ export function InstanceModsModal({
               <Button
                 size="sm"
                 variant="secondary"
-                disabled={checkingUpdates}
+                disabled={checkingUpdates || updatingAll}
                 onClick={() => void handleCheckUpdates()}
               >
                 <RefreshCw size={13} className={checkingUpdates ? 'animate-spin' : undefined} />
-                {checkingUpdates ? 'Проверка…' : 'Обновления'}
+                {checkingUpdates ? t('Проверка…') : t('Обновления')}
+              </Button>
+            )}
+
+            {tab === 'mods' && updatesCount > 0 && (
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={updatingAll || runtimeLocked}
+                onClick={() => void handleApplyAllUpdates()}
+              >
+                {updatingAll ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <ArrowUpCircle size={13} />
+                )}
+                {t('Обновить все')} ({updatesCount})
+              </Button>
+            )}
+
+            {tab === 'mods' && supportsMods && (
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={runtimeLocked || installingLocal}
+                onClick={() => void handleInstallLocalMod()}
+              >
+                {installingLocal ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <Upload size={13} />
+                )}
+                {t('Установить .jar')}
               </Button>
             )}
 
@@ -635,7 +714,7 @@ export function InstanceModsModal({
               onClick={() => void handleOpenFolder('game')}
             >
               <FolderOpen size={13} />
-              Папка
+              {t('Папка')}
             </Button>
 
             {onOpenSettings && (
@@ -645,7 +724,7 @@ export function InstanceModsModal({
                 onClick={onOpenSettings}
               >
                 <SlidersHorizontal size={13} />
-                Настройки
+                {t('Настройки')}
               </Button>
             )}
 
@@ -773,7 +852,7 @@ export function InstanceModsModal({
         {error && (
           <div className="mt-5 flex items-start gap-2 rounded-[8px] border border-danger/35 bg-danger/10 px-4 py-3">
             <AlertCircle size={14} className="mt-0.5 shrink-0 text-danger" />
-            <p className="text-xs break-all text-danger">{error}</p>
+            <p className="text-xs break-all text-danger">{localizeError(error, language)}</p>
           </div>
         )}
 
@@ -1355,7 +1434,7 @@ export function InstanceModsModal({
                             <Button
                               size="sm"
                               variant="primary"
-                              disabled={isUpdating || runtimeLocked}
+                              disabled={isUpdating || updatingAll || runtimeLocked}
                               onClick={() => void handleApplyUpdate(upd)}
                             >
                               {isUpdating ? (
@@ -1372,7 +1451,7 @@ export function InstanceModsModal({
                             <Button
                               size="sm"
                               variant="secondary"
-                              disabled={runtimeLocked}
+                              disabled={runtimeLocked || updatingAll}
                               onClick={() => void openVersionPicker(mod)}
                             >
                               <History size={13} />

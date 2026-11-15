@@ -132,6 +132,8 @@ pub struct QuickPlayServer {
     pub id: String,
     pub name: String,
     pub address: String,
+    #[serde(default)]
+    pub favorite: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -228,6 +230,7 @@ pub async fn add_quick_server(
             id: Uuid::new_v4().to_string(),
             name: clean_name,
             address: clean_address,
+            favorite: false,
         },
     );
     json_store::write_json_atomic(&servers_path, &servers).await?;
@@ -248,6 +251,26 @@ pub async fn remove_quick_server(
         .await
         .unwrap_or_default();
     servers.retain(|s| s.id != server_id);
+    json_store::write_json_atomic(&servers_path, &servers).await?;
+    Ok(servers)
+}
+
+#[tauri::command]
+pub async fn toggle_quick_server_favorite(
+    state: State<'_, AppState>,
+    instance_id: String,
+    server_id: String,
+) -> Result<Vec<QuickPlayServer>, AppError> {
+    let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
+    let servers_path = paths
+        .instance_dir(&data_dir, &instance_id)
+        .join("quick-servers.json");
+    let mut servers: Vec<QuickPlayServer> = json_store::read_json_or_default(&servers_path)
+        .await
+        .unwrap_or_default();
+    if let Some(server) = servers.iter_mut().find(|server| server.id == server_id) {
+        server.favorite = !server.favorite;
+    }
     json_store::write_json_atomic(&servers_path, &servers).await?;
     Ok(servers)
 }

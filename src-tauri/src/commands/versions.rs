@@ -178,3 +178,11 @@ pub async fn update_horizon_binaries(
     )
     .await
 }
+
+/// Пинг сервера по протоколу Minecraft Server List Ping.
+#[tauri::command]
+pub async fn ping_server(
+    address: String,
+) -> Result<crate::services::server_ping_service::ServerStatus, AppError> {
+    crate::services::server_ping_service::ping_server(&address).await
+}

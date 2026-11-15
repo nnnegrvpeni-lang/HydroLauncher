@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useI18n } from '../i18n';
+import { localizeError } from '../i18n/errors';
 import { useAccountsStore } from '../stores/accountsStore';
 import { Button } from './ui/Button';
 import { Modal } from './ui/Modal';
@@ -11,7 +12,7 @@ interface QuickAccountModalProps {
 
 export function QuickAccountModal({ open, onClose }: QuickAccountModalProps) {
   const create = useAccountsStore((s) => s.create);
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [username, setUsername] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -69,7 +70,7 @@ export function QuickAccountModal({ open, onClose }: QuickAccountModalProps) {
           autoFocus
         />
       </div>
-      {error && <p className="text-xs text-danger">{error}</p>}
+      {error && <p className="text-xs text-danger">{localizeError(error, language)}</p>}
     </Modal>
   );
 }

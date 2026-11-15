@@ -252,3 +252,30 @@ fn safe_export_name(name: &str) -> String {
         trimmed
     }
 }
+
+#[tauri::command]
+pub fn pick_local_mod() -> Option<String> {
+    rfd::FileDialog::new()
+        .set_title("Выберите мод .jar")
+        .add_filter("Minecraft mod", &["jar"])
+        .pick_file()
+        .map(|path| path.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+pub async fn install_local_mod(
+    state: State<'_, AppState>,
+    registry: State<'_, crate::services::launch_service::LaunchRegistry>,
+    instance_id: String,
+    file_path: String,
+) -> Result<InstalledModFile, AppError> {
+    shared::ensure_instance_idle(&registry, &instance_id).await?;
+    let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
+    modrinth_service::install_local_mod(
+        &paths,
+        &data_dir,
+        &instance_id,
+        std::path::Path::new(&file_path),
+    )
+    .await
+}

@@ -16,6 +16,7 @@ import { Button, IconButton } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Switch } from '../components/ui/Switch';
 import { LANGUAGE_OPTIONS, useI18n, type Language } from '../i18n';
+import { localizeError } from '../i18n/errors';
 import { useAccountsStore } from '../stores/accountsStore';
 import { useInstancesStore } from '../stores/instancesStore';
 import { useLinksStore } from '../stores/linksStore';
@@ -600,7 +601,7 @@ function StorageGroup() {
         {error && (
           <p className="mt-2 flex items-center gap-1.5 text-xs text-danger">
             <AlertCircle size={13} />
-            {error}
+            {localizeError(error, language)}
           </p>
         )}
       </div>
@@ -611,7 +612,9 @@ function StorageGroup() {
             {t('Авто-бэкап миров перед запуском')}
           </p>
           <p className="text-xs text-muted">
-            {t('Копии изменившихся миров создаются до старта игры')}
+            {t(
+              'Копии изменившихся миров создаются до старта игры; большие миры могут задержать запуск',
+            )}
           </p>
         </div>
         <Switch

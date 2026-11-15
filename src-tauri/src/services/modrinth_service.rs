@@ -1321,3 +1321,56 @@ fn write_mrpack(
     zip.finish()?;
     Ok(())
 }
+
+/// Копирует локальный `.jar` в папку модов и пытается распознать его на Modrinth.
+pub async fn install_local_mod(
+    paths: &AppPaths,
+    data_dir: &Path,
+    instance_id: &str,
+    file_path: &Path,
+) -> AppResult<InstalledModFile> {
+    if !file_path.is_file() {
+        return Err(AppError::NotFound("Файл мода не найден".into()));
+    }
+    let file_name = file_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| AppError::Validation("Некорректное имя файла мода".into()))?
+        .to_string();
+    let lower = file_name.to_lowercase();
+    if !lower.ends_with(".jar") && !lower.ends_with(".jar.disabled") {
+        return Err(AppError::Validation(
+            "Выберите файл мода в формате .jar".into(),
+        ));
+    }
+
+    let mods_dir = paths.instance_mods_dir(data_dir, instance_id);
+    tokio::fs::create_dir_all(&mods_dir).await?;
+    let dest = mods_dir.join(&file_name);
+    if tokio::fs::try_exists(&dest).await? {
+        return Err(AppError::Validation(
+            "Мод с таким именем уже установлен".into(),
+        ));
+    }
+
+    if let Err(err) = tokio::fs::copy(file_path, &dest).await {
+        let _ = tokio::fs::remove_file(&dest).await;
+        return Err(err.into());
+    }
+
+    let installed = list_installed_mods(paths, data_dir, instance_id).await?;
+    let size_bytes = tokio::fs::metadata(&dest).await?.len();
+    Ok(installed
+        .into_iter()
+        .find(|entry| entry.file_name == file_name)
+        .unwrap_or(InstalledModFile {
+            file_name,
+            kind: "mod".to_string(),
+            size_bytes,
+            project_id: None,
+            title: None,
+            icon_url: None,
+            version_id: None,
+            version_number: None,
+        }))
+}

@@ -259,6 +259,16 @@ export interface QuickPlayServer {
   id: string;
   name: string;
   address: string;
+  favorite: boolean;
+}
+
+export interface ServerStatus {
+  online: boolean;
+  playersOnline: number;
+  playersMax: number;
+  latencyMs: number;
+  version: string | null;
+  motd: string | null;
 }
 
 export interface InstanceQuickPlay {
@@ -377,6 +387,9 @@ export const api = {
     invoke<QuickPlayServer[]>('add_quick_server', { instanceId, name, address }),
   removeQuickServer: (instanceId: string, serverId: string) =>
     invoke<QuickPlayServer[]>('remove_quick_server', { instanceId, serverId }),
+  toggleQuickServerFavorite: (instanceId: string, serverId: string) =>
+    invoke<QuickPlayServer[]>('toggle_quick_server_favorite', { instanceId, serverId }),
+  pingServer: (address: string) => invoke<ServerStatus>('ping_server', { address }),
   getInstanceScreenshots: (instanceId: string) =>
     invoke<InstanceScreenshot[]>('get_instance_screenshots', { instanceId }),
   deleteInstanceScreenshot: (instanceId: string, fileName: string) =>
@@ -472,6 +485,9 @@ export const api = {
   exportInstanceMrpack: (instanceId: string) =>
     invoke<ExportedMrpack | null>('export_instance_mrpack', { instanceId }),
   pickMrpackFile: () => invoke<string | null>('pick_mrpack_file'),
+  pickLocalMod: () => invoke<string | null>('pick_local_mod'),
+  installLocalMod: (instanceId: string, filePath: string) =>
+    invoke<InstalledModFile>('install_local_mod', { instanceId, filePath }),
 
   // Моды (Horizon)
   searchHorizonMods: (request: SearchHorizonModsRequest) =>

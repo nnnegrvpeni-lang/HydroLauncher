@@ -206,8 +206,8 @@ export const en: Record<string, string> = {
   'Остановите игру перед сменой папки данных':
     'Stop the game before changing the data folder',
   'Авто-бэкап миров перед запуском': 'Auto-backup worlds before launch',
-  'Копии изменившихся миров создаются до старта игры':
-    'Backups of changed worlds are created before the game starts',
+  'Копии изменившихся миров создаются до старта игры; большие миры могут задержать запуск':
+    'Backups of changed worlds are created before the game starts; large worlds may delay the launch',
   'Хранить копий на мир': 'Backups kept per world',
   'Старые копии удаляются автоматически': 'Older backups are removed automatically',
   'Открыть лог': 'Open log',
@@ -232,7 +232,36 @@ export const en: Record<string, string> = {
   'Экспорт сборки (.zip)': 'Export instance (.zip)',
   'Полный архив сборки': 'Full instance archive',
   'Моды, конфиги и миры в одном zip': 'Mods, configs and worlds in one zip',
-  'Сборка импортирована: {name}': 'Instance imported: {name}',
+  'Поддерживаются файлы .mrpack и .zip': 'Only .mrpack and .zip files are supported',
+  'Импортирована сборка: {name}': 'Instance imported: {name}',
+  'Отпустите файл, чтобы импортировать': 'Drop the file to import it',
+  '.mrpack — модпак, .zip — архив сборки': '.mrpack — modpack, .zip — instance archive',
+  'Игра завершилась': 'Game exited',
+  'Сборка «{name}» закрыта': 'Instance “{name}” closed',
+  'Сборка «{name}»: код {code}': 'Instance “{name}”: exit code {code}',
+
+  // Ошибки
+  'Эта сборка уже запущена': 'This instance is already running',
+  'Остановите игру перед этим действием': 'Stop the game before doing this',
+  'Сборка не найдена': 'Instance not found',
+  'Мир не найден': 'World not found',
+  'Резервная копия не найдена': 'Backup not found',
+  'Лог ещё не создан: запустите игру': 'Log not created yet: launch the game',
+  'Мод с таким именем уже установлен': 'A mod with this name is already installed',
+  'Выберите файл мода в формате .jar': 'Choose a .jar mod file',
+  'Введите адрес сервера': 'Enter the server address',
+  'Некорректный архив сборки': 'Invalid instance archive',
+  'В архиве нет hydro-instance.json — это не экспорт HydroLauncher':
+    'The archive has no hydro-instance.json — it is not a HydroLauncher export',
+  'Некорректный манифест сборки': 'Invalid instance manifest',
+  'Некорректное имя мира': 'Invalid world name',
+  'Некорректное имя резервной копии': 'Invalid backup name',
+  'Обновить все': 'Update all',
+  'Установить .jar': 'Install .jar',
+  'Обновлено модов: {count}': 'Mods updated: {count}',
+  'Мод добавлен в сборку': 'Mod added to the instance',
+  Обновления: 'Updates',
+  Папка: 'Folder',
 
   // Обратная связь
   'Обратная связь': 'Feedback',
@@ -242,6 +271,10 @@ export const en: Record<string, string> = {
   // Главная: быстрый запуск и док
   'Войти на {address}': 'Join {address}',
   'Удалить сервер': 'Remove server',
+  'В избранное': 'Add to favorites',
+  'Убрать из избранного': 'Remove from favorites',
+  'Обновить статус серверов': 'Refresh server status',
+  офлайн: 'offline',
   'Войти в мир «{name}»': 'Open world “{name}”',
   Мир: 'World',
   'Название (необязательно)': 'Name (optional)',

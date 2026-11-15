@@ -10,7 +10,9 @@ import {
   Package,
   Play,
   Plus,
+  RefreshCw,
   SlidersHorizontal,
+  Star,
   Terminal,
   Trash2,
   UserPlus,
@@ -30,7 +32,7 @@ import { cn } from '../utils/cn';
 import { buildDockInstances, pickRecent } from '../utils/dock';
 import { formatMemory, formatPlayTime } from '../utils/format';
 import type { PageId } from '../components/TitleBar';
-import { api, type GameLog, type InstanceQuickPlay } from '../api';
+import { api, type GameLog, type InstanceQuickPlay, type ServerStatus } from '../api';
 
 const EMPTY_LOGS: GameLog[] = [];
 
@@ -80,6 +82,8 @@ export function HomePage({
   const [modsOpen, setModsOpen] = useState(false);
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [quickPlay, setQuickPlay] = useState<InstanceQuickPlay>({ worlds: [], servers: [] });
+  const [serverStatus, setServerStatus] = useState<Record<string, ServerStatus>>({});
+  const [serverPingNonce, setServerPingNonce] = useState(0);
   const [addingServer, setAddingServer] = useState(false);
   const [serverName, setServerName] = useState('');
   const [serverAddress, setServerAddress] = useState('');
@@ -110,6 +114,42 @@ export function HomePage({
     };
   }, [featuredId, featuredBusyOrRunning]);
 
+  // Пингуем серверы из быстрого запуска и показываем онлайн/пинг.
+  useEffect(() => {
+    const servers = quickPlay.servers;
+    if (servers.length === 0) {
+      setServerStatus({});
+      return;
+    }
+    let cancelled = false;
+    void Promise.all(
+      servers.map(async (server) => {
+        try {
+          return [server.id, await api.pingServer(server.address)] as const;
+        } catch {
+          return [
+            server.id,
+            {
+              online: false,
+              playersOnline: 0,
+              playersMax: 0,
+              latencyMs: 0,
+              version: null,
+              motd: null,
+            } satisfies ServerStatus,
+          ] as const;
+        }
+      }),
+    ).then((entries) => {
+      if (!cancelled) {
+        setServerStatus(Object.fromEntries(entries));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [quickPlay.servers, serverPingNonce]);
+
   const handleAddQuickServer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!featuredId || !serverAddress.trim()) return;
@@ -129,6 +169,20 @@ export function HomePage({
     const servers = await api.removeQuickServer(featuredId, serverId);
     setQuickPlay((prev) => ({ ...prev, servers }));
   };
+
+  const handleToggleFavoriteServer = async (serverId: string) => {
+    if (!featuredId) return;
+    try {
+      const servers = await api.toggleQuickServerFavorite(featuredId, serverId);
+      setQuickPlay((prev) => ({ ...prev, servers }));
+    } catch {
+      // список серверов останется прежним
+    }
+  };
+
+  const sortedServers = [...quickPlay.servers].sort(
+    (a, b) => Number(b.favorite) - Number(a.favorite),
+  );
 
   if (!featured) {
     return (
@@ -262,43 +316,76 @@ export function HomePage({
         <div className="relative z-10 flex items-start justify-between gap-4 px-7 pt-5 lg:px-10">
           {quickPlay.servers.length > 0 || quickPlay.worlds.length > 0 ? (
             <div className="w-[300px] space-y-1 rounded-[13px] border border-line bg-surface/45 p-1.5 backdrop-blur-xl shadow-[inset_0_1px_0_var(--rim)]">
-              {quickPlay.servers.map((srv) => (
-                <div
-                  key={srv.id}
-                  className="group flex items-center justify-between gap-2 rounded-[9px] px-2 py-1.5 transition-all hover:bg-surface-2/75"
-                >
-                  <button
-                    type="button"
-                    disabled={isRunning || isBusy || !activeAccount}
-                    onClick={() =>
-                      void launch(featured.id, { kind: 'server', value: srv.address })
-                    }
-                    className="flex min-w-0 flex-1 items-center gap-2.5 text-left disabled:opacity-50"
-                    title={tf('Войти на {address}', { address: srv.address })}
+              {sortedServers.map((srv) => {
+                const status = serverStatus[srv.id];
+                return (
+                  <div
+                    key={srv.id}
+                    className="group flex items-center justify-between gap-2 rounded-[9px] px-2 py-1.5 transition-all hover:bg-surface-2/75"
                   >
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-line bg-bg-well/75 text-muted transition-colors group-hover:border-line-strong group-hover:text-ink">
-                      <Globe size={14} />
+                    <button
+                      type="button"
+                      disabled={isRunning || isBusy || !activeAccount}
+                      onClick={() =>
+                        void launch(featured.id, { kind: 'server', value: srv.address })
+                      }
+                      className="flex min-w-0 flex-1 items-center gap-2.5 text-left disabled:opacity-50"
+                      title={tf('Войти на {address}', { address: srv.address })}
+                    >
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-line bg-bg-well/75 text-muted transition-colors group-hover:border-line-strong group-hover:text-ink">
+                        <Globe size={14} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[12.5px] font-medium text-ink">{srv.name}</p>
+                        <p className="truncate font-mono text-[10.5px] text-faint">
+                          {srv.address}
+                          {status ? (
+                            status.online ? (
+                              <>
+                                {' '}
+                                · {status.playersOnline}/{status.playersMax} ·{' '}
+                                {status.latencyMs} ms
+                              </>
+                            ) : (
+                              <> · {t('офлайн')}</>
+                            )
+                          ) : (
+                            <> · …</>
+                          )}
+                        </p>
+                      </div>
+                      <Play
+                        size={11}
+                        className="shrink-0 text-accent opacity-0 transition-opacity group-hover:opacity-100"
+                        fill="currentColor"
+                      />
+                    </button>
+                    <div className="flex shrink-0 items-center">
+                      <button
+                        type="button"
+                        onClick={() => void handleToggleFavoriteServer(srv.id)}
+                        title={t(srv.favorite ? 'Убрать из избранного' : 'В избранное')}
+                        className={cn(
+                          'rounded p-1 transition-all hover:bg-bg-well hover:text-ink',
+                          srv.favorite
+                            ? 'text-accent'
+                            : 'text-faint opacity-0 group-hover:opacity-100',
+                        )}
+                      >
+                        <Star size={11} fill={srv.favorite ? 'currentColor' : 'none'} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleRemoveQuickServer(srv.id)}
+                        title={t('Удалить сервер')}
+                        className="rounded p-1 text-faint opacity-0 transition-all hover:bg-bg-well hover:text-ink group-hover:opacity-100"
+                      >
+                        <X size={11} />
+                      </button>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[12.5px] font-medium text-ink">{srv.name}</p>
-                      <p className="truncate font-mono text-[10.5px] text-faint">{srv.address}</p>
-                    </div>
-                    <Play
-                      size={11}
-                      className="shrink-0 text-accent opacity-0 transition-opacity group-hover:opacity-100"
-                      fill="currentColor"
-                    />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleRemoveQuickServer(srv.id)}
-                    title={t('Удалить сервер')}
-                    className="rounded p-1 text-faint opacity-0 transition-all hover:bg-bg-well hover:text-ink group-hover:opacity-100"
-                  >
-                    <X size={11} />
-                  </button>
-                </div>
-              ))}
+                  </div>
+                );
+              })}
 
               {quickPlay.worlds.slice(0, 4).map((w) => (
                 <button
@@ -344,9 +431,12 @@ export function HomePage({
                 </button>
               ))}
 
-              <div className="px-2 pt-0.5">
+              <div className="flex items-center justify-between gap-2 px-2 pt-0.5">
                 {addingServer ? (
-                  <form onSubmit={(e) => void handleAddQuickServer(e)} className="mt-1 space-y-1.5">
+                  <form
+                    onSubmit={(e) => void handleAddQuickServer(e)}
+                    className="mt-1 w-full space-y-1.5"
+                  >
                     <input
                       value={serverName}
                       onChange={(e) => setServerName(e.target.value)}
@@ -381,14 +471,24 @@ export function HomePage({
                     </div>
                   </form>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => setAddingServer(true)}
-                    className="inline-flex items-center gap-1 text-[11px] text-faint transition-colors hover:text-muted"
-                  >
-                    <Plus size={11} />
-                    {t('Добавить сервер')}
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setAddingServer(true)}
+                      className="inline-flex items-center gap-1 text-[11px] text-faint transition-colors hover:text-muted"
+                    >
+                      <Plus size={11} />
+                      {t('Добавить сервер')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setServerPingNonce((value) => value + 1)}
+                      title={t('Обновить статус серверов')}
+                      className="flex h-6 w-6 items-center justify-center rounded-[6px] text-faint transition-colors hover:bg-bg-well hover:text-ink"
+                    >
+                      <RefreshCw size={11} />
+                    </button>
+                  </>
                 )}
               </div>
             </div>

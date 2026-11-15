@@ -18,4 +18,5 @@ pub mod loader_service;
 pub mod modrinth_service;
 pub mod mojang_service;
 pub mod settings_service;
+pub mod server_ping_service;
 pub mod world_backup_service;

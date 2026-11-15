@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { AlertCircle, Check, Loader2, X } from 'lucide-react';
 import { localizeProgressMessage } from '../i18n/progress';
 import { useI18n } from '../i18n';
+import { localizeError } from '../i18n/errors';
 import { useInstancesStore } from '../stores/instancesStore';
 import { useLaunchStore } from '../stores/launchStore';
 import { useNotifyStore } from '../stores/notifyStore';
@@ -77,7 +78,7 @@ export function ToastHost() {
         <div className="pointer-events-auto deck-surface hl-toast-in flex items-start gap-2.5 rounded-[12px] border-danger/40 bg-danger/12 px-3.5 py-3 shadow-[0_20px_44px_-16px_rgba(0,0,0,0.75)]">
           <AlertCircle size={15} className="mt-0.5 shrink-0 text-danger" />
           <p className="min-w-0 flex-1 text-[12px] leading-relaxed break-words text-ink">
-            {error}
+            {localizeError(error, language)}
           </p>
           <button
             type="button"
@@ -108,7 +109,9 @@ export function ToastHost() {
             )}
           </div>
           <p className="min-w-0 flex-1 text-[12px] leading-relaxed break-words text-ink">
-            {notice.message}
+            {notice.tone === 'error'
+              ? localizeError(notice.message, language)
+              : notice.message}
           </p>
           <button
             type="button"

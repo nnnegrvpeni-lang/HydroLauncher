@@ -576,7 +576,7 @@ export async function mockInvoke<T>(
           { folderName: 'Тестовый мир', modifiedMs: Date.now() - 86_400_000, iconDataUrl: null },
         ],
         servers: [
-          { id: 'srv-1', name: 'Локальный сервер', address: 'localhost:25565' },
+          { id: 'srv-1', name: 'Локальный сервер', address: 'localhost:25565', favorite: true },
         ],
       } as T;
     case 'add_quick_server':
@@ -585,10 +585,29 @@ export async function mockInvoke<T>(
           id: `srv-${Date.now()}`,
           name: String(args?.name ?? 'Сервер'),
           address: String(args?.address ?? 'localhost:25565'),
+          favorite: false,
         },
       ] as T;
     case 'remove_quick_server':
       return [] as T;
+    case 'toggle_quick_server_favorite':
+      return [
+        {
+          id: String(args?.serverId ?? 'srv-1'),
+          name: 'Локальный сервер',
+          address: 'localhost:25565',
+          favorite: true,
+        },
+      ] as T;
+    case 'ping_server':
+      return {
+        online: true,
+        playersOnline: 7,
+        playersMax: 20,
+        latencyMs: 34,
+        version: '1.21.4',
+        motd: 'HydroLauncher test server',
+      } as T;
     case 'get_instance_screenshots':
       return [] as T;
     case 'list_instance_worlds':
@@ -721,6 +740,19 @@ export async function mockInvoke<T>(
       return {
         path: 'C:\\Users\\Public\\HydroLauncher-export.mrpack',
         sizeBytes: 3 * 1024 * 1024,
+      } as T;
+    case 'pick_local_mod':
+      return null as T;
+    case 'install_local_mod':
+      return {
+        fileName: String(args?.filePath ?? 'mod.jar').split('\\').pop() ?? 'mod.jar',
+        kind: 'mod',
+        sizeBytes: 1024 * 1024,
+        projectId: null,
+        title: 'Локальный мод',
+        iconUrl: null,
+        versionId: null,
+        versionNumber: null,
       } as T;
     case 'open_external_url':
       return undefined as T;

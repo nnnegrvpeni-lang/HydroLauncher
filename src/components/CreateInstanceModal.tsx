@@ -10,6 +10,7 @@ import { useCatalogStore } from '../stores/catalogStore';
 import { useInstancesStore } from '../stores/instancesStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useI18n } from '../i18n';
+import { localizeError } from '../i18n/errors';
 import { cn } from '../utils/cn';
 import { formatCompactNumber } from '../utils/format';
 import { Button } from './ui/Button';
@@ -51,7 +52,7 @@ export function CreateInstanceModal({
   const create = useInstancesStore((s) => s.create);
   const loadInstances = useInstancesStore((s) => s.load);
   const showSnapshots = useSettingsStore((s) => s.settings?.showSnapshots ?? false);
-  const { t, tf } = useI18n();
+  const { t, tf, language } = useI18n();
 
   const versionCatalog = useCatalogStore((s) => s.versionCatalog);
   const loading = useCatalogStore((s) => s.versionCatalogLoading);
@@ -841,7 +842,9 @@ export function CreateInstanceModal({
         </div>
       )}
 
-      {error && <p className="text-xs break-all text-danger">{error}</p>}
+      {error && (
+        <p className="text-xs break-all text-danger">{localizeError(error, language)}</p>
+      )}
     </Modal>
   );
 }

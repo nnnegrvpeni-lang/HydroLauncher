@@ -34,6 +34,7 @@ import { useCatalogStore } from '../stores/catalogStore';
 import { useInstancesStore } from '../stores/instancesStore';
 import { useLinksStore } from '../stores/linksStore';
 import { useI18n } from '../i18n';
+import { localizeError } from '../i18n/errors';
 import { cn } from '../utils/cn';
 import { formatLoaderLabel } from '../utils/format';
 
@@ -1078,7 +1079,9 @@ export function ModsPage({
       {error && (
         <div className="mt-4 flex items-start gap-2.5 rounded-[8px] border border-danger/35 bg-danger/10 px-4 py-3">
           <AlertCircle size={15} className="mt-0.5 shrink-0 text-danger" />
-          <p className="text-xs leading-relaxed break-all text-danger">{error}</p>
+          <p className="text-xs leading-relaxed break-all text-danger">
+            {localizeError(error, language)}
+          </p>
         </div>
       )}
 
@@ -1502,7 +1505,7 @@ export function ModsPage({
         {installError && (
           <div className="mb-3 flex items-start gap-2 rounded-[8px] border border-danger/35 bg-danger/10 px-3 py-2.5">
             <AlertCircle size={14} className="mt-0.5 shrink-0 text-danger" />
-            <p className="text-xs text-danger">{installError}</p>
+            <p className="text-xs text-danger">{localizeError(installError, language)}</p>
           </div>
         )}
 

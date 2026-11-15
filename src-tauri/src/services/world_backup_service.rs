@@ -154,6 +154,9 @@ pub async fn list_backups(
     data_dir: &Path,
     instance_id: &str,
 ) -> AppResult<Vec<WorldBackupEntry>> {
+    // Старые версии делали плоские `backups/<имя>-<дата>.zip`.
+    migrate_legacy_backups(paths, data_dir, instance_id).await;
+
     let root = backups_root(paths, data_dir, instance_id);
     let mut backups = Vec::new();
 
@@ -189,8 +192,92 @@ pub async fn list_backups(
     Ok(backups)
 }
 
-pub async fn delete_backup(
-    paths: &AppPaths,
+/// Имя мира в старом формате бэкапа: буквы/цифры, пробел, `-` и `_`.
+fn legacy_backup_stem(name: &str) -> String {
+    name.chars()
+        .map(|ch| {
+            if ch.is_alphanumeric() || matches!(ch, '-' | '_' | ' ') {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>()
+        .trim()
+        .to_string()
+}
+
+fn is_backup_timestamp(rest: &str) -> bool {
+    let Some(stem) = rest.strip_suffix(".zip") else {
+        return false;
+    };
+    let bytes = stem.as_bytes();
+    if bytes.len() < 15 {
+        return false;
+    }
+    let core = &stem[..15];
+    let mut chars = core.chars();
+    let valid = chars.by_ref().take(8).all(|ch| ch.is_ascii_digit())
+        && chars.next() == Some('-')
+        && chars.by_ref().take(6).all(|ch| ch.is_ascii_digit());
+    if !valid {
+        return false;
+    }
+    stem.len() == 15 || (stem.len() > 16 && stem.as_bytes()[15] == b'-')
+}
+
+/// Переносит плоские бэкапы из 0.2.x в `backups/<мир>/`.
+async fn migrate_legacy_backups(paths: &AppPaths, data_dir: &Path, instance_id: &str) {
+    let root = backups_root(paths, data_dir, instance_id);
+    let Ok(mut entries) = tokio::fs::read_dir(&root).await else {
+        return;
+    };
+
+    let saves_dir = paths.instance_game_dir(data_dir, instance_id).join("saves");
+    let mut world_names = Vec::new();
+    if let Ok(mut worlds) = tokio::fs::read_dir(&saves_dir).await {
+        while let Ok(Some(entry)) = worlds.next_entry().await {
+            if entry.file_type().await.map(|kind| kind.is_dir()).unwrap_or(false) {
+                world_names.push(entry.file_name().to_string_lossy().to_string());
+            }
+        }
+    }
+    if world_names.is_empty() {
+        return;
+    }
+
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        if !entry.file_type().await.map(|kind| kind.is_file()).unwrap_or(false) {
+            continue;
+        }
+        let file_name = entry.file_name().to_string_lossy().to_string();
+        if !file_name.ends_with(".zip") {
+            continue;
+        }
+
+        for world in &world_names {
+            let prefix = format!("{}-", legacy_backup_stem(world));
+            let Some(rest) = file_name.strip_prefix(&prefix) else {
+                continue;
+            };
+            if !is_backup_timestamp(rest) {
+                continue;
+            }
+
+            let target_dir = root.join(world);
+            if tokio::fs::create_dir_all(&target_dir).await.is_err() {
+                break;
+            }
+            let target = target_dir.join(&file_name);
+            if !tokio::fs::try_exists(&target).await.unwrap_or(false) {
+                let _ = tokio::fs::rename(entry.path(), &target).await;
+            }
+            break;
+        }
+    }
+}
+
+pub async fn delete_backup(    paths: &AppPaths,
     data_dir: &Path,
     instance_id: &str,
     world_folder: &str,
@@ -452,7 +539,7 @@ pub async fn auto_backup_changed_worlds(
 
 #[cfg(test)]
 mod tests {
-    use super::{extract_world_zip, validate_world_folder};
+    use super::{extract_world_zip, legacy_backup_stem, is_backup_timestamp, validate_world_folder};
 
     #[test]
     fn validates_world_folder_names() {
@@ -462,6 +549,15 @@ mod tests {
         assert!(validate_world_folder("..").is_err());
         assert!(validate_world_folder("a/b").is_err());
         assert!(validate_world_folder("a\\b").is_err());
+    }
+
+    #[test]
+    fn detects_legacy_backup_names() {
+        assert_eq!(legacy_backup_stem("Мир 1"), "Мир 1");
+        assert!(is_backup_timestamp("20261115-120000.zip"));
+        assert!(is_backup_timestamp("20261115-120000-2.zip"));
+        assert!(!is_backup_timestamp("backup.zip"));
+        assert!(!is_backup_timestamp("2026-11-15.zip"));
     }
 
     #[test]
