@@ -1,0 +1,50 @@
+name: Предложение
+description: Идея функции, улучшение интерфейса или удобства
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Опишите задачу, а не только готовое решение — так проще подобрать нормальный вариант.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Какая проблема или неудобство
+      description: Что сейчас приходится делать вручную или чего не хватает
+      placeholder: "Каждый раз приходится…"
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Как это могло бы работать
+      description: Опишите желаемое поведение
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Альтернативы
+      description: Что ещё пробовали или какие есть обходные пути
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Дополнительно
+      description: Скриншоты, примеры из других лаунчеров, ссылки
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Проверки
+      options:
+        - label: Поискал похожие предложения
+          required: true

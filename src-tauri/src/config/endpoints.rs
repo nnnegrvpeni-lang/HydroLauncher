@@ -25,6 +25,8 @@ pub const HORIZON_MINECRAFT_VERSION: &str = "26.3";
 
 /// Репозиторий и релизы самого лаунчера.
 pub const HYDRO_REPO_URL: &str = "https://github.com/nnnegrvpeni-lang/HydroLauncher";
+pub const HYDRO_ISSUES_URL: &str =
+    "https://github.com/nnnegrvpeni-lang/HydroLauncher/issues/new/choose";
 pub const HYDRO_LATEST_RELEASE_API_URL: &str =
     "https://api.github.com/repos/nnnegrvpeni-lang/HydroLauncher/releases/latest";
 

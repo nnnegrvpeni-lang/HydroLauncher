@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Документация и сборка из исходников
+    url: https://github.com/nnnegrvpeni-lang/HydroLauncher#readme
+    about: Требования, запуск в dev-режиме и структура проекта
+  - name: Список изменений
+    url: https://github.com/nnnegrvpeni-lang/HydroLauncher/blob/main/CHANGELOG.md
+    about: Что уже исправлено и добавлено по версиям

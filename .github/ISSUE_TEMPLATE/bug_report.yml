@@ -1,0 +1,100 @@
+name: Сообщение об ошибке
+description: Лаунчер падает, сборка не запускается или что-то работает не так
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо за отчёт. Чем точнее описание, тем быстрее получится починить.
+
+        Перед отправкой проверьте, что используете последнюю версию, и поищите похожие issues.
+        Не прикладывайте токены, пароли и личные пути, если они не нужны для проблемы.
+
+  - type: input
+    id: launcher-version
+    attributes:
+      label: Версия лаунчера
+      description: Указана в настройках → «О программе»
+      placeholder: "0.2.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Операционная система
+      options:
+        - Windows 11
+        - Windows 10
+        - Другая (укажите в описании)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: engine
+    attributes:
+      label: Движок сборки
+      options:
+        - Java Edition (Vanilla, Fabric, Forge, NeoForge, Quilt)
+        - Horizon (Rust)
+        - Не относится к запуску игры
+    validations:
+      required: true
+
+  - type: input
+    id: instance
+    attributes:
+      label: Сборка
+      description: Название, версия Minecraft и версия модлоадера
+      placeholder: "Survival, 1.21.4, Fabric 0.16.9"
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Что произошло
+      description: Опишите фактическое поведение и текст ошибки, если он был
+      placeholder: "Нажимаю «Играть», окно закрывается, игра не запускается…"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Как повторить
+      description: По шагам, начиная с запуска лаунчера
+      placeholder: |
+        1. Открыть «Сборки»
+        2. Выбрать сборку…
+        3. Нажать…
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Лог
+      description: |
+        Хвост `logs/latest.log` из папки сборки (или лог из вкладки «Логи»).
+        Можно приложить файлом. Уберите из него личные пути, если они чувствительны.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Дополнительно
+      description: Скриншоты, особенности системы, антивирус, объём памяти
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Проверки
+      options:
+        - label: Использую последнюю версию лаунчера
+          required: true
+        - label: Поискал похожие issues и не нашёл решения
+          required: true

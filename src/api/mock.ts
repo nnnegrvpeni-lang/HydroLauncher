@@ -565,6 +565,7 @@ export async function mockInvoke<T>(
         modrinthProject: 'https://modrinth.com/mod/',
         horizonMod: 'https://playhorizon.dev/mods/',
         repo: 'https://github.com/nnnegrvpeni-lang/HydroLauncher',
+        issues: 'https://github.com/nnnegrvpeni-lang/HydroLauncher/issues/new/choose',
       } as T;
 
     // Быстрый запуск и скриншоты сборки

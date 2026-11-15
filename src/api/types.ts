@@ -349,6 +349,7 @@ export interface AppLinks {
   modrinthProject: string;
   horizonMod: string;
   repo: string;
+  issues: string;
 }
 
 export const api = {

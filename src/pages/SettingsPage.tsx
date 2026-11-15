@@ -5,6 +5,7 @@ import {
   Download,
   FolderOpen,
   Loader2,
+  MessageSquare,
   Plus,
   RefreshCw,
   Trash2,
@@ -17,6 +18,7 @@ import { Switch } from '../components/ui/Switch';
 import { LANGUAGE_OPTIONS, useI18n, type Language } from '../i18n';
 import { useAccountsStore } from '../stores/accountsStore';
 import { useInstancesStore } from '../stores/instancesStore';
+import { useLinksStore } from '../stores/linksStore';
 import { useNotifyStore } from '../stores/notifyStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUpdateStore } from '../stores/updateStore';
@@ -673,6 +675,7 @@ function AboutGroup() {
   const dismissed = useUpdateStore((s) => s.dismissedVersion);
   const dismiss = useUpdateStore((s) => s.dismiss);
   const resetDismiss = useUpdateStore((s) => s.resetDismiss);
+  const links = useLinksStore((s) => s.links);
   const { t, tf } = useI18n();
 
   const hidden = Boolean(info?.updateAvailable && dismissed === info.latestVersion);
@@ -721,6 +724,26 @@ function AboutGroup() {
           </button>
         </div>
       )}
+
+      <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-3.5">
+        <div>
+          <p className="text-[13px] font-medium text-ink">{t('Обратная связь')}</p>
+          <p className="mt-0.5 text-xs text-muted">
+            {t('Баги и предложения — в GitHub Issues')}
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={!links}
+          onClick={() => {
+            if (links) void api.openExternalUrl(links.issues).catch(() => undefined);
+          }}
+        >
+          <MessageSquare size={13} />
+          {t('Сообщить о проблеме')}
+        </Button>
+      </div>
     </Group>
   );
 }

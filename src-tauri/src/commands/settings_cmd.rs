@@ -126,15 +126,19 @@ pub struct AppLinks {
     pub modrinth_project: String,
     pub horizon_mod: String,
     pub repo: String,
+    pub issues: String,
 }
 
 #[tauri::command]
 pub fn get_app_links() -> AppLinks {
-    use crate::config::endpoints::{HORIZON_WEB_MOD_URL, HYDRO_REPO_URL, MODRINTH_WEB_PROJECT_URL};
+    use crate::config::endpoints::{
+        HORIZON_WEB_MOD_URL, HYDRO_ISSUES_URL, HYDRO_REPO_URL, MODRINTH_WEB_PROJECT_URL,
+    };
     AppLinks {
         modrinth_project: MODRINTH_WEB_PROJECT_URL.to_string(),
         horizon_mod: HORIZON_WEB_MOD_URL.to_string(),
         repo: HYDRO_REPO_URL.to_string(),
+        issues: HYDRO_ISSUES_URL.to_string(),
     }
 }
 

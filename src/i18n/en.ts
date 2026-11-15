@@ -234,6 +234,11 @@ export const en: Record<string, string> = {
   'Моды, конфиги и миры в одном zip': 'Mods, configs and worlds in one zip',
   'Сборка импортирована: {name}': 'Instance imported: {name}',
 
+  // Обратная связь
+  'Обратная связь': 'Feedback',
+  'Баги и предложения — в GitHub Issues': 'Bugs and ideas go to GitHub Issues',
+  'Сообщить о проблеме': 'Report a problem',
+
   // Главная: быстрый запуск и док
   'Войти на {address}': 'Join {address}',
   'Удалить сервер': 'Remove server',
