@@ -26,9 +26,10 @@ import { useInstancesStore } from '../stores/instancesStore';
 import { useLaunchStore } from '../stores/launchStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { cn } from '../utils/cn';
+import { buildDockInstances, pickRecent } from '../utils/dock';
 import { formatMemory, formatPlayTime } from '../utils/format';
 import type { PageId } from '../components/TitleBar';
-import { api, type GameLog, type Instance, type InstanceQuickPlay } from '../api';
+import { api, type GameLog, type InstanceQuickPlay } from '../api';
 
 const EMPTY_LOGS: GameLog[] = [];
 
@@ -86,22 +87,7 @@ export function HomePage({
 
   const featuredId = featured?.id ?? null;
 
-  const DOCK_LIMIT = 6;
-  const orderedInstances = [...instances].sort(
-    (a, b) => instanceActivityTime(b) - instanceActivityTime(a),
-  );
-  const dockInstances = (() => {
-    const visible = orderedInstances.slice(0, DOCK_LIMIT);
-    if (featured && !visible.some((inst) => inst.id === featured.id)) {
-      return [
-        featured,
-        ...orderedInstances
-          .filter((inst) => inst.id !== featured.id)
-          .slice(0, DOCK_LIMIT - 1),
-      ];
-    }
-    return visible;
-  })();
+  const dockInstances = buildDockInstances(instances, featuredId);
   const dockHiddenCount = Math.max(0, instances.length - dockInstances.length);
   const qpFeaturedState = featured ? running.get(featured.id) ?? 'idle' : 'idle';
   const featuredBusyOrRunning = qpFeaturedState !== 'idle';
@@ -731,15 +717,3 @@ function FloatingConsole({
   );
 }
 
-function instanceActivityTime(instance: Instance): number {
-  const stamp = instance.lastPlayedAt ?? instance.createdAt;
-  const parsed = stamp ? Date.parse(stamp) : 0;
-  return Number.isNaN(parsed) ? 0 : parsed;
-}
-
-function pickRecent(instances: Instance[]): Instance | null {
-  const sorted = [...instances].sort(
-    (a, b) => instanceActivityTime(b) - instanceActivityTime(a),
-  );
-  return sorted[0] ?? null;
-}

@@ -382,6 +382,11 @@ pub async fn launch(
     emit_state(&app, &instance.id, "running");
     account_service::mark_account_used(&paths, &data_dir, &account.id).await?;
 
+    // Сворачиваем окно, чтобы не мешать игре (настройка «сворачивать при запуске»).
+    if settings.close_on_launch {
+        set_window_minimized(&app, true);
+    }
+
     // 7. Наблюдение за завершением процесса (без удержания Mutex во время wait)
     let watcher_app = app.clone();
     let watcher_instance = instance.clone();
@@ -400,8 +405,10 @@ pub async fn launch(
         watcher_registry.remove(&watcher_instance.id).await;
 
         let elapsed = started_at.elapsed().as_secs();
+        let mut restore_window = false;
         if let Ok(paths_w) = AppPaths::discover() {
             if let Ok(settings_w) = settings_service::load_or_init_settings(&paths_w).await {
+                restore_window = settings_w.close_on_launch;
                 let data_dir_w = PathBuf::from(&settings_w.data_dir);
                 let _ = crate::services::instance_service::record_play_session(
                     &paths_w,
@@ -413,15 +420,13 @@ pub async fn launch(
             }
         }
 
-        emit_state(
-            &watcher_app,
-            &watcher_instance.id,
-            if was_killed || exit_code.is_some() {
-                "exited"
-            } else {
-                "crashed"
-            },
-        );
+        // Нормальный выход — только код 0. Ненулевой код или сигнал считаем падением.
+        let state = classify_exit(was_killed, exit_code);
+        emit_state_with_code(&watcher_app, &watcher_instance.id, state, exit_code);
+
+        if restore_window {
+            set_window_minimized(&watcher_app, false);
+        }
     });
 
     Ok(())
@@ -524,12 +529,65 @@ fn spawn_log_pipe(
 }
 
 fn emit_state(app: &AppHandle, instance_id: &str, state: &str) {
+    emit_state_with_code(app, instance_id, state, None);
+}
+
+fn emit_state_with_code(
+    app: &AppHandle,
+    instance_id: &str,
+    state: &str,
+    exit_code: Option<i32>,
+) {
     let _ = app.emit(
         "launch://state",
         GameStateEvent {
             instance_id: instance_id.to_string(),
             state: state.to_string(),
-            exit_code: None,
+            exit_code,
         },
     );
+}
+
+/// Классифицирует завершение процесса: `exited` только при коде 0 или ручной остановке.
+fn classify_exit(was_killed: bool, exit_code: Option<i32>) -> &'static str {
+    if was_killed || exit_code == Some(0) {
+        "exited"
+    } else {
+        "crashed"
+    }
+}
+
+fn set_window_minimized(app: &AppHandle, minimized: bool) {
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+    if minimized {
+        let _ = window.minimize();
+    } else {
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::classify_exit;
+
+    #[test]
+    fn normal_exit_is_not_a_crash() {
+        assert_eq!(classify_exit(false, Some(0)), "exited");
+    }
+
+    #[test]
+    fn non_zero_exit_code_is_a_crash() {
+        assert_eq!(classify_exit(false, Some(1)), "crashed");
+        assert_eq!(classify_exit(false, Some(-1073741819)), "crashed");
+        assert_eq!(classify_exit(false, None), "crashed");
+    }
+
+    #[test]
+    fn manual_stop_is_reported_as_exit() {
+        assert_eq!(classify_exit(true, None), "exited");
+        assert_eq!(classify_exit(true, Some(1)), "exited");
+    }
 }

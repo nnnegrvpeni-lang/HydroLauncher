@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { api, type LauncherUpdateInfo } from '../api';
+import { visibleUpdate } from '../utils/update';
 import { useEffectSync } from './useEffectSync';
 
 const DISMISSED_KEY = 'hydro.update.dismissedVersion';
@@ -65,7 +66,5 @@ export function useInitLauncherUpdate() {
 export function useLauncherUpdate(): LauncherUpdateInfo | null {
   const info = useUpdateStore((s) => s.info);
   const dismissed = useUpdateStore((s) => s.dismissedVersion);
-  if (!info?.updateAvailable) return null;
-  if (dismissed === info.latestVersion) return null;
-  return info;
+  return visibleUpdate(info, dismissed);
 }

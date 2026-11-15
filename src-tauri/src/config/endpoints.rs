@@ -8,6 +8,8 @@ pub const APP_NAME: &str = "HydroLauncher";
 
 pub const MOJANG_VERSION_MANIFEST_URL: &str =
     "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
+/// Префикс, которому обязаны соответствовать URL версий из манифеста Mojang.
+pub const MOJANG_PISTON_PREFIX: &str = "https://piston-meta.mojang.com/";
 pub const MOJANG_RESOURCES_BASE_URL: &str = "https://resources.download.minecraft.net";
 
 pub const ADOPTIUM_API_BASE_URL: &str = "https://api.adoptium.net/v3";
@@ -25,6 +27,10 @@ pub const HORIZON_MINECRAFT_VERSION: &str = "26.3";
 pub const HYDRO_REPO_URL: &str = "https://github.com/nnnegrvpeni-lang/HydroLauncher";
 pub const HYDRO_LATEST_RELEASE_API_URL: &str =
     "https://api.github.com/repos/nnnegrvpeni-lang/HydroLauncher/releases/latest";
+
+/// Веб-страницы проектов (открываются в браузере по кнопке «Открыть на …»).
+pub const MODRINTH_WEB_PROJECT_URL: &str = "https://modrinth.com/mod/";
+pub const HORIZON_WEB_MOD_URL: &str = "https://playhorizon.dev/mods/";
 
 pub const FABRIC_META_BASE_URL: &str = "https://meta.fabricmc.net/v2";
 pub const QUILT_META_BASE_URL: &str = "https://meta.quiltmc.org/v3";

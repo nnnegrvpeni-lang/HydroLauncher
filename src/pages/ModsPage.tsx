@@ -32,6 +32,7 @@ import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { useCatalogStore } from '../stores/catalogStore';
 import { useInstancesStore } from '../stores/instancesStore';
+import { useLinksStore } from '../stores/linksStore';
 import { cn } from '../utils/cn';
 import { formatLoaderLabel } from '../utils/format';
 
@@ -357,6 +358,8 @@ export function ModsPage({
       void ensureVersionCatalog().catch(() => {});
     }
   }, [versionCatalog, ensureVersionCatalog]);
+
+  const appLinks = useLinksStore((s) => s.links);
 
   // Подгружаем поддерживаемые версии выбранного модлоадера и сбрасываем несовместимую версию игры
   useEffect(() => {
@@ -734,6 +737,9 @@ export function ModsPage({
     const isInstalledInTarget =
       targetInstance !== null && installedProjectIds.has(detailHit.projectId);
     const isDirectBusy = directInstallingIds.has(detailHit.projectId);
+    const webProjectBase =
+      catalogSource === 'horizon' ? appLinks?.horizonMod : appLinks?.modrinthProject;
+    const webProjectUrl = webProjectBase ? `${webProjectBase}${detailHit.slug}` : undefined;
 
     return (
       <div className="hl-fade-up mx-auto max-w-[1160px] px-7 py-6">
@@ -835,11 +841,7 @@ export function ModsPage({
                 )}
                 <div className="pt-1">
                   <a
-                    href={
-                      catalogSource === 'horizon'
-                        ? `https://playhorizon.dev/mods/${detailHit.slug}`
-                        : `https://modrinth.com/mod/${detailHit.slug}`
-                    }
+                    href={webProjectUrl}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-1.5 text-xs text-muted transition-colors hover:text-ink"

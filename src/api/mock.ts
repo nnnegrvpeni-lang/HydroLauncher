@@ -542,6 +542,90 @@ export async function mockInvoke<T>(
         releaseUrl: 'https://github.com/nnnegrvpeni-lang/HydroLauncher/releases/latest',
         publishedAt: now(),
       } as T;
+    case 'get_app_links':
+      return {
+        modrinthProject: 'https://modrinth.com/mod/',
+        horizonMod: 'https://playhorizon.dev/mods/',
+        repo: 'https://github.com/nnnegrvpeni-lang/HydroLauncher',
+      } as T;
+
+    // Быстрый запуск и скриншоты сборки
+    case 'get_instance_quick_play':
+      return {
+        worlds: [
+          { folderName: 'Новый мир', modifiedMs: Date.now(), iconDataUrl: null },
+          { folderName: 'Тестовый мир', modifiedMs: Date.now() - 86_400_000, iconDataUrl: null },
+        ],
+        servers: [
+          { id: 'srv-1', name: 'Локальный сервер', address: 'localhost:25565' },
+        ],
+      } as T;
+    case 'add_quick_server':
+      return [
+        {
+          id: `srv-${Date.now()}`,
+          name: String(args?.name ?? 'Сервер'),
+          address: String(args?.address ?? 'localhost:25565'),
+        },
+      ] as T;
+    case 'remove_quick_server':
+      return [] as T;
+    case 'get_instance_screenshots':
+      return [] as T;
+    case 'delete_instance_screenshot':
+    case 'open_screenshot_file':
+      return undefined as T;
+
+    // Horizon: релизы движка
+    case 'list_horizon_releases':
+      return [
+        { tagName: 'nightly', name: 'Nightly', publishedAt: now() },
+      ] as T;
+    case 'check_horizon_update':
+    case 'update_horizon_binaries':
+      return {
+        installed: true,
+        updateAvailable: false,
+        tagName: String(args?.tag ?? 'nightly'),
+        installedTag: 'nightly',
+        currentUpdatedAt: now(),
+        latestUpdatedAt: now(),
+      } as T;
+
+    // Модлоадеры и обновления модов
+    case 'get_loader_versions':
+      return [
+        (args?.loader as string) === 'forge' ? '47.2.0' : '0.16.9',
+      ] as T;
+    case 'check_mod_updates':
+      return [] as T;
+    case 'toggle_installed_mod':
+      return String(args?.fileName ?? 'mod.jar') as T;
+
+    // Модпаки: в моке создаём локальную сборку без скачивания
+    case 'install_modrinth_modpack':
+    case 'import_mrpack_file': {
+      const created: Instance = {
+        id: `inst-${Date.now()}`,
+        name: String(args?.customName ?? 'Модпак'),
+        minecraftVersion: '1.21.4',
+        engine: 'java',
+        loader: 'fabric',
+        loaderVersion: '0.16.9',
+        autoUpdateHorizon: true,
+        memoryMbOverride: null,
+        javaPathOverride: null,
+        jvmArgs: [],
+        gameArgs: [],
+        createdAt: now(),
+        lastPlayedAt: null,
+        playTimeSeconds: 0,
+      };
+      instances = [...instances, created];
+      return created as T;
+    }
+    case 'pick_mrpack_file':
+      return null as T;
     case 'open_external_url':
       return undefined as T;
 

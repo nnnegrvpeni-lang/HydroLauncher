@@ -311,6 +311,13 @@ export interface LauncherUpdateInfo {
   publishedAt: string | null;
 }
 
+/** Веб-ссылки, которые открываются из интерфейса (заданы в endpoints.rs). */
+export interface AppLinks {
+  modrinthProject: string;
+  horizonMod: string;
+  repo: string;
+}
+
 export const api = {
   // Аккаунты
   getAccounts: () => invoke<AccountsStore>('get_accounts'),
@@ -349,6 +356,7 @@ export const api = {
   validateDataDir: (path: string) => invoke<string>('validate_data_dir', { path }),
   openDataDir: () => invoke<void>('open_data_dir'),
   checkLauncherUpdate: () => invoke<LauncherUpdateInfo>('check_launcher_update'),
+  getAppLinks: () => invoke<AppLinks>('get_app_links'),
   openExternalUrl: (url: string) => invoke<void>('open_external_url', { url }),
 
   // Java

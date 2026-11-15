@@ -15,6 +15,7 @@ import { Button, IconButton } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Switch } from '../components/ui/Switch';
 import { useAccountsStore } from '../stores/accountsStore';
+import { useInstancesStore } from '../stores/instancesStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUpdateStore } from '../stores/updateStore';
 import { api, type JavaRuntime, type OfflineAccount, type ThemeMode } from '../api';
@@ -299,16 +300,16 @@ function PerformanceGroup() {
       <div className="flex items-center justify-between gap-4 px-5 py-3.5">
         <div>
           <p className="text-[13px] font-medium text-ink">
-            Скрывать лаунчер после запуска игры
+            Сворачивать лаунчер при запуске игры
           </p>
           <p className="text-xs text-muted">
-            Окно вернётся автоматически после выхода из Minecraft
+            Окно свернётся в панель задач и вернётся после выхода из игры
           </p>
         </div>
         <Switch
           checked={settings.closeOnLaunch}
           onChange={(checked) => void save({ ...settings, closeOnLaunch: checked })}
-          label="Скрывать лаунчер после запуска игры"
+          label="Сворачивать лаунчер при запуске игры"
         />
       </div>
 
@@ -472,6 +473,11 @@ function StorageGroup() {
       await api.validateDataDir(dir);
       await save({ ...settings, dataDir: dir });
       setError(null);
+      // Папка данных сменилась — перечитываем сборки и профили, иначе UI покажет старое.
+      await Promise.all([
+        useInstancesStore.getState().load(),
+        useAccountsStore.getState().load(),
+      ]);
     } catch (err) {
       setError(String(err));
     }

@@ -15,7 +15,7 @@ use commands::{
     },
     instances::{
         add_quick_server, create_instance, delete_instance, delete_instance_screenshot,
-        get_instance_quick_play, get_instance_screenshots, get_instances, instance_store,
+        get_instance_quick_play, get_instance_screenshots, get_instances,
         open_instance_folder, open_screenshot_file, remove_quick_server, update_instance,
     },
     java_cmd::{download_java_runtime, get_java_runtimes},
@@ -26,13 +26,13 @@ use commands::{
         search_modrinth_mods, toggle_installed_mod,
     },
     settings_cmd::{
-        check_launcher_update, get_settings, get_system_info, open_data_dir, open_external_url,
-        pick_directory, save_settings_cmd, validate_data_dir,
+        check_launcher_update, get_app_links, get_settings, get_system_info, open_data_dir,
+        open_external_url, pick_directory, save_settings_cmd, validate_data_dir,
     },
     versions::{
         check_horizon_update, ensure_java_runtime, get_install_status,
         get_loader_supported_mc_versions, get_loader_versions, get_running_instances,
-        get_version_catalog, get_version_details, launch_instance, list_horizon_releases,
+        get_version_catalog, launch_instance, list_horizon_releases,
         list_installed_horizon_binaries, prepare_instance, terminate_instance,
         update_horizon_binaries,
     },
@@ -56,7 +56,6 @@ pub fn run() {
             create_instance,
             update_instance,
             delete_instance,
-            instance_store,
             open_instance_folder,
             get_instance_quick_play,
             add_quick_server,
@@ -72,6 +71,7 @@ pub fn run() {
             validate_data_dir,
             open_data_dir,
             check_launcher_update,
+            get_app_links,
             open_external_url,
             // Java
             get_java_runtimes,
@@ -79,7 +79,6 @@ pub fn run() {
             ensure_java_runtime,
             // Версии и запуск
             get_version_catalog,
-            get_version_details,
             get_install_status,
             prepare_instance,
             launch_instance,

@@ -2,7 +2,7 @@ use crate::config::endpoints::{horizon_release_by_tag_url, HORIZON_RELEASES_API_
 use crate::error::{AppError, AppResult};
 use crate::models::events::LaunchProgressEvent;
 use crate::models::mojang::{VersionDetails, VersionSummary};
-use crate::services::downloader::{download_file, get_json};
+use crate::services::downloader::{download_file, get_json_cached};
 use crate::storage::paths::{sanitize_tag, AppPaths};
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
@@ -229,10 +229,9 @@ pub fn resolve_horizon_binaries(
 
 pub async fn list_horizon_releases() -> AppResult<Vec<HorizonReleaseSummary>> {
     let archive_name = expected_archive_name()?;
-    let client = reqwest::Client::builder()
-        .user_agent("HydroLauncher/0.1")
-        .build()?;
-    let releases: Vec<GitHubRelease> = get_json(&client, HORIZON_RELEASES_API_URL).await?;
+    let client = crate::services::downloader::build_client()?;
+    let releases: Vec<GitHubRelease> =
+        crate::services::downloader::get_json_cached(&client, HORIZON_RELEASES_API_URL).await?;
     Ok(releases
         .into_iter()
         .filter(|r| {
@@ -330,11 +329,9 @@ pub async fn check_horizon_update(
         None
     };
 
-    let client = reqwest::Client::builder()
-        .user_agent("HydroLauncher/0.1")
-        .build()?;
+    let client = crate::services::downloader::build_client()?;
     let release_url = horizon_release_by_tag_url(&tag);
-    let release: GitHubRelease = get_json(&client, &release_url).await?;
+    let release: GitHubRelease = get_json_cached(&client, &release_url).await?;
     let archive_name = expected_archive_name()?;
     let asset = release.assets.iter().find(|a| a.name == archive_name);
     let latest_updated = asset
@@ -393,12 +390,10 @@ async fn download_horizon_binaries(
         1,
     );
 
-    let client = reqwest::Client::builder()
-        .user_agent("HydroLauncher/0.1")
-        .build()?;
+    let client = crate::services::downloader::build_client()?;
 
     let release_url = horizon_release_by_tag_url(&tag);
-    let release: GitHubRelease = get_json(&client, &release_url).await?;
+    let release: GitHubRelease = get_json_cached(&client, &release_url).await?;
     let archive_name = expected_archive_name()?;
     let asset = release
         .assets
@@ -572,9 +567,7 @@ pub async fn ensure_horizon_prepared(
 
     tokio::fs::create_dir_all(&prepared_dir).await?;
 
-    let client = reqwest::Client::builder()
-        .user_agent("HydroLauncher/0.1")
-        .build()?;
+    let client = crate::services::downloader::build_client()?;
 
     // horizon-prepare проверяет точный SHA-1 оригинального <version>.json от Mojang
     let version_dir = paths.version_dir(data_dir, &details.id);

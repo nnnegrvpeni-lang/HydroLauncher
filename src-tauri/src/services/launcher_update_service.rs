@@ -5,7 +5,7 @@
 
 use crate::config::endpoints::HYDRO_LATEST_RELEASE_API_URL;
 use crate::error::AppResult;
-use crate::services::downloader::get_json;
+use crate::services::downloader::{build_client, get_json_cached};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -38,10 +38,8 @@ fn parse_version(raw: &str) -> Option<(u64, u64, u64)> {
 
 pub async fn check_launcher_update() -> AppResult<LauncherUpdateInfo> {
     let current_version = env!("CARGO_PKG_VERSION").to_string();
-    let client = reqwest::Client::builder()
-        .user_agent(format!("HydroLauncher/{current_version}"))
-        .build()?;
-    let release: GitHubRelease = get_json(&client, HYDRO_LATEST_RELEASE_API_URL).await?;
+    let client = build_client()?;
+    let release: GitHubRelease = get_json_cached(&client, HYDRO_LATEST_RELEASE_API_URL).await?;
     let latest_version = release
         .tag_name
         .trim()

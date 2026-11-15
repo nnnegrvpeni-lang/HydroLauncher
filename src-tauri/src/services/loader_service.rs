@@ -9,7 +9,7 @@ use crate::models::mojang::{Library, VersionArguments, VersionDetails};
 use crate::services::downloader;
 use crate::services::mojang_service::maven_artifact_path;
 use crate::storage::paths::AppPaths;
-use reqwest::Client;
+ 
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::Path;
@@ -76,7 +76,7 @@ pub async fn list_supported_mc_versions(loader: ModLoaderKind) -> AppResult<Vec<
         return Ok(Vec::new());
     }
 
-    let client = Client::new();
+    let client = crate::services::downloader::build_client()?;
     match loader {
         ModLoaderKind::Vanilla => Ok(Vec::new()),
         ModLoaderKind::Fabric => {
@@ -95,7 +95,7 @@ pub async fn list_supported_mc_versions(loader: ModLoaderKind) -> AppResult<Vec<
             );
             let xml = client
                 .get(&xml_url)
-                .header("User-Agent", "HydroLauncher/0.1")
+                .header("User-Agent", crate::services::downloader::USER_AGENT)
                 .send()
                 .await?
                 .error_for_status()?
@@ -149,7 +149,7 @@ pub async fn list_loader_versions(
         return Ok(Vec::new());
     }
 
-    let client = Client::new();
+    let client = crate::services::downloader::build_client()?;
     match loader {
         ModLoaderKind::Vanilla => Ok(Vec::new()),
         ModLoaderKind::Fabric => {
@@ -168,7 +168,7 @@ pub async fn list_loader_versions(
             );
             let xml = client
                 .get(&xml_url)
-                .header("User-Agent", "HydroLauncher/0.1")
+                .header("User-Agent", crate::services::downloader::USER_AGENT)
                 .send()
                 .await?
                 .error_for_status()?
@@ -257,7 +257,7 @@ async fn install_fabric_or_quilt(
     meta_base: &str,
     label: &str,
 ) -> AppResult<()> {
-    let client = Client::new();
+    let client = crate::services::downloader::build_client()?;
     let mc_ver = &instance.minecraft_version;
 
     let loader_ver = if let Some(v) = instance
@@ -292,7 +292,7 @@ async fn install_fabric_or_quilt(
         let url = format!("{meta_base}/versions/loader/{mc_ver}/{loader_ver}/profile/json");
         let resp = client
             .get(&url)
-            .header("User-Agent", "HydroLauncher/0.1")
+            .header("User-Agent", crate::services::downloader::USER_AGENT)
             .send()
             .await?
             .error_for_status()?;
@@ -340,7 +340,7 @@ async fn install_forge(
     java_exec: &str,
     details: &mut VersionDetails,
 ) -> AppResult<()> {
-    let client = Client::new();
+    let client = crate::services::downloader::build_client()?;
     let mc_ver = &instance.minecraft_version;
 
     let forge_ver = if let Some(v) = instance
@@ -405,7 +405,7 @@ async fn install_neoforge(
     java_exec: &str,
     details: &mut VersionDetails,
 ) -> AppResult<()> {
-    let client = Client::new();
+    let client = crate::services::downloader::build_client()?;
     let mc_ver = &instance.minecraft_version;
 
     let nf_ver = if let Some(v) = instance
@@ -502,7 +502,7 @@ async fn run_installer(
         0,
         2,
     );
-    let client = Client::new();
+    let client = crate::services::downloader::build_client()?;
     downloader::download_file(&client, installer_url, &installer_path, None).await?;
 
     emit_progress(

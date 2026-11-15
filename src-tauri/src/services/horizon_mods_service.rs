@@ -3,7 +3,7 @@ use crate::error::{AppError, AppResult};
 use crate::services::downloader::get_json;
 use crate::services::modrinth_service::{InstalledModFile, ModMetaEntry};
 use crate::storage::paths::AppPaths;
-use reqwest::Client;
+ 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::path::Path;
@@ -134,9 +134,7 @@ async fn load_index(paths: &AppPaths, data_dir: &Path) -> AppResult<HorizonModsI
         }
     }
 
-    let client = Client::builder()
-        .user_agent("HydroLauncher/0.1")
-        .build()?;
+    let client = crate::services::downloader::build_client()?;
 
     match get_json::<HorizonModsIndex>(&client, HORIZON_MODS_INDEX_URL).await {
         Ok(index) => {
@@ -328,9 +326,7 @@ pub async fn install_mod(
     }
     meta_list.retain(|m| m.project_id != project.id && m.file_name != safe_name);
 
-    let client = Client::builder()
-        .user_agent("HydroLauncher/0.1")
-        .build()?;
+    let client = crate::services::downloader::build_client()?;
 
     let resp = client.get(&file.url).send().await?.error_for_status()?;
     let bytes = resp.bytes().await?;

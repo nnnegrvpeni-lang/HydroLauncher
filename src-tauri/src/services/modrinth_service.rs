@@ -3,7 +3,7 @@ use crate::error::{AppError, AppResult};
 use crate::models::instance::{Instance, ModLoaderKind};
 use crate::services::downloader;
 use crate::storage::paths::AppPaths;
-use reqwest::Client;
+use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
 use std::collections::HashMap;
@@ -203,7 +203,7 @@ pub async fn search_mods(
     limit: u32,
     offset: u32,
 ) -> AppResult<ModrinthSearchResult> {
-    let client = Client::new();
+    let client = crate::services::downloader::build_client()?;
     let mut facets: Vec<Vec<String>> = match project_type.map(str::trim) {
         Some("all") => vec![vec![
             "project_type:mod".to_string(),
@@ -235,7 +235,7 @@ pub async fn search_mods(
 
     let response = client
         .get(&url)
-        .header("User-Agent", "HydroLauncher/0.1")
+        .header("User-Agent", crate::services::downloader::USER_AGENT)
         .query(&[
             ("query", query.trim()),
             ("facets", facets_json.as_str()),
@@ -272,11 +272,11 @@ pub async fn search_mods(
 }
 
 pub async fn get_project(project_id: &str) -> AppResult<ModrinthProjectDetails> {
-    let client = Client::new();
+    let client = crate::services::downloader::build_client()?;
     let url = format!("{MODRINTH_API_BASE_URL}/project/{project_id}");
     let p: ApiProjectDetails = client
         .get(&url)
-        .header("User-Agent", "HydroLauncher/0.1")
+        .header("User-Agent", crate::services::downloader::USER_AGENT)
         .send()
         .await?
         .error_for_status()?
@@ -314,7 +314,7 @@ pub async fn get_project_versions(
     loader: Option<ModLoaderKind>,
     game_version: Option<&str>,
 ) -> AppResult<Vec<ModrinthVersionInfo>> {
-    let client = Client::new();
+    let client = crate::services::downloader::build_client()?;
     let url = format!("{MODRINTH_API_BASE_URL}/project/{project_id}/version");
     let mut query: Vec<(&str, String)> = Vec::new();
 
@@ -327,7 +327,7 @@ pub async fn get_project_versions(
 
     let versions: Vec<ApiVersion> = client
         .get(&url)
-        .header("User-Agent", "HydroLauncher/0.1")
+        .header("User-Agent", crate::services::downloader::USER_AGENT)
         .query(&query)
         .send()
         .await?
@@ -371,11 +371,11 @@ async fn install_mod_inner(
     visited: &mut std::collections::HashSet<String>,
 ) -> AppResult<InstalledModFile> {
     visited.insert(project_id.to_string());
-    let client = Client::new();
+    let client = crate::services::downloader::build_client()?;
     let project_url = format!("{MODRINTH_API_BASE_URL}/project/{project_id}");
     let project_info: ApiProjectDetails = client
         .get(&project_url)
-        .header("User-Agent", "HydroLauncher/0.1")
+        .header("User-Agent", crate::services::downloader::USER_AGENT)
         .send()
         .await?
         .error_for_status()?
@@ -398,7 +398,7 @@ async fn install_mod_inner(
         let url = format!("{MODRINTH_API_BASE_URL}/version/{vid}");
         client
             .get(&url)
-            .header("User-Agent", "HydroLauncher/0.1")
+            .header("User-Agent", crate::services::downloader::USER_AGENT)
             .send()
             .await?
             .error_for_status()?
@@ -415,7 +415,7 @@ async fn install_mod_inner(
 
         let response = client
             .get(&url)
-            .header("User-Agent", "HydroLauncher/0.1")
+            .header("User-Agent", crate::services::downloader::USER_AGENT)
             .query(&query)
             .send()
             .await?
@@ -426,7 +426,7 @@ async fn install_mod_inner(
             // Шейдеры и ресурспаки часто совместимы с соседними версиями, пробуем без фильтра версии
             let fallback: Vec<ApiVersion> = client
                 .get(&url)
-                .header("User-Agent", "HydroLauncher/0.1")
+                .header("User-Agent", crate::services::downloader::USER_AGENT)
                 .send()
                 .await?
                 .error_for_status()?
@@ -635,7 +635,7 @@ pub async fn list_installed_mods(
     }
 
     if !missing_hashes.is_empty() {
-        let client = Client::new();
+        let client = crate::services::downloader::build_client()?;
         let hash_list: Vec<&str> = missing_hashes.iter().map(|(_, h)| h.as_str()).collect();
         let body = serde_json::json!({
             "hashes": hash_list,
@@ -644,7 +644,7 @@ pub async fn list_installed_mods(
 
         if let Ok(resp) = client
             .post(format!("{MODRINTH_API_BASE_URL}/version_files"))
-            .header("User-Agent", "HydroLauncher/0.1")
+            .header("User-Agent", crate::services::downloader::USER_AGENT)
             .json(&body)
             .send()
             .await
@@ -662,7 +662,7 @@ pub async fn list_installed_mods(
                     if let Ok(ids_json) = serde_json::to_string(&project_ids) {
                         if let Ok(p_resp) = client
                             .get(format!("{MODRINTH_API_BASE_URL}/projects"))
-                            .header("User-Agent", "HydroLauncher/0.1")
+                            .header("User-Agent", crate::services::downloader::USER_AGENT)
                             .query(&[("ids", ids_json.as_str())])
                             .send()
                             .await
@@ -840,7 +840,7 @@ pub async fn check_mod_updates(
 ) -> AppResult<Vec<ModUpdateInfo>> {
     let installed = list_installed_mods(paths, data_dir, &instance.id).await?;
     let loader = loader_slug(instance.loader);
-    let client = Client::new();
+    let client = crate::services::downloader::build_client()?;
     let versions_json = serde_json::to_string(&[instance.minecraft_version.as_str()])?;
     let mut updates = Vec::new();
 
@@ -859,7 +859,7 @@ pub async fn check_mod_updates(
 
         if let Ok(resp) = client
             .get(&url)
-            .header("User-Agent", "HydroLauncher/0.1")
+            .header("User-Agent", crate::services::downloader::USER_AGENT)
             .query(&query)
             .send()
             .await
@@ -914,11 +914,11 @@ pub async fn install_modrinth_modpack(
     project_id: &str,
     custom_name: Option<&str>,
 ) -> AppResult<Instance> {
-    let client = Client::new();
+    let client = crate::services::downloader::build_client()?;
     let url = format!("{MODRINTH_API_BASE_URL}/project/{project_id}/version");
     let versions: Vec<ApiVersion> = client
         .get(&url)
-        .header("User-Agent", "HydroLauncher/0.1")
+        .header("User-Agent", crate::services::downloader::USER_AGENT)
         .send()
         .await?
         .error_for_status()?
@@ -938,7 +938,7 @@ pub async fn install_modrinth_modpack(
 
     let bytes = client
         .get(&file.url)
-        .header("User-Agent", "HydroLauncher/0.1")
+        .header("User-Agent", crate::services::downloader::USER_AGENT)
         .send()
         .await?
         .error_for_status()?
@@ -1020,7 +1020,7 @@ async fn install_mrpack_from_bytes(
     // Распаковываем overrides/ и client-overrides/
     let bytes_clone = bytes;
     let game_dir_clone = game_dir.clone();
-    tokio::task::spawn_blocking(move || -> AppResult<()> {
+    let overrides_result = tokio::task::spawn_blocking(move || -> AppResult<()> {
         let cursor = std::io::Cursor::new(&bytes_clone);
         let mut archive = zip::ZipArchive::new(cursor)?;
         for i in 0..archive.len() {
@@ -1049,10 +1049,16 @@ async fn install_mrpack_from_bytes(
         Ok(())
     })
     .await
-    .map_err(|e| AppError::Process(format!("Ошибка распаковки overrides: {e}")))??;
+    .map_err(|e| AppError::Process(format!("Ошибка распаковки overrides: {e}")))?;
 
-    // Скачиваем все файлы модпака параллельными порциями
-    let client = Client::new();
+    if let Err(err) = overrides_result {
+        rollback_mrpack_install(paths, data_dir, &instance.id).await;
+        return Err(err);
+    }
+
+    // Скачиваем файлы модпака параллельно, но не больше лимита одновременных загрузок.
+    let client = crate::services::downloader::build_client()?;
+    let mut jobs: Vec<(String, String, Option<String>)> = Vec::new();
     for mf in index.files {
         if let Some(env) = &mf.env {
             if env.client.as_deref() == Some("unsupported") {
@@ -1066,10 +1072,28 @@ async fn install_mrpack_from_bytes(
         let Some(dl_url) = mf.downloads.first() else {
             continue;
         };
-        let dest = game_dir.join(&rel);
-        let sha1 = mf.hashes.get("sha1").map(String::as_str);
-        downloader::download_file(&client, dl_url, &dest, sha1).await?;
+        jobs.push((rel, dl_url.clone(), mf.hashes.get("sha1").cloned()));
+    }
+
+    let download_results: Vec<AppResult<()>> = futures_util::stream::iter(jobs)
+        .map(|(rel, url, sha1)| {
+            let client = client.clone();
+            let dest = game_dir.join(rel);
+            async move { downloader::download_file(&client, &url, &dest, sha1.as_deref()).await }
+        })
+        .buffer_unordered(crate::config::endpoints::DEFAULT_CONCURRENT_DOWNLOADS)
+        .collect()
+        .await;
+
+    if let Some(err) = download_results.into_iter().find_map(Result::err) {
+        rollback_mrpack_install(paths, data_dir, &instance.id).await;
+        return Err(err);
     }
 
     Ok(instance)
+}
+
+/// Удаляет частично установленную сборку модпака, чтобы не оставлять мусор в списке.
+async fn rollback_mrpack_install(paths: &AppPaths, data_dir: &Path, instance_id: &str) {
+    let _ = crate::services::instance_service::delete_instance(paths, data_dir, instance_id).await;
 }

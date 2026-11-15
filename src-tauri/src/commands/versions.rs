@@ -28,7 +28,7 @@ pub async fn get_version_catalog(
 #[tauri::command]
 pub async fn get_version_details(version_url: String) -> Result<VersionDetails, AppError> {
     // URL версии приходит только из манифеста Mojang, полученного лаунчером.
-    if !version_url.starts_with("https://piston-meta.mojang.com/") {
+    if !version_url.starts_with(crate::config::endpoints::MOJANG_PISTON_PREFIX) {
         return Err(AppError::Validation(
             "Ссылка на версию должна указывать на манифест Mojang".into(),
         ));

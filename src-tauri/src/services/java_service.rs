@@ -13,10 +13,7 @@ pub struct JavaService {
 impl JavaService {
     pub fn new() -> Self {
         Self {
-            client: reqwest::Client::builder()
-                .user_agent("HydroLauncher/0.1")
-                .build()
-                .expect("Не удалось создать HTTP-клиент"),
+            client: crate::services::downloader::build_client().unwrap_or_else(|_| reqwest::Client::new()),
         }
     }
 

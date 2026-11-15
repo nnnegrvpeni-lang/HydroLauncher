@@ -96,6 +96,25 @@ pub async fn check_launcher_update(
     crate::services::launcher_update_service::check_launcher_update().await
 }
 
+/// Ссылки на веб-страницы, которые открываются из интерфейса.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppLinks {
+    pub modrinth_project: String,
+    pub horizon_mod: String,
+    pub repo: String,
+}
+
+#[tauri::command]
+pub fn get_app_links() -> AppLinks {
+    use crate::config::endpoints::{HORIZON_WEB_MOD_URL, HYDRO_REPO_URL, MODRINTH_WEB_PROJECT_URL};
+    AppLinks {
+        modrinth_project: MODRINTH_WEB_PROJECT_URL.to_string(),
+        horizon_mod: HORIZON_WEB_MOD_URL.to_string(),
+        repo: HYDRO_REPO_URL.to_string(),
+    }
+}
+
 /// Открывает внешнюю ссылку в системном браузере. Разрешены только https-URL.
 #[tauri::command]
 pub async fn open_external_url(url: String) -> Result<(), AppError> {
