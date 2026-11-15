@@ -9,7 +9,7 @@
 
 ## Скриншоты
 
-![Главная страница — тема «Сумерки»](screenshots/main.png)
+![Главная страница — тема «Ночь»](screenshots/main-night.png)
 
 | Сборки | Каталог модов (Modrinth) |
 | --- | --- |
@@ -18,11 +18,11 @@
 ![Настройки](screenshots/settings.png)
 
 <details>
-<summary>Другие темы оформления («Ночь» и «День»)</summary>
+<summary>Другие темы оформления («Сумерки» и «День»)</summary>
 
-| Ночь | День |
+| Сумерки | День |
 | --- | --- |
-| ![Главная — тема «Ночь»](screenshots/main-night.png) | ![Главная — тема «День»](screenshots/main-day.png) |
+| ![Главная — тема «Сумерки»](screenshots/main.png) | ![Главная — тема «День»](screenshots/main-day.png) |
 
 </details>
 
