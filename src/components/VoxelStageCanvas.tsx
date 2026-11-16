@@ -190,26 +190,6 @@ type Pt = [number, number];
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
-function hashString(value: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < value.length; i += 1) {
-    h ^= value.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return (h >>> 0) / 4294967296;
-}
-
-function mulberry32(seed: number) {
-  let a = Math.floor(seed * 4294967296) >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
 function parseHex(hex: string): [number, number, number] {
   const value = Number.parseInt(hex.replace('#', ''), 16);
   if (Number.isNaN(value) || hex.length !== 7) return [128, 128, 128];
@@ -227,61 +207,6 @@ function shadeColor(hex: string, factor: number): string {
     clamp(Math.round(g * factor), 0, 255),
     clamp(Math.round(b * factor), 0, 255),
   );
-}
-
-// Небольшая бесшовная плитка «пиксельной» текстуры: базовый цвет и кластеры
-// близких оттенков. Белых и чёрных крапинок нет — только тона самого блока.
-function createTextureTile(color: string, seed: number, texel: number): HTMLCanvasElement {
-  const cells = 8;
-  const size = cells * texel;
-  const tile = document.createElement('canvas');
-  tile.width = size;
-  tile.height = size;
-  const tileCtx = tile.getContext('2d');
-  if (!tileCtx) return tile;
-
-  tileCtx.fillStyle = color;
-  tileCtx.fillRect(0, 0, size, size);
-
-  // Только более светлые оттенки: тёмных крапинок на гранях не остаётся.
-  const tones = [
-    shadeColor(color, 1.012),
-    shadeColor(color, 1.026),
-    shadeColor(color, 1.042),
-  ];
-  const rand = mulberry32(seed);
-
-  for (let y = 0; y < cells; y += 1) {
-    for (let x = 0; x < cells; x += 1) {
-      if (rand() > 0.34) continue;
-      tileCtx.fillStyle = tones[Math.floor(rand() * tones.length)];
-      tileCtx.fillRect(x * texel, y * texel, texel, texel);
-    }
-  }
-  return tile;
-}
-
-const patternCaches = new WeakMap<CanvasRenderingContext2D, Map<string, CanvasPattern>>();
-
-function texturePattern(
-  ctx: CanvasRenderingContext2D,
-  color: string,
-  seed: number,
-  texel: number,
-): CanvasPattern | null {
-  let cache = patternCaches.get(ctx);
-  if (!cache) {
-    cache = new Map<string, CanvasPattern>();
-    patternCaches.set(ctx, cache);
-  }
-  const key = `${color}|${seed.toFixed(4)}|${texel}`;
-  const cached = cache.get(key);
-  if (cached) return cached;
-
-  const pattern = ctx.createPattern(createTextureTile(color, seed, texel), 'repeat');
-  if (!pattern) return null;
-  cache.set(key, pattern);
-  return pattern;
 }
 
 function facePath(ctx: CanvasRenderingContext2D, points: Pt[]) {
@@ -312,19 +237,32 @@ function faceBounds(points: Pt[]) {
   };
 }
 
-function fillFace(
-  ctx: CanvasRenderingContext2D,
-  points: Pt[],
-  color: string,
-  texel: number,
-  seed: number,
-) {
-  const bounds = faceBounds(points);
+// Грани чуть перекрывают друг друга, иначе на стыках просвечивает фон
+// тонкой пунктирной линией.
+function expandPolygon(points: Pt[], amount: number): Pt[] {
+  let cx = 0;
+  let cy = 0;
+  for (const [x, y] of points) {
+    cx += x;
+    cy += y;
+  }
+  cx /= points.length;
+  cy /= points.length;
+  return points.map(([x, y]) => {
+    const dx = x - cx;
+    const dy = y - cy;
+    const len = Math.hypot(dx, dy) || 1;
+    return [x + (dx / len) * amount, y + (dy / len) * amount] as Pt;
+  });
+}
+
+function fillFace(ctx: CanvasRenderingContext2D, points: Pt[], color: string) {
+  const grown = expandPolygon(points, 0.4);
+  const bounds = faceBounds(grown);
   ctx.save();
-  facePath(ctx, points);
+  facePath(ctx, grown);
   ctx.clip();
-  const pattern = texturePattern(ctx, color, seed, texel);
-  ctx.fillStyle = pattern ?? color;
+  ctx.fillStyle = color;
   ctx.fillRect(bounds.x, bounds.y, bounds.w, bounds.h);
   ctx.restore();
 }
@@ -383,18 +321,15 @@ interface BlockPaintOptions {
   depth: number;
   kind: VoxelKind;
   shade: number;
-  texel: number;
   isLight: boolean;
   palette: Palette;
   showTop: boolean;
   showLeft: boolean;
   showRight: boolean;
-  seedSalt?: number;
 }
 
 function paintBlock(ctx: CanvasRenderingContext2D, opts: BlockPaintOptions) {
-  const { sx, sy, hw, hh, depth, kind, shade, texel, isLight, palette } = opts;
-  const salt = opts.seedSalt ?? 0;
+  const { sx, sy, hw, hh, depth, kind, shade, isLight, palette } = opts;
 
   const colors =
     kind === 'accent'
@@ -407,10 +342,6 @@ function paintBlock(ctx: CanvasRenderingContext2D, opts: BlockPaintOptions) {
   const leftColor = shadeColor(colors[1], shade);
   const rightColor = shadeColor(colors[2], shade);
   const grassBand = kind === 'main' ? shadeColor(palette.top, shade * 0.82) : null;
-
-  const topSeed = hashString(`${kind}-top`) + salt;
-  const leftSeed = hashString(`${kind}-left`) + salt;
-  const rightSeed = hashString(`${kind}-right`) + salt;
 
   const topQuad: Pt[] = [
     [sx, sy - hh],
@@ -432,7 +363,7 @@ function paintBlock(ctx: CanvasRenderingContext2D, opts: BlockPaintOptions) {
   ];
 
   if (opts.showTop) {
-    fillFace(ctx, topQuad, topColor, texel, topSeed);
+    fillFace(ctx, topQuad, topColor);
 
     // Мягкий блик по задним рёбрам верхней грани.
     ctx.beginPath();
@@ -445,10 +376,10 @@ function paintBlock(ctx: CanvasRenderingContext2D, opts: BlockPaintOptions) {
   }
 
   if (opts.showLeft) {
-    fillFace(ctx, leftQuad, leftColor, texel, leftSeed);
+    fillFace(ctx, leftQuad, leftColor);
     if (grassBand) {
       const band = topBand(leftQuad, 0.26);
-      fillFace(ctx, band, grassBand, texel, leftSeed);
+      fillFace(ctx, band, grassBand);
       strokeSegment(
         ctx,
         band[3],
@@ -460,10 +391,10 @@ function paintBlock(ctx: CanvasRenderingContext2D, opts: BlockPaintOptions) {
   }
 
   if (opts.showRight) {
-    fillFace(ctx, rightQuad, rightColor, texel, rightSeed);
+    fillFace(ctx, rightQuad, rightColor);
     if (grassBand) {
       const band = topBand(rightQuad, 0.26);
-      fillFace(ctx, band, grassBand, texel, rightSeed);
+      fillFace(ctx, band, grassBand);
       strokeSegment(
         ctx,
         band[3],
@@ -521,7 +452,6 @@ function bakeIsland(
   const hw = 36 * scale;
   const hh = 18 * scale;
   const depth = 36 * scale;
-  const texel = Math.max(2, Math.round(hw / 8));
 
   let minX = Infinity;
   let minY = Infinity;
@@ -561,17 +491,15 @@ function bakeIsland(
     const sx = (rx - ry) * hw + offsetX;
     const sy = (rx + ry) * hh - v.gz * depth + offsetY;
 
-    const jitter = hashString(`${v.gx}:${v.gy}:${v.gz}`) - 0.5;
     const overhung =
       occupiedCells.has(`${v.gx + 1},${v.gy},${v.gz + 1}`) ||
       occupiedCells.has(`${v.gx},${v.gy + 1},${v.gz + 1}`) ||
       occupiedCells.has(`${v.gx - 1},${v.gy},${v.gz + 1}`) ||
       occupiedCells.has(`${v.gx},${v.gy - 1},${v.gz + 1}`);
-    const shade = clamp(
-      0.92 + v.gz * 0.03 + jitter * 0.06 - (overhung ? 0.03 : 0),
-      0.88,
-      1.02,
-    );
+    // Все блоки одного уровня одного типа — одного тона: глубину держат только
+    // грани, травяной пояс и лёгкое затемнение под нависаниями. Разнобой
+    // яркостей между соседними кубами читался как кривые тени.
+    const shade = clamp(0.994 + v.gz * 0.004 - (overhung ? 0.012 : 0), 0.97, 1.01);
 
     paintBlock(ctx, {
       sx,
@@ -581,10 +509,8 @@ function bakeIsland(
       depth,
       kind: v.kind,
       shade,
-      texel,
       isLight,
       palette,
-      seedSalt: jitter * 1000,
       showTop: !occupiedCells.has(`${v.gx},${v.gy},${v.gz + 1}`),
       showLeft: !occupiedCells.has(`${v.gx},${v.gy + 1},${v.gz}`),
       showRight: !occupiedCells.has(`${v.gx + 1},${v.gy},${v.gz}`),
@@ -606,7 +532,6 @@ function bakeIsland(
 function bakeFloat(
   target: HTMLCanvasElement,
   float: FloatingVoxel,
-  index: number,
   hw: number,
   hh: number,
   depth: number,
@@ -638,10 +563,8 @@ function bakeFloat(
       depth: fd,
       kind: float.kind,
       shade: 0.98,
-      texel: Math.max(2, Math.round(fw / 8)),
       isLight,
       palette,
-      seedSalt: index * 137.5,
       showTop: true,
       showLeft: true,
       showRight: true,
@@ -694,7 +617,6 @@ export function VoxelStageCanvas({
         return bakeFloat(
           canvas,
           f,
-          i,
           metric.hw,
           metric.hh,
           metric.depth,
