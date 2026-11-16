@@ -381,7 +381,6 @@ a:focus:not(:focus-visible) {
   display: block;
   width: 100%;
   height: 100%;
-  image-rendering: pixelated;
 }
 
 .hl-voxel-stage.is-running .hl-voxel-piece {

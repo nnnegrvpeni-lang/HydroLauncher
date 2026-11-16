@@ -229,9 +229,10 @@ function shadeColor(hex: string, factor: number): string {
   );
 }
 
-// Небольшая бесшовная плитка «пиксельной» текстуры: базовый цвет + шум.
+// Небольшая бесшовная плитка «пиксельной» текстуры: базовый цвет и кластеры
+// близких оттенков. Белых и чёрных крапинок нет — только тона самого блока.
 function createTextureTile(color: string, seed: number, texel: number): HTMLCanvasElement {
-  const cells = 7;
+  const cells = 8;
   const size = cells * texel;
   const tile = document.createElement('canvas');
   tile.width = size;
@@ -242,17 +243,18 @@ function createTextureTile(color: string, seed: number, texel: number): HTMLCanv
   tileCtx.fillStyle = color;
   tileCtx.fillRect(0, 0, size, size);
 
+  const tones = [
+    shadeColor(color, 0.975),
+    shadeColor(color, 0.99),
+    shadeColor(color, 1.01),
+    shadeColor(color, 1.025),
+  ];
   const rand = mulberry32(seed);
+
   for (let y = 0; y < cells; y += 1) {
     for (let x = 0; x < cells; x += 1) {
-      const n = rand();
-      if (n > 0.74) {
-        tileCtx.fillStyle = `rgba(255, 255, 255, ${(0.02 + (n - 0.74) * 0.12).toFixed(3)})`;
-      } else if (n < 0.24) {
-        tileCtx.fillStyle = `rgba(0, 0, 0, ${(0.012 + (0.24 - n) * 0.07).toFixed(3)})`;
-      } else {
-        continue;
-      }
+      if (rand() > 0.34) continue;
+      tileCtx.fillStyle = tones[Math.floor(rand() * tones.length)];
       tileCtx.fillRect(x * texel, y * texel, texel, texel);
     }
   }
@@ -519,7 +521,7 @@ function bakeIsland(
   const hw = 36 * scale;
   const hh = 18 * scale;
   const depth = 36 * scale;
-  const texel = Math.max(2, Math.round(hw / 7));
+  const texel = Math.max(2, Math.round(hw / 8));
 
   let minX = Infinity;
   let minY = Infinity;
@@ -636,7 +638,7 @@ function bakeFloat(
       depth: fd,
       kind: float.kind,
       shade: 0.98,
-      texel: Math.max(2, Math.round(fw / 7)),
+      texel: Math.max(2, Math.round(fw / 8)),
       isLight,
       palette,
       seedSalt: index * 137.5,
@@ -709,7 +711,9 @@ export function VoxelStageCanvas({
       const h = stage.clientHeight;
       if (w < 40 || h < 40) return;
 
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      // Запекаем с двукратным запасом: движение на доли пикселя остаётся
+      // плавным, без «прыжков» nearest-neighbor.
+      const dpr = Math.min((window.devicePixelRatio || 1) * 2, 3);
       const scale = Math.round(clamp(Math.min(w / 1180, h / 680), 0.72, 1.16) * 40) / 40;
       const isLight = document.documentElement.dataset.theme === 'light';
       const key = `${paletteKey}|${isLight ? 'light' : 'dark'}|${scale.toFixed(3)}|${dpr}`;
