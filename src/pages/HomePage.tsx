@@ -315,7 +315,7 @@ export function HomePage({
         {/* Верхний плавающий HUD: слева миры/серверы без рамки (только если есть), справа RAM */}
         <div className="relative z-10 flex items-start justify-between gap-4 px-7 pt-5 lg:px-10">
           {quickPlay.servers.length > 0 || quickPlay.worlds.length > 0 ? (
-            <div className="w-[300px] space-y-1 rounded-[13px] border border-line bg-surface/45 p-1.5 backdrop-blur-xl shadow-[inset_0_1px_0_var(--rim)]">
+            <div className="w-[300px] space-y-1 rounded-[13px] border border-line bg-surface/80 p-1.5 shadow-[inset_0_1px_0_var(--rim)]">
               {sortedServers.map((srv) => {
                 const status = serverStatus[srv.id];
                 return (
@@ -497,7 +497,7 @@ export function HomePage({
           )}
 
           {featured.engine !== 'horizon' && (
-            <div className="flex items-center gap-1 rounded-[11px] border border-line-strong bg-surface/60 p-1 backdrop-blur-xl shadow-[inset_0_1px_0_var(--rim)]">
+            <div className="flex items-center gap-1 rounded-[11px] border border-line-strong bg-surface/80 p-1 shadow-[inset_0_1px_0_var(--rim)]">
               <span className="px-2.5 font-mono text-[11px] font-medium text-muted tabular-nums">
                 RAM {formatMemory(featuredMem)}
               </span>
@@ -551,7 +551,7 @@ export function HomePage({
               />
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 rounded-[9px] border border-line bg-surface/55 px-3 py-1.5 font-mono text-[12px] text-muted backdrop-blur-md">
+            <div className="flex flex-wrap items-center gap-2 rounded-[9px] border border-line bg-surface/75 px-3 py-1.5 font-mono text-[12px] text-muted">
               <span className="font-semibold text-ink">
                 {featured.minecraftVersion}
               </span>
@@ -613,7 +613,7 @@ export function HomePage({
 
             <button
               onClick={() => setSettingsOpen(true)}
-              className="inline-flex h-11 items-center gap-2 rounded-[11px] border border-line-strong bg-surface/65 px-4 text-[13px] font-medium text-ink backdrop-blur-xl shadow-[inset_0_1px_0_var(--rim)] transition-all hover:bg-surface-2/85"
+              className="inline-flex h-11 items-center gap-2 rounded-[11px] border border-line-strong bg-surface/80 px-4 text-[13px] font-medium text-ink shadow-[inset_0_1px_0_var(--rim)] transition-all hover:bg-surface-2/85"
             >
               <SlidersHorizontal size={14} className="text-muted" />
               {t('Параметры')}
@@ -621,7 +621,7 @@ export function HomePage({
 
             <button
               onClick={() => setModsOpen(true)}
-              className="inline-flex h-11 items-center gap-2 rounded-[11px] border border-line-strong bg-surface/65 px-4 text-[13px] font-medium text-ink backdrop-blur-xl shadow-[inset_0_1px_0_var(--rim)] transition-all hover:bg-surface-2/85"
+              className="inline-flex h-11 items-center gap-2 rounded-[11px] border border-line-strong bg-surface/80 px-4 text-[13px] font-medium text-ink shadow-[inset_0_1px_0_var(--rim)] transition-all hover:bg-surface-2/85"
             >
               <Package size={14} className="text-muted" />
               {t('Моды')}
@@ -630,7 +630,7 @@ export function HomePage({
             <button
               onClick={() => setConsoleOpen((v) => !v)}
               className={cn(
-                'inline-flex h-11 items-center gap-2 rounded-[11px] border px-4 text-[13px] font-medium backdrop-blur-xl transition-all',
+                'inline-flex h-11 items-center gap-2 rounded-[11px] border px-4 text-[13px] font-medium transition-all',
                 consoleOpen
                   ? 'keycap-surface text-ink'
                   : 'border-line-strong bg-surface/65 text-ink shadow-[inset_0_1px_0_var(--rim)] hover:bg-surface-2/85',
@@ -648,7 +648,7 @@ export function HomePage({
             {!activeAccount && (
               <button
                 onClick={onQuickAddAccount}
-                className="inline-flex h-11 items-center gap-2 rounded-[11px] border border-warn/40 bg-warn/12 px-4 text-[12.5px] font-medium text-warn backdrop-blur-xl transition-colors hover:bg-warn/20"
+                className="inline-flex h-11 items-center gap-2 rounded-[11px] border border-warn/40 bg-warn/18 px-4 text-[12.5px] font-medium text-warn transition-colors hover:bg-warn/25"
               >
                 <UserPlus size={14} />
                 {t('Создать профиль')}
@@ -670,7 +670,7 @@ export function HomePage({
       {/* Нижний матовый док картриджей-сборок */}
       <section
         aria-label={t('Док сборок')}
-        className="relative z-20 shrink-0 border-t border-line bg-surface/45 px-6 py-3.5 backdrop-blur-2xl lg:px-10"
+        className="relative z-20 shrink-0 border-t border-line bg-surface/85 px-6 py-3.5 lg:px-10"
       >
         <div className="flex items-center gap-2.5 overflow-hidden">
           {dockInstances.map((inst) => {
@@ -776,7 +776,7 @@ function FloatingConsole({
   };
 
   return (
-    <div className="deck-surface absolute right-7 bottom-4 left-7 z-30 flex h-[240px] flex-col overflow-hidden rounded-[13px] bg-bg-well/90 backdrop-blur-2xl shadow-[0_24px_48px_-16px_rgba(0,0,0,0.75)] lg:right-10 lg:left-10">
+    <div className="deck-surface absolute right-7 bottom-4 left-7 z-30 flex h-[240px] flex-col overflow-hidden rounded-[13px] bg-bg-well/95 shadow-[0_24px_48px_-16px_rgba(0,0,0,0.75)] lg:right-10 lg:left-10">
       <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-2">
         <div className="flex items-center gap-2">
           <Terminal size={13} className="text-muted" />

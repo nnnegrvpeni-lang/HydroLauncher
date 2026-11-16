@@ -342,6 +342,120 @@ a:focus:not(:focus-visible) {
   transform: scale(1.1);
 }
 
+/* Живая воксельная сцена: канвас печётся один раз, движение — на композиторе */
+.hl-voxel-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.hl-voxel-glow {
+  position: absolute;
+  inset: 0;
+}
+
+.hl-voxel-scene {
+  position: absolute;
+  inset: 0;
+  transform: translate3d(
+    calc(var(--par-x, 0) * -10px),
+    calc(var(--par-y, 0) * -7px),
+    0
+  );
+  transition: transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.hl-voxel-piece {
+  position: absolute;
+  will-change: transform;
+  animation: hl-voxel-float var(--dur, 9s) ease-in-out infinite;
+}
+
+.hl-voxel-island {
+  --bob: 1.6px;
+  --dur: 15.7s;
+}
+
+.hl-voxel-piece canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+.hl-voxel-stage.is-running .hl-voxel-piece {
+  animation-duration: calc(var(--dur, 9s) * 0.7);
+}
+
+.hl-voxel-shadow {
+  position: absolute;
+  border-radius: 999px;
+  background: radial-gradient(
+    closest-side,
+    rgb(0 0 0 / 0.26),
+    rgb(0 0 0 / 0.1) 58%,
+    rgb(0 0 0 / 0) 100%
+  );
+}
+
+:root[data-theme='light'] .hl-voxel-shadow {
+  background: radial-gradient(
+    closest-side,
+    rgb(16 18 22 / 0.11),
+    rgb(16 18 22 / 0.045) 58%,
+    rgb(16 18 22 / 0) 100%
+  );
+}
+
+@keyframes hl-voxel-float {
+  0%,
+  100% {
+    transform: translate3d(0, calc(var(--bob, 2px) * -1), 0);
+  }
+  50% {
+    transform: translate3d(0, var(--bob, 2px), 0);
+  }
+}
+
+.hl-voxel-dust {
+  position: absolute;
+  width: var(--size, 2px);
+  height: var(--size, 2px);
+  border-radius: 1px;
+  background: var(--dust, rgb(255 255 255 / 0.2));
+  opacity: 0;
+  animation: hl-voxel-dust var(--dur, 16s) linear infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+@keyframes hl-voxel-dust {
+  0% {
+    transform: translate3d(0, 10px, 0);
+    opacity: 0;
+  }
+  12% {
+    opacity: var(--alpha, 0.25);
+  }
+  82% {
+    opacity: var(--alpha, 0.25);
+  }
+  100% {
+    transform: translate3d(0, -54px, 0);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hl-voxel-piece,
+  .hl-voxel-dust {
+    animation: none;
+  }
+  .hl-voxel-scene {
+    transition: none;
+  }
+}
+
 @keyframes hl-pop-in {
   from {
     opacity: 0;

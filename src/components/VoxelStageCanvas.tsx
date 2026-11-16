@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type CSSProperties } from 'react';
 
 interface VoxelStageCanvasProps {
   engine: string;
@@ -28,11 +28,11 @@ const PALETTES: Record<string, Palette> = {
     accentTop: '#8ccf84',
     accentLeft: '#5f8f53',
     accentRight: '#466b3d',
-    stoneTop: '#757c87',
-    stoneLeft: '#5a616b',
-    stoneRight: '#464c56',
+    stoneTop: '#9ba1a9',
+    stoneLeft: '#888e97',
+    stoneRight: '#767c85',
     glow: 'rgba(98, 184, 92, 0.16)',
-    particle: 'rgba(155, 218, 146, 0.55)',
+    particle: 'rgba(155, 218, 146, 0.5)',
   },
   fabric: {
     top: '#ddceb0',
@@ -41,11 +41,11 @@ const PALETTES: Record<string, Palette> = {
     accentTop: '#f0e6cf',
     accentLeft: '#c9b492',
     accentRight: '#9a825f',
-    stoneTop: '#7d786e',
-    stoneLeft: '#666158',
-    stoneRight: '#4e4942',
+    stoneTop: '#b0a99b',
+    stoneLeft: '#9d9686',
+    stoneRight: '#8a8374',
     glow: 'rgba(218, 198, 162, 0.15)',
-    particle: 'rgba(235, 222, 196, 0.5)',
+    particle: 'rgba(235, 222, 196, 0.45)',
   },
   forge: {
     top: '#848e9c',
@@ -54,11 +54,11 @@ const PALETTES: Record<string, Palette> = {
     accentTop: '#ef9852',
     accentLeft: '#cf6f32',
     accentRight: '#994c1f',
-    stoneTop: '#6a7280',
-    stoneLeft: '#4b525e',
-    stoneRight: '#373d47',
+    stoneTop: '#9aa2ae',
+    stoneLeft: '#878e9a',
+    stoneRight: '#757c88',
     glow: 'rgba(229, 132, 68, 0.18)',
-    particle: 'rgba(244, 162, 92, 0.6)',
+    particle: 'rgba(244, 162, 92, 0.5)',
   },
   neoforge: {
     top: '#4fb091',
@@ -67,11 +67,11 @@ const PALETTES: Record<string, Palette> = {
     accentTop: '#ec8d49',
     accentLeft: '#c76c2e',
     accentRight: '#8e481b',
-    stoneTop: '#687a7b',
-    stoneLeft: '#4a585a',
-    stoneRight: '#374144',
+    stoneTop: '#95a5a7',
+    stoneLeft: '#829294',
+    stoneRight: '#708082',
     glow: 'rgba(79, 176, 145, 0.17)',
-    particle: 'rgba(118, 209, 180, 0.55)',
+    particle: 'rgba(118, 209, 180, 0.45)',
   },
   quilt: {
     top: '#8b79e0',
@@ -80,11 +80,11 @@ const PALETTES: Record<string, Palette> = {
     accentTop: '#5ec4af',
     accentLeft: '#429886',
     accentRight: '#2e6e61',
-    stoneTop: '#7a74a0',
-    stoneLeft: '#565175',
-    stoneRight: '#423c5c',
+    stoneTop: '#a49eba',
+    stoneLeft: '#918ba7',
+    stoneRight: '#7e7895',
     glow: 'rgba(139, 121, 224, 0.17)',
-    particle: 'rgba(176, 162, 245, 0.55)',
+    particle: 'rgba(176, 162, 245, 0.45)',
   },
   horizon: {
     top: '#757e8c',
@@ -93,11 +93,11 @@ const PALETTES: Record<string, Palette> = {
     accentTop: '#ea8d52',
     accentLeft: '#c76c34',
     accentRight: '#8f491f',
-    stoneTop: '#687080',
-    stoneLeft: '#4a515b',
-    stoneRight: '#343941',
+    stoneTop: '#9ba2af',
+    stoneLeft: '#888f9c',
+    stoneRight: '#767d8a',
     glow: 'rgba(234, 141, 82, 0.18)',
-    particle: 'rgba(240, 168, 118, 0.55)',
+    particle: 'rgba(240, 168, 118, 0.45)',
   },
 };
 
@@ -168,47 +168,22 @@ function buildIsland(): VoxelSpec[] {
 const ISLAND_VOXELS = buildIsland();
 
 const FLOATING_VOXELS: FloatingVoxel[] = [
-  { dx: 3.9, dy: -1.2, dz: 3.4, kind: 'accent', scale: 0.72, amp: 1.4, phase: 0.4, speed: 0.7 },
-  { dx: -2.6, dy: 3.3, dz: 3.9, kind: 'main', scale: 0.86, amp: 1.2, phase: 2.2, speed: 0.6 },
-  { dx: 2.9, dy: -3.1, dz: 5.1, kind: 'stone', scale: 0.6, amp: 1.5, phase: 3.7, speed: 0.85 },
-  { dx: 4.8, dy: 3.9, dz: 1.2, kind: 'accent', scale: 0.56, amp: 1.3, phase: 5.1, speed: 0.65 },
-  { dx: 0.4, dy: -4.2, dz: 2.4, kind: 'stone', scale: 0.66, amp: 1.2, phase: 1.3, speed: 0.8 },
+  { dx: 3.9, dy: -1.2, dz: 3.4, kind: 'accent', scale: 0.72, amp: 2.6, phase: 0.4, speed: 0.7 },
+  { dx: -2.6, dy: 3.3, dz: 3.9, kind: 'main', scale: 0.86, amp: 2.2, phase: 2.2, speed: 0.6 },
+  { dx: 2.9, dy: -3.1, dz: 5.1, kind: 'stone', scale: 0.6, amp: 3, phase: 3.7, speed: 0.85 },
+  { dx: 4.8, dy: 3.9, dz: 1.2, kind: 'accent', scale: 0.56, amp: 2.4, phase: 5.1, speed: 0.65 },
+  { dx: 0.4, dy: -4.2, dz: 2.4, kind: 'stone', scale: 0.66, amp: 2.2, phase: 1.3, speed: 0.8 },
 ];
 
-interface Particle {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  size: number;
-  alpha: number;
-  phase: number;
-}
-
-interface FloatSprite {
-  img: HTMLCanvasElement;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  amp: number;
-  phase: number;
-  speed: number;
-}
-
-interface Scene {
-  key: string;
-  island: HTMLCanvasElement;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  shadowX: number;
-  shadowY: number;
-  shadowRx: number;
-  shadowRy: number;
-  floats: FloatSprite[];
-}
+// Пылинки двигаются CSS-анимацией: в кадре нет ни одной JS-операции.
+const DUST = Array.from({ length: 10 }, (_, i) => ({
+  x: ((i * 37 + 13) % 88) + 6,
+  y: ((i * 53 + 27) % 74) + 14,
+  size: 2 + (i % 3),
+  alpha: 0.12 + (i % 4) * 0.04,
+  dur: 15 + (i % 5) * 3.5,
+  delay: -((i * 3.7) % 24),
+}));
 
 type Pt = [number, number];
 
@@ -272,9 +247,9 @@ function createTextureTile(color: string, seed: number, texel: number): HTMLCanv
     for (let x = 0; x < cells; x += 1) {
       const n = rand();
       if (n > 0.74) {
-        tileCtx.fillStyle = `rgba(255, 255, 255, ${(0.03 + (n - 0.74) * 0.14).toFixed(3)})`;
+        tileCtx.fillStyle = `rgba(255, 255, 255, ${(0.02 + (n - 0.74) * 0.12).toFixed(3)})`;
       } else if (n < 0.24) {
-        tileCtx.fillStyle = `rgba(0, 0, 0, ${(0.02 + (0.24 - n) * 0.1).toFixed(3)})`;
+        tileCtx.fillStyle = `rgba(0, 0, 0, ${(0.012 + (0.24 - n) * 0.07).toFixed(3)})`;
       } else {
         continue;
       }
@@ -476,10 +451,10 @@ function paintBlock(ctx: CanvasRenderingContext2D, opts: BlockPaintOptions) {
         ctx,
         band[3],
         band[2],
-        isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(0, 0, 0, 0.16)',
+        isLight ? 'rgba(0, 0, 0, 0.06)' : 'rgba(0, 0, 0, 0.12)',
       );
     }
-    sideShade(ctx, leftQuad, isLight ? 0.035 : 0.08);
+    sideShade(ctx, leftQuad, isLight ? 0.03 : 0.06);
   }
 
   if (opts.showRight) {
@@ -491,10 +466,10 @@ function paintBlock(ctx: CanvasRenderingContext2D, opts: BlockPaintOptions) {
         ctx,
         band[3],
         band[2],
-        isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(0, 0, 0, 0.16)',
+        isLight ? 'rgba(0, 0, 0, 0.06)' : 'rgba(0, 0, 0, 0.12)',
       );
     }
-    sideShade(ctx, rightQuad, isLight ? 0.03 : 0.07);
+    sideShade(ctx, rightQuad, isLight ? 0.025 : 0.05);
   }
 
   // Ребро между боковыми гранями добавляет объём без «сетки».
@@ -503,9 +478,180 @@ function paintBlock(ctx: CanvasRenderingContext2D, opts: BlockPaintOptions) {
       ctx,
       [sx, sy + hh],
       [sx, sy + hh + depth],
-      isLight ? 'rgba(0, 0, 0, 0.05)' : 'rgba(0, 0, 0, 0.1)',
+      isLight ? 'rgba(0, 0, 0, 0.04)' : 'rgba(0, 0, 0, 0.08)',
     );
   }
+}
+
+const occupiedCells = new Set(ISLAND_VOXELS.map((v) => `${v.gx},${v.gy},${v.gz}`));
+const sortedIsland = [...ISLAND_VOXELS].sort(
+  (a, b) => a.gx + a.gy - (b.gx + b.gy) || a.gz - b.gz,
+);
+
+interface IslandGeometry {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  shadowX: number;
+  shadowY: number;
+  shadowRx: number;
+  shadowRy: number;
+}
+
+interface FloatGeometry {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+const cssVars = (value: Record<string, string | number>) =>
+  value as unknown as CSSProperties;
+
+function bakeIsland(
+  target: HTMLCanvasElement,
+  scale: number,
+  dpr: number,
+  isLight: boolean,
+  palette: Palette,
+): IslandGeometry | null {
+  const hw = 36 * scale;
+  const hh = 18 * scale;
+  const depth = 36 * scale;
+  const texel = Math.max(2, Math.round(hw / 7));
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+
+  for (const v of sortedIsland) {
+    const rx = v.gx - ISLAND_CENTER;
+    const ry = v.gy - ISLAND_CENTER;
+    const sx = (rx - ry) * hw;
+    const sy = (rx + ry) * hh - v.gz * depth;
+    minX = Math.min(minX, sx - hw);
+    maxX = Math.max(maxX, sx + hw);
+    minY = Math.min(minY, sy - hh);
+    maxY = Math.max(maxY, sy + hh + depth);
+  }
+
+  const pad = 3;
+  const width = Math.ceil(maxX - minX) + pad * 2;
+  const height = Math.ceil(maxY - minY) + pad * 2;
+  const offsetX = pad - minX;
+  const offsetY = pad - minY;
+
+  target.width = Math.ceil(width * dpr);
+  target.height = Math.ceil(height * dpr);
+  target.style.width = `${width}px`;
+  target.style.height = `${height}px`;
+
+  const ctx = target.getContext('2d');
+  if (!ctx) return null;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+
+  for (const v of sortedIsland) {
+    const rx = v.gx - ISLAND_CENTER;
+    const ry = v.gy - ISLAND_CENTER;
+    const sx = (rx - ry) * hw + offsetX;
+    const sy = (rx + ry) * hh - v.gz * depth + offsetY;
+
+    const jitter = hashString(`${v.gx}:${v.gy}:${v.gz}`) - 0.5;
+    const overhung =
+      occupiedCells.has(`${v.gx + 1},${v.gy},${v.gz + 1}`) ||
+      occupiedCells.has(`${v.gx},${v.gy + 1},${v.gz + 1}`) ||
+      occupiedCells.has(`${v.gx - 1},${v.gy},${v.gz + 1}`) ||
+      occupiedCells.has(`${v.gx},${v.gy - 1},${v.gz + 1}`);
+    const shade = clamp(
+      0.92 + v.gz * 0.03 + jitter * 0.06 - (overhung ? 0.03 : 0),
+      0.88,
+      1.02,
+    );
+
+    paintBlock(ctx, {
+      sx,
+      sy,
+      hw,
+      hh,
+      depth,
+      kind: v.kind,
+      shade,
+      texel,
+      isLight,
+      palette,
+      seedSalt: jitter * 1000,
+      showTop: !occupiedCells.has(`${v.gx},${v.gy},${v.gz + 1}`),
+      showLeft: !occupiedCells.has(`${v.gx},${v.gy + 1},${v.gz}`),
+      showRight: !occupiedCells.has(`${v.gx + 1},${v.gy},${v.gz}`),
+    });
+  }
+
+  return {
+    x: minX - pad,
+    y: minY - pad,
+    w: width,
+    h: height,
+    shadowX: hw * 0.6,
+    shadowY: maxY + 8 * scale,
+    shadowRx: (maxX - minX) * 0.36,
+    shadowRy: 13 * scale,
+  };
+}
+
+function bakeFloat(
+  target: HTMLCanvasElement,
+  float: FloatingVoxel,
+  index: number,
+  hw: number,
+  hh: number,
+  depth: number,
+  dpr: number,
+  isLight: boolean,
+  palette: Palette,
+): FloatGeometry {
+  const fw = hw * float.scale;
+  const fh = hh * float.scale;
+  const fd = depth * float.scale;
+  const floatPad = 2;
+  const w = Math.ceil(fw * 2) + floatPad * 2;
+  const h = Math.ceil(fh * 2 + fd) + floatPad * 2;
+
+  target.width = Math.ceil(w * dpr);
+  target.height = Math.ceil(h * dpr);
+  target.style.width = `${w}px`;
+  target.style.height = `${h}px`;
+
+  const ctx = target.getContext('2d');
+  if (ctx) {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    paintBlock(ctx, {
+      sx: floatPad + fw,
+      sy: floatPad + fh,
+      hw: fw,
+      hh: fh,
+      depth: fd,
+      kind: float.kind,
+      shade: 0.98,
+      texel: Math.max(2, Math.round(fw / 7)),
+      isLight,
+      palette,
+      seedSalt: index * 137.5,
+      showTop: true,
+      showLeft: true,
+      showRight: true,
+    });
+  }
+
+  return {
+    x: (float.dx - float.dy) * hw - fw - floatPad,
+    y: (float.dx + float.dy) * hh - float.dz * depth - fh - floatPad,
+    w,
+    h,
+  };
 }
 
 export function VoxelStageCanvas({
@@ -513,313 +659,185 @@ export function VoxelStageCanvas({
   loader,
   isRunning = false,
 }: VoxelStageCanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const pointerRef = useRef({ tx: 0, ty: 0, x: 0, y: 0 });
+  const stageRef = useRef<HTMLDivElement>(null);
+  const islandRef = useRef<HTMLCanvasElement>(null);
+  const islandWrapRef = useRef<HTMLDivElement>(null);
+  const shadowRef = useRef<HTMLDivElement>(null);
+  const floatWraps = useRef<Array<HTMLDivElement | null>>([]);
+  const floatCanvases = useRef<Array<HTMLCanvasElement | null>>([]);
+
   const paletteKey = engine === 'horizon' ? 'horizon' : loader;
   const palette = PALETTES[paletteKey] ?? PALETTES.vanilla;
 
   useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      const nx = (e.clientX / Math.max(1, window.innerWidth) - 0.5) * 2;
-      const ny = (e.clientY / Math.max(1, window.innerHeight) - 0.5) * 2;
-      pointerRef.current.tx = nx;
-      pointerRef.current.ty = ny;
-    };
-    window.addEventListener('mousemove', onMove, { passive: true });
-    return () => window.removeEventListener('mousemove', onMove);
-  }, []);
+    const stage = stageRef.current;
+    const islandCanvas = islandRef.current;
+    if (!stage || !islandCanvas) return;
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    let islandGeo: IslandGeometry | null = null;
+    let floatGeo: FloatGeometry[] = [];
+    let metric = { hw: 0, hh: 0, depth: 0 };
+    let lastKey = '';
+    let timer = 0;
 
-    const particles: Particle[] = Array.from({ length: 16 }, (_, i) => ({
-      x: ((i * 73) % 100) / 100,
-      y: ((i * 41) % 100) / 100,
-      vx: (i % 5 - 2) * 0.000025,
-      vy: -0.00008 - (i % 4) * 0.00002,
-      size: 1.2 + (i % 3) * 0.8,
-      alpha: 0.16 + (i % 4) * 0.1,
-      phase: i * 0.9,
-    }));
-
-    const occupied = new Set(ISLAND_VOXELS.map((v) => `${v.gx},${v.gy},${v.gz}`));
-    const sortedIsland = [...ISLAND_VOXELS].sort(
-      (a, b) => a.gx + a.gy - (b.gx + b.gy) || a.gz - b.gz,
-    );
-
-    const bakeScene = (scale: number, dpr: number, isLight: boolean): Scene | null => {
-      const hw = 36 * scale;
-      const hh = 18 * scale;
-      const depth = 36 * scale;
-      const texel = Math.max(2, Math.round(hw / 7));
-
-      let minX = Infinity;
-      let minY = Infinity;
-      let maxX = -Infinity;
-      let maxY = -Infinity;
-
-      for (const v of sortedIsland) {
-        const rx = v.gx - ISLAND_CENTER;
-        const ry = v.gy - ISLAND_CENTER;
-        const sx = (rx - ry) * hw;
-        const sy = (rx + ry) * hh - v.gz * depth;
-        minX = Math.min(minX, sx - hw);
-        maxX = Math.max(maxX, sx + hw);
-        minY = Math.min(minY, sy - hh);
-        maxY = Math.max(maxY, sy + hh + depth);
-      }
-
-      const pad = 3;
-      const width = Math.ceil(maxX - minX) + pad * 2;
-      const height = Math.ceil(maxY - minY) + pad * 2;
-      const offsetX = pad - minX;
-      const offsetY = pad - minY;
-
-      const island = document.createElement('canvas');
-      island.width = Math.ceil(width * dpr);
-      island.height = Math.ceil(height * dpr);
-      const islandCtx = island.getContext('2d');
-      if (!islandCtx) return null;
-      islandCtx.scale(dpr, dpr);
-
-      for (const v of sortedIsland) {
-        const rx = v.gx - ISLAND_CENTER;
-        const ry = v.gy - ISLAND_CENTER;
-        const sx = (rx - ry) * hw + offsetX;
-        const sy = (rx + ry) * hh - v.gz * depth + offsetY;
-
-        const jitter = hashString(`${v.gx}:${v.gy}:${v.gz}`) - 0.5;
-        const overhung =
-          occupied.has(`${v.gx + 1},${v.gy},${v.gz + 1}`) ||
-          occupied.has(`${v.gx},${v.gy + 1},${v.gz + 1}`) ||
-          occupied.has(`${v.gx - 1},${v.gy},${v.gz + 1}`) ||
-          occupied.has(`${v.gx},${v.gy - 1},${v.gz + 1}`);
-        const shade = clamp(
-          0.85 + v.gz * 0.04 + jitter * 0.07 - (overhung ? 0.035 : 0),
-          0.78,
-          1.02,
+    // Пересобираем сцену только при смене палитры, темы, масштаба или dpr.
+    const bake = (scale: number, dpr: number, isLight: boolean) => {
+      const geo = bakeIsland(islandCanvas, scale, dpr, isLight, palette);
+      if (!geo) return false;
+      islandGeo = geo;
+      metric = { hw: 36 * scale, hh: 18 * scale, depth: 36 * scale };
+      floatGeo = FLOATING_VOXELS.map((f, i) => {
+        const canvas = floatCanvases.current[i];
+        if (!canvas) return { x: 0, y: 0, w: 0, h: 0 };
+        return bakeFloat(
+          canvas,
+          f,
+          i,
+          metric.hw,
+          metric.hh,
+          metric.depth,
+          dpr,
+          isLight,
+          palette,
         );
-
-        paintBlock(islandCtx, {
-          sx,
-          sy,
-          hw,
-          hh,
-          depth,
-          kind: v.kind,
-          shade,
-          texel,
-          isLight,
-          palette,
-          seedSalt: jitter * 1000,
-          showTop: !occupied.has(`${v.gx},${v.gy},${v.gz + 1}`),
-          showLeft: !occupied.has(`${v.gx},${v.gy + 1},${v.gz}`),
-          showRight: !occupied.has(`${v.gx + 1},${v.gy},${v.gz}`),
-        });
-      }
-
-      const floats: FloatSprite[] = [];
-      for (const [floatIndex, f] of FLOATING_VOXELS.entries()) {
-        const fw = hw * f.scale;
-        const fh = hh * f.scale;
-        const fd = depth * f.scale;
-        const floatPad = 2;
-        const w = Math.ceil(fw * 2) + floatPad * 2;
-        const h = Math.ceil(fh * 2 + fd) + floatPad * 2;
-
-        const sprite = document.createElement('canvas');
-        sprite.width = Math.ceil(w * dpr);
-        sprite.height = Math.ceil(h * dpr);
-        const spriteCtx = sprite.getContext('2d');
-        if (!spriteCtx) continue;
-        spriteCtx.scale(dpr, dpr);
-
-        paintBlock(spriteCtx, {
-          sx: floatPad + fw,
-          sy: floatPad + fh,
-          hw: fw,
-          hh: fh,
-          depth: fd,
-          kind: f.kind,
-          shade: 0.98,
-          texel: Math.max(2, Math.round(fw / 7)),
-          isLight,
-          palette,
-          seedSalt: floatIndex * 137.5,
-          showTop: true,
-          showLeft: true,
-          showRight: true,
-        });
-
-        floats.push({
-          img: sprite,
-          x: (f.dx - f.dy) * hw - fw - floatPad,
-          y: (f.dx + f.dy) * hh - f.dz * depth - fh - floatPad,
-          w,
-          h,
-          amp: f.amp * scale,
-          phase: f.phase,
-          speed: f.speed,
-        });
-      }
-
-      return {
-        key: '',
-        island,
-        x: minX - pad,
-        y: minY - pad,
-        w: width,
-        h: height,
-        shadowX: hw * 0.6,
-        shadowY: maxY + 8 * scale,
-        shadowRx: (maxX - minX) * 0.36,
-        shadowRy: 13 * scale,
-        floats,
-      };
+      });
+      return true;
     };
 
-    let scene: Scene | null = null;
-    let raf = 0;
-    const start = performance.now();
+    const layout = () => {
+      const w = stage.clientWidth;
+      const h = stage.clientHeight;
+      if (w < 40 || h < 40) return;
 
-    const resize = () => {
-      const parent = canvas.parentElement;
-      if (!parent) return;
       const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-      const w = parent.clientWidth;
-      const h = parent.clientHeight;
-      const nextW = Math.floor(w * dpr);
-      const nextH = Math.floor(h * dpr);
-      if (canvas.width !== nextW || canvas.height !== nextH) {
-        canvas.width = nextW;
-        canvas.height = nextH;
-        ctx.imageSmoothingEnabled = false;
-      }
-    };
-
-    ctx.imageSmoothingEnabled = false;
-
-    resize();
-    const ro = new ResizeObserver(resize);
-    if (canvas.parentElement) ro.observe(canvas.parentElement);
-
-    const render = (now: number) => {
-      const t = (now - start) / 1000;
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-      const w = canvas.width / dpr;
-      const h = canvas.height / dpr;
-      if (w <= 0 || h <= 0) {
-        raf = requestAnimationFrame(render);
-        return;
-      }
-
-      const isLight = document.documentElement.dataset.theme === 'light';
       const scale = Math.round(clamp(Math.min(w / 1180, h / 680), 0.72, 1.16) * 40) / 40;
-      const cacheKey = `${paletteKey}|${isLight ? 'light' : 'dark'}|${scale.toFixed(3)}|${dpr}`;
-      if (!scene || scene.key !== cacheKey) {
-        const baked = bakeScene(scale, dpr, isLight);
-        if (baked) scene = { ...baked, key: cacheKey };
+      const isLight = document.documentElement.dataset.theme === 'light';
+      const key = `${paletteKey}|${isLight ? 'light' : 'dark'}|${scale.toFixed(3)}|${dpr}`;
+
+      if (key !== lastKey) {
+        if (!bake(scale, dpr, isLight)) return;
+        lastKey = key;
+      }
+      if (!islandGeo) return;
+
+      const islandLeft = Math.round(w * 0.72 - islandGeo.w / 2);
+      const islandTop = Math.round(h * 0.5 - islandGeo.h / 2);
+
+      const wrap = islandWrapRef.current;
+      if (wrap) {
+        wrap.style.left = `${islandLeft}px`;
+        wrap.style.top = `${islandTop}px`;
+        wrap.style.width = `${islandGeo.w}px`;
+        wrap.style.height = `${islandGeo.h}px`;
       }
 
-      pointerRef.current.x += (pointerRef.current.tx - pointerRef.current.x) * 0.05;
-      pointerRef.current.y += (pointerRef.current.ty - pointerRef.current.y) * 0.05;
-      const px = pointerRef.current.x;
-      const py = pointerRef.current.y;
-
-      const snap = (value: number) => Math.round(value * dpr) / dpr;
-
-      ctx.save();
-      ctx.scale(dpr, dpr);
-      ctx.clearRect(0, 0, w, h);
-
-      const originX = w * 0.72 - (scene ? scene.x + scene.w / 2 : 0) - px * 10;
-      const originY =
-        h * 0.5 -
-        (scene ? scene.y + scene.h / 2 : 0) -
-        py * 7 +
-        Math.sin(t * 0.4) * 1.3;
-
-      if (scene) {
-        // Мягкая тень под островом: радиальный градиент вместо дорогого filter: blur.
-        const shadowRx = scene.shadowRx;
-        const shadowRy = scene.shadowRy;
-        ctx.save();
-        ctx.translate(originX + scene.shadowX, originY + scene.shadowY);
-        ctx.scale(1, shadowRy / shadowRx);
-        const shadow = ctx.createRadialGradient(0, 0, 0, 0, 0, shadowRx);
-        shadow.addColorStop(0, isLight ? 'rgba(16, 18, 22, 0.14)' : 'rgba(0, 0, 0, 0.38)');
-        shadow.addColorStop(0.6, isLight ? 'rgba(16, 18, 22, 0.05)' : 'rgba(0, 0, 0, 0.15)');
-        shadow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        ctx.fillStyle = shadow;
-        ctx.beginPath();
-        ctx.arc(0, 0, shadowRx, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-
-        ctx.drawImage(
-          scene.island,
-          snap(originX + scene.x),
-          snap(originY + scene.y),
-          scene.island.width / dpr,
-          scene.island.height / dpr,
-        );
-
-        const speedMul = isRunning ? 1.5 : 1;
-        for (const f of scene.floats) {
-          const bob = Math.sin(t * f.speed * speedMul + f.phase) * f.amp;
-          ctx.drawImage(
-            f.img,
-            snap(originX + f.x),
-            snap(originY + f.y + bob),
-            f.img.width / dpr,
-            f.img.height / dpr,
-          );
-        }
+      const shadow = shadowRef.current;
+      if (shadow) {
+        const cx = islandLeft + (islandGeo.shadowX - islandGeo.x);
+        const cy = islandTop + (islandGeo.shadowY - islandGeo.y);
+        shadow.style.left = `${Math.round(cx - islandGeo.shadowRx)}px`;
+        shadow.style.top = `${Math.round(cy - islandGeo.shadowRy)}px`;
+        shadow.style.width = `${Math.round(islandGeo.shadowRx * 2)}px`;
+        shadow.style.height = `${Math.round(islandGeo.shadowRy * 2)}px`;
       }
 
-      // Спокойные квадратные воксельные частицы в воздухе.
-      for (const p of particles) {
-        p.x += p.vx;
-        p.y += p.vy * (isRunning ? 1.8 : 1);
-        if (p.y < -0.05) {
-          p.y = 1.05;
-          p.x = ((p.x * 100 + 37) % 100) / 100;
-        }
-        if (p.x < 0) p.x = 1;
-        if (p.x > 1) p.x = 0;
-
-        const flicker = 0.75 + 0.25 * Math.sin(t * 1.6 + p.phase);
-        const posX = p.x * w - px * 8;
-        const posY = p.y * h - py * 6;
-        ctx.globalAlpha = p.alpha * flicker * (isLight ? 0.45 : 0.7);
-        ctx.fillStyle = palette.particle;
-        ctx.fillRect(Math.round(posX), Math.round(posY), p.size, p.size);
-      }
-      ctx.globalAlpha = 1;
-
-      ctx.restore();
-      raf = requestAnimationFrame(render);
+      floatWraps.current.forEach((el, i) => {
+        const g = floatGeo[i];
+        if (!el || !g || !islandGeo) return;
+        el.style.left = `${Math.round(islandLeft - islandGeo.x + g.x)}px`;
+        el.style.top = `${Math.round(islandTop - islandGeo.y + g.y)}px`;
+        el.style.width = `${g.w}px`;
+        el.style.height = `${g.h}px`;
+      });
     };
 
-    render(performance.now());
+    const schedule = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(layout, 90);
+    };
+
+    layout();
+
+    const ro = new ResizeObserver(schedule);
+    ro.observe(stage);
+
+    const mo = new MutationObserver(schedule);
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+    // Параллакс: только CSS-переменные, без перерисовки канваса.
+    const onMove = (event: PointerEvent) => {
+      const nx = (event.clientX / Math.max(1, window.innerWidth) - 0.5) * 2;
+      const ny = (event.clientY / Math.max(1, window.innerHeight) - 0.5) * 2;
+      stage.style.setProperty('--par-x', nx.toFixed(3));
+      stage.style.setProperty('--par-y', ny.toFixed(3));
+    };
+    window.addEventListener('pointermove', onMove, { passive: true });
+
     return () => {
-      cancelAnimationFrame(raf);
+      window.clearTimeout(timer);
       ro.disconnect();
+      mo.disconnect();
+      window.removeEventListener('pointermove', onMove);
     };
-  }, [engine, loader, isRunning, palette, paletteKey]);
+  }, [paletteKey, palette]);
 
   return (
-    <div className="pointer-events-none absolute inset-0" aria-hidden>
+    <div
+      ref={stageRef}
+      className={`hl-voxel-stage pointer-events-none absolute inset-0${isRunning ? ' is-running' : ''}`}
+      style={cssVars({ '--dust': palette.particle })}
+      aria-hidden
+    >
       <div
-        className="absolute inset-0"
+        className="hl-voxel-glow"
         style={{
           background: `radial-gradient(ellipse 48% 60% at 72% 52%, ${palette.glow} 0%, rgba(0, 0, 0, 0) 74%)`,
         }}
       />
-      <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
+
+      {DUST.map((d, i) => (
+        <div
+          key={`dust-${i}`}
+          className="hl-voxel-dust"
+          style={cssVars({
+            left: `${d.x}%`,
+            top: `${d.y}%`,
+            '--size': `${d.size}px`,
+            '--alpha': d.alpha.toFixed(2),
+            '--dur': `${d.dur}s`,
+            animationDelay: `${d.delay}s`,
+          })}
+        />
+      ))}
+
+      <div className="hl-voxel-scene">
+        <div ref={shadowRef} className="hl-voxel-shadow" />
+
+        <div ref={islandWrapRef} className="hl-voxel-piece hl-voxel-island">
+          <canvas ref={islandRef} />
+        </div>
+
+        {FLOATING_VOXELS.map((f, i) => (
+          <div
+            key={`float-${i}`}
+            ref={(el) => {
+              floatWraps.current[i] = el;
+            }}
+            className="hl-voxel-piece"
+            style={cssVars({
+              '--bob': `${f.amp}px`,
+              '--dur': `${((2 * Math.PI) / f.speed).toFixed(2)}s`,
+              animationDelay: `${(-(f.phase / f.speed)).toFixed(2)}s`,
+            })}
+          >
+            <canvas
+              ref={(el) => {
+                floatCanvases.current[i] = el;
+              }}
+            />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
