@@ -243,11 +243,11 @@ function createTextureTile(color: string, seed: number, texel: number): HTMLCanv
   tileCtx.fillStyle = color;
   tileCtx.fillRect(0, 0, size, size);
 
+  // Только более светлые оттенки: тёмных крапинок на гранях не остаётся.
   const tones = [
-    shadeColor(color, 0.975),
-    shadeColor(color, 0.99),
-    shadeColor(color, 1.01),
-    shadeColor(color, 1.025),
+    shadeColor(color, 1.012),
+    shadeColor(color, 1.026),
+    shadeColor(color, 1.042),
   ];
   const rand = mulberry32(seed);
 
