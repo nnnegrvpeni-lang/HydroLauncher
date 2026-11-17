@@ -9,7 +9,7 @@
 
 ## Скриншоты
 
-![Главная страница — тема «Ночь»](screenshots/main-night.png)
+![Главная страница — тема «Ночь»](screenshots/home-night.png)
 
 | Сборки | Каталог модов (Modrinth) |
 | --- | --- |
@@ -24,7 +24,7 @@
 
 | Сумерки | День |
 | --- | --- |
-| ![Главная — тема «Сумерки»](screenshots/main-sumerki.png) | ![Главная — тема «День»](screenshots/main-day.png) |
+| ![Главная — тема «Сумерки»](screenshots/home-sumerki.png) | ![Главная — тема «День»](screenshots/home-day.png) |
 
 </details>
 
