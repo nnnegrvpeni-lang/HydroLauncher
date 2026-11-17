@@ -141,6 +141,7 @@ fn emit_progress(
             percent,
         },
     );
+    crate::services::jobs::progress(percent, message);
 }
 
 fn find_binary_in_dir(dir: &Path, binary_name: &str) -> Option<PathBuf> {

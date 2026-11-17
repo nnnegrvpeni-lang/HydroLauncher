@@ -44,6 +44,11 @@ impl AppPaths {
         data_dir.join("instances.json")
     }
 
+    /// Очередь и история задач установки.
+    pub fn jobs_file(data_dir: &Path) -> PathBuf {
+        data_dir.join("jobs.json")
+    }
+
     pub fn version_manifest_cache(&self, data_dir: &Path) -> PathBuf {
         data_dir.join("cache").join("version_manifest_v2.json")
     }

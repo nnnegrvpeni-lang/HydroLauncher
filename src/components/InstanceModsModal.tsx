@@ -42,7 +42,7 @@ import { useInstancesStore } from '../stores/instancesStore';
 import { useLaunchStore } from '../stores/launchStore';
 import { useNotifyStore } from '../stores/notifyStore';
 import { useI18n } from '../i18n';
-import { localizeError } from '../i18n/errors';
+import { isJobCanceled, localizeError } from '../i18n/errors';
 import { cn } from '../utils/cn';
 import { formatBytes, formatLoaderLabel } from '../utils/format';
 import { InstanceIcon } from './InstanceIcon';
@@ -343,7 +343,7 @@ export function InstanceModsModal({
       });
       await loadMods(instance.id);
     } catch (err) {
-      setError(String(err));
+      if (!isJobCanceled(String(err))) setError(String(err));
     } finally {
       setUpdatingFile(null);
     }
@@ -367,7 +367,8 @@ export function InstanceModsModal({
           return next;
         });
       } catch (err) {
-        setError(String(err));
+        if (!isJobCanceled(String(err))) setError(String(err));
+        else break;
       }
     }
     await loadMods(instance.id);
@@ -472,7 +473,7 @@ export function InstanceModsModal({
       setVersionPickerMod(null);
       await loadMods(instance.id);
     } catch (err) {
-      setError(String(err));
+      if (!isJobCanceled(String(err))) setError(String(err));
     } finally {
       setSwitchingVersionId(null);
     }

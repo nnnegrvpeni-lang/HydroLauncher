@@ -19,6 +19,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { useInitAccounts } from './stores/accountsStore';
 import { useInitCatalogPreload } from './stores/catalogStore';
 import { useInitInstances, useInstancesStore } from './stores/instancesStore';
+import { useInitJobs } from './stores/jobsStore';
 import { useInitLinks } from './stores/linksStore';
 import { useInitLaunchListeners } from './stores/launchStore';
 import { useInitSettings, useSettingsStore } from './stores/settingsStore';
@@ -60,6 +61,7 @@ export default function App() {
   useInitCatalogPreload();
   useInitLauncherUpdate();
   useInitLinks();
+  useInitJobs();
   useGameNotifications();
 
   // Отключаем стандартное браузерное контекстное меню на ПКМ

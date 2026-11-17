@@ -8,6 +8,7 @@
 import type {
   AccountsStore,
   AppSettings,
+  DownloadJob,
   Instance,
   JavaRuntime,
   OfflineAccount,
@@ -242,6 +243,39 @@ const catalog: VersionCatalog = {
 
 const running = new Set<string>();
 
+const jobs: DownloadJob[] = [
+  {
+    id: 'job-demo-1',
+    kind: 'prepare',
+    title: 'Подготовка «Survival 26.3»',
+    instanceId: 'inst-1',
+    status: 'running',
+    message: 'Скачивание библиотек…',
+    current: 12,
+    total: 30,
+    percent: 40,
+    error: null,
+    retry: null,
+    createdAt: now(),
+    updatedAt: now(),
+  },
+  {
+    id: 'job-demo-2',
+    kind: 'modInstall',
+    title: 'Мод для «Build & Redstone»',
+    instanceId: 'inst-2',
+    status: 'succeeded',
+    message: 'Готово',
+    current: 1,
+    total: 1,
+    percent: 100,
+    error: null,
+    retry: null,
+    createdAt: new Date(Date.now() - 90_000).toISOString(),
+    updatedAt: new Date(Date.now() - 60_000).toISOString(),
+  },
+];
+
 function activeAccount(): OfflineAccount | null {
   return (
     accounts.accounts.find((a) => a.id === accounts.activeAccountId) ??
@@ -427,6 +461,41 @@ export async function mockInvoke<T>(
       return true as T;
     case 'get_running_instances':
       return Array.from(running) as T;
+
+    case 'list_jobs':
+      return structuredClone(jobs) as T;
+    case 'pause_job': {
+      const job = jobs.find((item) => item.id === args?.jobId);
+      if (job) {
+        job.status = 'paused';
+        job.message = 'На паузе';
+        job.updatedAt = now();
+      }
+      return undefined as T;
+    }
+    case 'resume_job': {
+      const job = jobs.find((item) => item.id === args?.jobId);
+      if (job) {
+        job.status = 'running';
+        job.message = 'Выполняется';
+        job.updatedAt = now();
+      }
+      return undefined as T;
+    }
+    case 'cancel_job': {
+      const job = jobs.find((item) => item.id === args?.jobId);
+      if (job) {
+        job.status = 'canceled';
+        job.message = 'Отменено';
+        job.updatedAt = now();
+      }
+      return undefined as T;
+    }
+    case 'dismiss_job': {
+      const index = jobs.findIndex((item) => item.id === args?.jobId);
+      if (index !== -1) jobs.splice(index, 1);
+      return undefined as T;
+    }
 
     case 'search_modrinth_mods':
       return {

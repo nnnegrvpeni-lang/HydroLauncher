@@ -22,6 +22,7 @@ import { useLauncherUpdate } from '../stores/updateStore';
 import { useI18n } from '../i18n';
 import { cn } from '../utils/cn';
 import { AccountAvatar } from './AccountAvatar';
+import { DownloadsButton } from './DownloadsButton';
 import { Button } from './ui/Button';
 import { Modal } from './ui/Modal';
 
@@ -128,6 +129,7 @@ export function TitleBar({ page, onNavigate, onQuickAddAccount }: TitleBarProps)
 
       {/* Правая группа: профиль, управление окном */}
       <div className="flex items-center gap-2.5">
+        <DownloadsButton />
         {launcherUpdate && (
           <button
             onClick={() => {

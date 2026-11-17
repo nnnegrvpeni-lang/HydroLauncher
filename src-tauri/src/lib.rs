@@ -22,6 +22,7 @@ use commands::{
         remove_quick_server, restore_world_backup, toggle_quick_server_favorite, update_instance,
     },
     java_cmd::{download_java_runtime, get_java_runtimes},
+    jobs::{cancel_job, dismiss_job, list_jobs, pause_job, resume_job},
     mods::{
         check_mod_updates, export_instance_mrpack, get_horizon_mod_details, get_installed_mods,
         get_modrinth_project, get_modrinth_versions, import_mrpack_file, install_horizon_mod,
@@ -110,6 +111,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .manage(AppState::new())
         .manage(services::launch_service::LaunchRegistry::new())
+        .manage(services::jobs::JobsRegistry::new())
         .setup(|app| {
             // Настройки нужны обработчику закрытия окна до первого открытия вкладки.
             let handle = app.handle().clone();
@@ -119,6 +121,10 @@ pub fn run() {
                         crate::services::settings_service::load_or_init_settings(&paths).await
                     {
                         handle.state::<AppState>().apply_window_prefs(&settings);
+                        handle
+                            .state::<services::jobs::JobsRegistry>()
+                            .ensure_loaded(std::path::Path::new(&settings.data_dir))
+                            .await;
                     }
                 }
             });
@@ -224,6 +230,12 @@ pub fn run() {
             get_java_runtimes,
             download_java_runtime,
             ensure_java_runtime,
+            // Очередь задач установки
+            list_jobs,
+            pause_job,
+            resume_job,
+            cancel_job,
+            dismiss_job,
             // Версии и запуск
             get_version_catalog,
             get_install_status,

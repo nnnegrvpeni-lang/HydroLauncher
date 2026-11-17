@@ -485,7 +485,9 @@ async fn install_mod_inner(
     // ссылаться на отсутствующий файл.
     let dest = dest_dir.join(safe_name);
     let sha1 = file.hashes.get("sha1").map(String::as_str);
+    crate::services::jobs::progress(35.0, format!("Скачивание {safe_name}…"));
     downloader::download_file(&client, &file.url, &dest, sha1).await?;
+    crate::services::jobs::progress(75.0, "Сохранение списка модов…");
 
     // Подтягиваем чистое название и иконку проекта с Modrinth
     let project_info = get_project(project_id).await.ok();
@@ -1009,17 +1011,9 @@ pub async fn install_modrinth_modpack(
         .or_else(|| chosen.files.first())
         .ok_or_else(|| AppError::NotFound("У выбранной версии модпака нет файла .mrpack".into()))?;
 
-    let bytes = client
-        .get(&file.url)
-        .header("User-Agent", crate::services::downloader::USER_AGENT)
-        .send()
-        .await?
-        .error_for_status()?
-        .bytes()
-        .await?
-        .to_vec();
-    if bytes.len() as u64 > MAX_MRPACK_BYTES {
-        return Err(AppError::Validation("Файл модпака слишком большой".into()));
+    let bytes = downloader::download_bytes(&client, &file.url, MAX_MRPACK_BYTES).await?;
+    if bytes.is_empty() {
+        return Err(AppError::Validation("Файл модпака пуст".into()));
     }
 
     install_mrpack_from_bytes(paths, data_dir, bytes, custom_name).await
@@ -1063,6 +1057,8 @@ async fn install_mrpack_from_bytes(
         .cloned()
         .ok_or_else(|| AppError::Validation("В модпаке не указана версия Minecraft".into()))?;
 
+    crate::services::jobs::progress(3.0, "Создание сборки…");
+
     let (loader, loader_version) = if let Some(v) = index.dependencies.get("fabric-loader") {
         (ModLoaderKind::Fabric, Some(v.clone()))
     } else if let Some(v) = index.dependencies.get("quilt-loader") {
@@ -1103,6 +1099,8 @@ async fn install_mrpack_from_bytes(
     }
 
     // Распаковываем overrides/ и client-overrides/
+    crate::services::jobs::checkpoint().await?;
+    crate::services::jobs::progress(10.0, "Распаковка файлов сборки…");
     let bytes_clone = bytes;
     let game_dir_clone = game_dir.clone();
     let overrides_result = tokio::task::spawn_blocking(move || -> AppResult<()> {
@@ -1174,6 +1172,8 @@ async fn install_mrpack_from_bytes(
     }
 
     // Скачиваем файлы модпака параллельно, но не больше лимита одновременных загрузок.
+    crate::services::jobs::checkpoint().await?;
+    crate::services::jobs::progress(35.0, "Загрузка файлов модпака…");
     let client = crate::services::downloader::build_client()?;
     let mut jobs: Vec<(PathBuf, String, Option<String>)> = Vec::new();
     for mf in index.files {
@@ -1206,6 +1206,7 @@ async fn install_mrpack_from_bytes(
         return Err(err);
     }
 
+    crate::services::jobs::progress(95.0, "Проверка установки…");
     Ok(instance)
 }
 

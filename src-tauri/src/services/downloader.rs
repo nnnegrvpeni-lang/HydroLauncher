@@ -165,6 +165,8 @@ pub async fn download_file(
     dest: &Path,
     expected_sha1: Option<&str>,
 ) -> AppResult<()> {
+    crate::services::jobs::checkpoint().await?;
+
     if let Some(parent) = dest.parent() {
         tokio::fs::create_dir_all(parent).await?;
     }
@@ -251,11 +253,35 @@ async fn download_to(client: &Client, url: &str, tmp_path: &Path) -> AppResult<(
     let mut file = tokio::fs::File::create(tmp_path).await?;
     let mut stream = response.bytes_stream();
     while let Some(chunk) = stream.next().await {
+        // Отмена и пауза проверяются до записи следующего блока: временный
+        // файл остаётся целым, а вызывающий код удаляет его при ошибке.
+        crate::services::jobs::checkpoint().await?;
         let chunk = chunk?;
         file.write_all(&chunk).await?;
     }
     file.flush().await?;
     Ok(())
+}
+
+/// Скачивает файл в память с контролем размера. Нужен для небольших
+/// архивов (`.mrpack`), которые разбираются без промежуточного файла.
+pub async fn download_bytes(client: &Client, url: &str, max_bytes: u64) -> AppResult<Vec<u8>> {
+    let response = get_with_retry(client, url).await?;
+    let mut stream = response.bytes_stream();
+    let mut buffer = Vec::new();
+
+    while let Some(chunk) = stream.next().await {
+        crate::services::jobs::checkpoint().await?;
+        let chunk = chunk?;
+        if buffer.len() as u64 + chunk.len() as u64 > max_bytes {
+            return Err(AppError::Validation(
+                "Файл больше допустимого размера".into(),
+            ));
+        }
+        buffer.extend_from_slice(&chunk);
+    }
+
+    Ok(buffer)
 }
 
 pub async fn verify_sha1(path: &Path, expected_sha1: Option<&str>) -> AppResult<bool> {

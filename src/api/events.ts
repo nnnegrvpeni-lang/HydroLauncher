@@ -1,12 +1,13 @@
 import { listen } from '@tauri-apps/api/event';
 import { isMockEnabled } from './mock';
-import type { GameLog, GameState, LaunchProgress } from './types';
+import type { DownloadJob, GameLog, GameState, LaunchProgress } from './types';
 
 export const EVENTS = {
   launchProgress: 'launch://progress',
   launchLog: 'launch://log',
   launchState: 'launch://state',
   quitRequested: 'app://quit-requested',
+  jobsUpdate: 'jobs://update',
 } as const;
 
 function safeListen<T>(
@@ -30,3 +31,7 @@ export const listenLaunchState = (handler: (payload: GameState) => void) =>
 
 export const listenQuitRequested = (handler: () => void) =>
   safeListen<null>(EVENTS.quitRequested, () => handler());
+
+export const listenJobsUpdate = (handler: (job: DownloadJob) => void) =>
+  safeListen<DownloadJob>(EVENTS.jobsUpdate, handler);
+

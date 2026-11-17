@@ -25,3 +25,12 @@ export function localizeError(message: string, language: Language): string {
   }
   return message;
 }
+
+/** Отмена задачи — штатное завершение, а не ошибка для пользователя. */
+export function isJobCanceled(message: string): boolean {
+  return (
+    message.includes('Задача отменена') ||
+    message.includes('Task canceled') ||
+    message.includes('Task cancelled')
+  );
+}

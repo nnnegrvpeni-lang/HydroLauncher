@@ -49,6 +49,26 @@ const RULES: Array<{ pattern: RegExp; render: (match: RegExpMatchArray) => strin
     pattern: /^Экспорт сборки: (.+)$/,
     render: (m) => `Exporting instance: ${m[1]}`,
   },
+  {
+    pattern: /^Подготовка «(.+)»$/,
+    render: (m) => `Preparing “${m[1]}”`,
+  },
+  {
+    pattern: /^Мод для «(.+)»$/,
+    render: (m) => `Mod for “${m[1]}”`,
+  },
+  {
+    pattern: /^Мод Horizon для «(.+)»$/,
+    render: (m) => `Horizon mod for “${m[1]}”`,
+  },
+  {
+    pattern: /^Импорт (.+)$/,
+    render: (m) => `Import ${m[1]}`,
+  },
+  {
+    pattern: /^Скачивание (.+)…$/,
+    render: (m) => `Downloading ${m[1]}…`,
+  },
 ];
 
 export function localizeProgressMessage(message: string, language: Language): string {

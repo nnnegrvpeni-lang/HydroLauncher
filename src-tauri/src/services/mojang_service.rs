@@ -105,6 +105,8 @@ fn emit_progress(ctx: &InstallContext, stage: &str, message: &str, current: u64,
             percent,
         },
     );
+    // Если подготовка идёт внутри задачи очереди, обновляем и её прогресс.
+    crate::services::jobs::progress(percent, message);
 }
 
 /// Маркер полной установки: без него оборванная загрузка считалась бы

@@ -34,7 +34,7 @@ import { useCatalogStore } from '../stores/catalogStore';
 import { useInstancesStore } from '../stores/instancesStore';
 import { useLinksStore } from '../stores/linksStore';
 import { useI18n } from '../i18n';
-import { localizeError } from '../i18n/errors';
+import { isJobCanceled, localizeError } from '../i18n/errors';
 import { cn } from '../utils/cn';
 import { formatLoaderLabel } from '../utils/format';
 
@@ -600,7 +600,7 @@ export function ModsPage({
         }
         await loadTargetInstalled(targetInstance.id);
       } catch (err) {
-        setError(String(err));
+        if (!isJobCanceled(String(err))) setError(String(err));
       } finally {
         setDirectInstallingIds((prev) => {
           const next = new Set(prev);
@@ -715,7 +715,7 @@ export function ModsPage({
       }
       setInstalledIntoIds((prev) => new Set(prev).add(instanceId));
     } catch (err) {
-      setInstallError(String(err));
+      if (!isJobCanceled(String(err))) setInstallError(String(err));
     } finally {
       setInstallingInstanceIds((prev) => {
         const next = new Set(prev);

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { api, listenLaunchState, type GameState, type Instance, type QuickPlayTarget } from '../api';
+import { isJobCanceled } from '../i18n/errors';
 import { useLaunchStore } from './launchStore';
 import { useEffectSync } from './useEffectSync';
 
@@ -60,7 +61,10 @@ export const useInstancesStore = create<InstancesState>((set, get) => ({
     void api.prepareInstance(created.id).catch((err) => {
       const next = new Map(get().running);
       next.delete(created.id);
-      set({ running: next, error: String(err) });
+      set({
+        running: next,
+        error: isJobCanceled(String(err)) ? null : String(err),
+      });
     });
 
     return created;

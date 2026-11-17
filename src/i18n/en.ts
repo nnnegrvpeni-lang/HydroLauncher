@@ -42,6 +42,29 @@ export const en: Record<string, string> = {
   'HydroLauncher {version} — открыть страницу релиза':
     'HydroLauncher {version} — open the release page',
 
+  // Очередь задач
+  Загрузки: 'Downloads',
+  Задачи: 'Tasks',
+  'В очереди': 'Queued',
+  Выполняется: 'Running',
+  'На паузе': 'Paused',
+  'Отмена…': 'Canceling…',
+  Готово: 'Done',
+  Отменено: 'Canceled',
+  Прервано: 'Interrupted',
+  'Продолжение…': 'Resuming…',
+  Продолжить: 'Resume',
+  Пауза: 'Pause',
+  Отменить: 'Cancel',
+  Повторить: 'Retry',
+  'Убрать из списка': 'Remove from list',
+  '{active} из {total}': '{active} of {total}',
+  'Создание сборки…': 'Creating instance…',
+  'Распаковка файлов сборки…': 'Extracting pack files…',
+  'Загрузка файлов модпака…': 'Downloading pack files…',
+  'Проверка установки…': 'Verifying installation…',
+  'Сохранение списка модов…': 'Saving the mod list…',
+
   // Настройки
   'Профили игроков, тема оформления, память и файлы лаунчера':
     'Player profiles, appearance, memory and launcher files',

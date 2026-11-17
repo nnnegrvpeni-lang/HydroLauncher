@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { isJobCanceled } from '../i18n/errors';
 
 export type NoticeTone = 'success' | 'error';
 
@@ -21,6 +22,7 @@ export const useNotifyStore = create<NotifyState>((set, get) => ({
   notices: [],
 
   push: (message, tone = 'success') => {
+    if (isJobCanceled(message)) return;
     const id = nextId++;
     const notices = [...get().notices, { id, message, tone }].slice(-3);
     set({ notices });

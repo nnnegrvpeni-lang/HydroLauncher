@@ -11,7 +11,7 @@ import { useInstancesStore } from '../stores/instancesStore';
 import { useNotifyStore } from '../stores/notifyStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useI18n } from '../i18n';
-import { localizeError } from '../i18n/errors';
+import { isJobCanceled, localizeError } from '../i18n/errors';
 import { cn } from '../utils/cn';
 import { formatCompactNumber } from '../utils/format';
 import {
@@ -302,7 +302,7 @@ export function CreateInstanceModal({
       onCreated?.(created.id);
       onClose();
     } catch (err) {
-      setError(String(err));
+      if (!isJobCanceled(String(err))) setError(String(err));
     } finally {
       setInstallingPackId(null);
     }
@@ -334,7 +334,7 @@ export function CreateInstanceModal({
       onCreated?.(created.id);
       onClose();
     } catch (err) {
-      setError(String(err));
+      if (!isJobCanceled(String(err))) setError(String(err));
     } finally {
       setImporting(false);
     }

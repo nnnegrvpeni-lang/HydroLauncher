@@ -1,5 +1,6 @@
 use crate::models::mojang::{VersionDetails, VersionManifest};
 use crate::services::java_service::JavaService;
+use crate::services::jobs::{JobKind, JobRetry, JobSpec, JobsRegistry};
 use crate::services::launch_service;
 use crate::services::mojang_service::{is_version_installed, MojangService};
 use crate::services::settings_service;
@@ -39,6 +40,7 @@ pub async fn get_version_details(version_url: String) -> Result<VersionDetails, 
 pub async fn prepare_instance(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
+    jobs: State<'_, JobsRegistry>,
     instance_id: String,
 ) -> Result<(), AppError> {
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
@@ -48,7 +50,24 @@ pub async fn prepare_instance(
         .find(|i| i.id == instance_id)
         .ok_or_else(|| AppError::NotFound("Сборка не найдена".into()))?;
 
-    launch_service::prepare_instance(app, instance).await
+    let queue = jobs.inner().clone();
+    let spec = JobSpec::new(
+        JobKind::Prepare,
+        format!("Подготовка «{}»", instance.name),
+    )
+    .instance(instance.id.clone())
+    .retry(JobRetry::new(
+        "prepare_instance",
+        serde_json::json!({ "instanceId": instance.id.clone() }),
+    ));
+
+    queue
+        .run(&app, &data_dir, spec, || {
+            let prepare_app = app.clone();
+            let instance = instance.clone();
+            async move { launch_service::prepare_instance(prepare_app, instance).await }
+        })
+        .await
 }
 
 #[tauri::command]

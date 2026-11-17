@@ -136,6 +136,39 @@ export interface GameState {
   exitCode: number | null;
 }
 
+export type JobStatus =
+  | 'queued'
+  | 'running'
+  | 'paused'
+  | 'canceling'
+  | 'succeeded'
+  | 'failed'
+  | 'canceled';
+
+export type JobKind = 'prepare' | 'modInstall' | 'modpack';
+
+export interface JobRetry {
+  /** Команда бэкенда для повтора с теми же аргументами. */
+  command: string;
+  args: Record<string, unknown>;
+}
+
+export interface DownloadJob {
+  id: string;
+  kind: JobKind;
+  title: string;
+  instanceId: string | null;
+  status: JobStatus;
+  message: string;
+  current: number;
+  total: number;
+  percent: number;
+  error: string | null;
+  retry: JobRetry | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ModrinthSearchHit {
   projectId: string;
   projectType?: string;
@@ -454,6 +487,17 @@ export const api = {
     invoke<void>('launch_instance', { instanceId, quickPlay }),
   terminateInstance: (instanceId: string) => invoke<boolean>('terminate_instance', { instanceId }),
   getRunningInstances: () => invoke<string[]>('get_running_instances'),
+
+  // Очередь задач установки
+  listJobs: () => invoke<DownloadJob[]>('list_jobs'),
+  pauseJob: (jobId: string) => invoke<void>('pause_job', { jobId }),
+  resumeJob: (jobId: string) => invoke<void>('resume_job', { jobId }),
+  cancelJob: (jobId: string) => invoke<void>('cancel_job', { jobId }),
+  dismissJob: (jobId: string) => invoke<void>('dismiss_job', { jobId }),
+  retryJob: (job: DownloadJob): Promise<unknown> => {
+    if (!job.retry) return Promise.resolve();
+    return invoke<unknown>(job.retry.command, job.retry.args);
+  },
   getLoaderVersions: (loader: ModLoaderKind, minecraftVersion: string) =>
     invoke<string[]>('get_loader_versions', { loader, minecraftVersion }),
   getLoaderSupportedMcVersions: (loader: ModLoaderKind) =>

@@ -29,6 +29,9 @@ pub enum AppError {
 
     #[error("{0}")]
     Custom(String),
+
+    #[error("Задача отменена")]
+    Canceled,
 }
 
 impl Serialize for AppError {

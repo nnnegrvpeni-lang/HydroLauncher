@@ -12,6 +12,7 @@ pub mod instance_archive_service;
 pub mod instance_service;
 pub mod java_rules;
 pub mod java_service;
+pub mod jobs;
 pub mod launch_service;
 pub mod launcher_update_service;
 pub mod loader_service;

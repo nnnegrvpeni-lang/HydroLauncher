@@ -4,6 +4,7 @@ use crate::services::horizon_mods_service::{
     self, HorizonModDetailsDto, HorizonModsSearchResult, SearchHorizonModsRequest,
 };
 use crate::services::instance_service;
+use crate::services::jobs::{JobKind, JobRetry, JobSpec, JobsRegistry};
 use crate::services::modrinth_service::{
     self, InstalledModFile, ModUpdateInfo, ModrinthProjectDetails, ModrinthSearchResult,
     ModrinthVersionInfo,
@@ -57,30 +58,48 @@ pub async fn get_modrinth_versions(
 
 #[tauri::command]
 pub async fn install_modrinth_mod(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
+    jobs: State<'_, JobsRegistry>,
     registry: State<'_, crate::services::launch_service::LaunchRegistry>,
     instance_id: String,
     project_id: String,
     version_id: Option<String>,
 ) -> Result<InstalledModFile, AppError> {
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
-    shared::with_instance_reserved(&registry, &instance_id, async {
-        let instances = instance_service::load_instances(&paths, &data_dir).await?;
-        let instance = instances
-            .into_iter()
-            .find(|i| i.id == instance_id)
-            .ok_or_else(|| AppError::NotFound("Сборка не найдена".into()))?;
+    let instances = instance_service::load_instances(&paths, &data_dir).await?;
+    let instance = instances
+        .into_iter()
+        .find(|i| i.id == instance_id)
+        .ok_or_else(|| AppError::NotFound("Сборка не найдена".into()))?;
 
-        modrinth_service::install_mod(
-            &paths,
-            &data_dir,
-            &instance,
-            &project_id,
-            version_id.as_deref(),
-        )
+    let queue = jobs.inner().clone();
+    let spec = JobSpec::new(JobKind::ModInstall, format!("Мод для «{}»", instance.name))
+        .instance(instance.id.clone())
+        .retry(JobRetry::new(
+            "install_modrinth_mod",
+            serde_json::json!({
+                "instanceId": instance.id.clone(),
+                "projectId": project_id.clone(),
+                "versionId": version_id.clone(),
+            }),
+        ));
+
+    queue
+        .run(&app, &data_dir, spec, || async {
+            shared::with_instance_reserved(&registry, &instance.id, async {
+                modrinth_service::install_mod(
+                    &paths,
+                    &data_dir,
+                    &instance,
+                    &project_id,
+                    version_id.as_deref(),
+                )
+                .await
+            })
+            .await
+        })
         .await
-    })
-    .await
 }
 
 #[tauri::command]
@@ -126,24 +145,51 @@ pub async fn get_horizon_mod_details(
 
 #[tauri::command]
 pub async fn install_horizon_mod(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
+    jobs: State<'_, JobsRegistry>,
     registry: State<'_, crate::services::launch_service::LaunchRegistry>,
     instance_id: String,
     project_id: String,
     version: Option<String>,
 ) -> Result<InstalledModFile, AppError> {
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
-    shared::with_instance_reserved(&registry, &instance_id, async {
-        horizon_mods_service::install_mod(
-            &paths,
-            &data_dir,
-            &instance_id,
-            &project_id,
-            version.as_deref(),
-        )
+    let instances = instance_service::load_instances(&paths, &data_dir).await?;
+    let instance = instances
+        .into_iter()
+        .find(|i| i.id == instance_id)
+        .ok_or_else(|| AppError::NotFound("Сборка не найдена".into()))?;
+
+    let queue = jobs.inner().clone();
+    let spec = JobSpec::new(
+        JobKind::ModInstall,
+        format!("Мод Horizon для «{}»", instance.name),
+    )
+    .instance(instance.id.clone())
+    .retry(JobRetry::new(
+        "install_horizon_mod",
+        serde_json::json!({
+            "instanceId": instance.id.clone(),
+            "projectId": project_id.clone(),
+            "version": version.clone(),
+        }),
+    ));
+
+    queue
+        .run(&app, &data_dir, spec, || async {
+            shared::with_instance_reserved(&registry, &instance.id, async {
+                horizon_mods_service::install_mod(
+                    &paths,
+                    &data_dir,
+                    &instance.id,
+                    &project_id,
+                    version.as_deref(),
+                )
+                .await
+            })
+            .await
+        })
         .await
-    })
-    .await
 }
 
 #[tauri::command]
@@ -176,34 +222,69 @@ pub async fn check_mod_updates(
 
 #[tauri::command]
 pub async fn install_modrinth_modpack(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
+    jobs: State<'_, JobsRegistry>,
     project_id: String,
     custom_name: Option<String>,
 ) -> Result<Instance, AppError> {
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
-    modrinth_service::install_modrinth_modpack(
-        &paths,
-        &data_dir,
-        &project_id,
-        custom_name.as_deref(),
-    )
-    .await
+    let queue = jobs.inner().clone();
+    let spec = JobSpec::new(JobKind::Modpack, "Установка модпака").retry(JobRetry::new(
+        "install_modrinth_modpack",
+        serde_json::json!({
+            "projectId": project_id.clone(),
+            "customName": custom_name.clone(),
+        }),
+    ));
+
+    queue
+        .run(&app, &data_dir, spec, || async {
+            modrinth_service::install_modrinth_modpack(
+                &paths,
+                &data_dir,
+                &project_id,
+                custom_name.as_deref(),
+            )
+            .await
+        })
+        .await
 }
 
 #[tauri::command]
 pub async fn import_mrpack_file(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
+    jobs: State<'_, JobsRegistry>,
     file_path: String,
     custom_name: Option<String>,
 ) -> Result<Instance, AppError> {
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
-    modrinth_service::import_mrpack_file(
-        &paths,
-        &data_dir,
-        std::path::Path::new(&file_path),
-        custom_name.as_deref(),
-    )
-    .await
+    let queue = jobs.inner().clone();
+    let title = std::path::Path::new(&file_path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| format!("Импорт {name}"))
+        .unwrap_or_else(|| "Импорт модпака".to_string());
+    let spec = JobSpec::new(JobKind::Modpack, title).retry(JobRetry::new(
+        "import_mrpack_file",
+        serde_json::json!({
+            "filePath": file_path.clone(),
+            "customName": custom_name.clone(),
+        }),
+    ));
+
+    queue
+        .run(&app, &data_dir, spec, || async {
+            modrinth_service::import_mrpack_file(
+                &paths,
+                &data_dir,
+                std::path::Path::new(&file_path),
+                custom_name.as_deref(),
+            )
+            .await
+        })
+        .await
 }
 
 #[tauri::command]
@@ -286,20 +367,43 @@ pub fn pick_local_mod() -> Option<String> {
 
 #[tauri::command]
 pub async fn install_local_mod(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
+    jobs: State<'_, JobsRegistry>,
     registry: State<'_, crate::services::launch_service::LaunchRegistry>,
     instance_id: String,
     file_path: String,
 ) -> Result<InstalledModFile, AppError> {
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
-    shared::with_instance_reserved(&registry, &instance_id, async {
-        modrinth_service::install_local_mod(
-            &paths,
-            &data_dir,
-            &instance_id,
-            std::path::Path::new(&file_path),
-        )
+    let instances = instance_service::load_instances(&paths, &data_dir).await?;
+    let instance = instances
+        .into_iter()
+        .find(|i| i.id == instance_id)
+        .ok_or_else(|| AppError::NotFound("Сборка не найдена".into()))?;
+
+    let queue = jobs.inner().clone();
+    let spec = JobSpec::new(JobKind::ModInstall, format!("Мод для «{}»", instance.name))
+        .instance(instance.id.clone())
+        .retry(JobRetry::new(
+            "install_local_mod",
+            serde_json::json!({
+                "instanceId": instance.id.clone(),
+                "filePath": file_path.clone(),
+            }),
+        ));
+
+    queue
+        .run(&app, &data_dir, spec, || async {
+            shared::with_instance_reserved(&registry, &instance.id, async {
+                modrinth_service::install_local_mod(
+                    &paths,
+                    &data_dir,
+                    &instance.id,
+                    std::path::Path::new(&file_path),
+                )
+                .await
+            })
+            .await
+        })
         .await
-    })
-    .await
 }
