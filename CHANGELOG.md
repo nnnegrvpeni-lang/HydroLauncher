@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [0.2.7] — 2026-11-17
+
 ### Добавлено
 - Оформление сборок: фон-градиент и предмет для карточки, дока, главной
   страницы и окна сборки. В редакторе 12 фонов и набор иллюстраций,
@@ -302,6 +304,7 @@
 - Изолированная консоль для каждой сборки с копированием и очисткой логов.
 - Три темы оформления — «Сумерки», «Ночь», «День» — в стиле «жидкого стекла».
 
+[0.2.7]: https://github.com/nnnegrvpeni-lang/HydroLauncher/releases/tag/v0.2.7
 [0.2.6]: https://github.com/nnnegrvpeni-lang/HydroLauncher/releases/tag/v0.2.6
 [0.2.5]: https://github.com/nnnegrvpeni-lang/HydroLauncher/releases/tag/v0.2.5
 [0.2.0]: https://github.com/nnnegrvpeni-lang/HydroLauncher/releases/tag/v0.2.0
