@@ -13,8 +13,13 @@ use crate::storage::paths::AppPaths;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::Path;
+use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 use tokio::process::Command;
+
+/// Установщик Forge/NeoForge не должен висеть вечно: по истечении срока
+/// процесс прерывается, чтобы запуск не застрял в «подготовке».
+const INSTALLER_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 
 #[derive(Debug, Deserialize)]
 struct MetaGameEntry {
@@ -285,9 +290,8 @@ async fn install_fabric_or_quilt(
         .version_dir(data_dir, &profile_id)
         .join(format!("{profile_id}.json"));
 
-    let profile: LoaderProfileJson = if profile_path.exists() {
-        let bytes = tokio::fs::read(&profile_path).await?;
-        serde_json::from_slice(&bytes)?
+    let profile: LoaderProfileJson = if let Some(cached) = read_loader_profile(&profile_path).await {
+        cached
     } else {
         let url = format!("{meta_base}/versions/loader/{mc_ver}/{loader_ver}/profile/json");
         let resp = client
@@ -297,11 +301,14 @@ async fn install_fabric_or_quilt(
             .await?
             .error_for_status()?;
         let bytes = resp.bytes().await?;
+        // Разбираем до записи: иначе оборванный ответ останется на диске и
+        // профиль будет «битым» навсегда.
+        let parsed: LoaderProfileJson = serde_json::from_slice(&bytes)?;
         if let Some(parent) = profile_path.parent() {
             tokio::fs::create_dir_all(parent).await?;
         }
         tokio::fs::write(&profile_path, &bytes).await?;
-        serde_json::from_slice(&bytes)?
+        parsed
     };
 
     let libs_dir = paths.libraries_dir(data_dir);
@@ -363,35 +370,23 @@ async fn install_forge(
     };
 
     let version_id = format!("{mc_ver}-forge-{forge_ver}");
-    let profile_path = paths
-        .version_dir(data_dir, &version_id)
-        .join(format!("{version_id}.json"));
-
-    let needs_install = !profile_path.exists();
-    if needs_install {
-        let installer_url = format!(
-            "{FORGE_MAVEN_BASE_URL}/net/minecraftforge/forge/{mc_ver}-{forge_ver}/forge-{mc_ver}-{forge_ver}-installer.jar"
-        );
-        run_installer(
-            app,
-            data_dir,
-            &instance.id,
-            java_exec,
-            &installer_url,
-            &format!("forge-{mc_ver}-{forge_ver}-installer.jar"),
-            "Forge",
-        )
-        .await?;
-    }
-
-    let bytes = tokio::fs::read(&profile_path).await.map_err(|_| {
-        AppError::NotFound(format!(
-            "Установщик Forge не создал профиль {version_id}.json"
-        ))
-    })?;
-    let profile: LoaderProfileJson = serde_json::from_slice(&bytes)?;
+    let installer_url = format!(
+        "{FORGE_MAVEN_BASE_URL}/net/minecraftforge/forge/{mc_ver}-{forge_ver}/forge-{mc_ver}-{forge_ver}-installer.jar"
+    );
+    let (profile, installed) = ensure_loader_profile(
+        app,
+        paths,
+        data_dir,
+        &instance.id,
+        java_exec,
+        &version_id,
+        &installer_url,
+        &format!("forge-{mc_ver}-{forge_ver}-installer.jar"),
+        "Forge",
+    )
+    .await?;
     merge_loader_profile(details, profile);
-    if needs_install {
+    if installed {
         emit_progress(app, &instance.id, "Forge готов", 1, 1);
     }
     Ok(())
@@ -432,35 +427,23 @@ async fn install_neoforge(
     };
 
     let version_id = format!("neoforge-{nf_ver}");
-    let profile_path = paths
-        .version_dir(data_dir, &version_id)
-        .join(format!("{version_id}.json"));
-
-    let needs_install = !profile_path.exists();
-    if needs_install {
-        let installer_url = format!(
-            "{NEOFORGE_MAVEN_BASE_URL}/net/neoforged/neoforge/{nf_ver}/neoforge-{nf_ver}-installer.jar"
-        );
-        run_installer(
-            app,
-            data_dir,
-            &instance.id,
-            java_exec,
-            &installer_url,
-            &format!("neoforge-{nf_ver}-installer.jar"),
-            "NeoForge",
-        )
-        .await?;
-    }
-
-    let bytes = tokio::fs::read(&profile_path).await.map_err(|_| {
-        AppError::NotFound(format!(
-            "Установщик NeoForge не создал профиль {version_id}.json"
-        ))
-    })?;
-    let profile: LoaderProfileJson = serde_json::from_slice(&bytes)?;
+    let installer_url = format!(
+        "{NEOFORGE_MAVEN_BASE_URL}/net/neoforged/neoforge/{nf_ver}/neoforge-{nf_ver}-installer.jar"
+    );
+    let (profile, installed) = ensure_loader_profile(
+        app,
+        paths,
+        data_dir,
+        &instance.id,
+        java_exec,
+        &version_id,
+        &installer_url,
+        &format!("neoforge-{nf_ver}-installer.jar"),
+        "NeoForge",
+    )
+    .await?;
     merge_loader_profile(details, profile);
-    if needs_install {
+    if installed {
         emit_progress(app, &instance.id, "NeoForge готов", 1, 1);
     }
     Ok(())
@@ -475,6 +458,60 @@ fn neoforge_prefix_for_mc(mc_ver: &str) -> Option<String> {
     } else {
         None
     }
+}
+
+/// Читает профиль загрузчика, если он есть и корректен. Битый файл от
+/// оборванной установки считается отсутствующим.
+async fn read_loader_profile(path: &Path) -> Option<LoaderProfileJson> {
+    let bytes = tokio::fs::read(path).await.ok()?;
+    serde_json::from_slice(&bytes).ok()
+}
+
+/// Готовит профиль Forge/NeoForge ровно один раз на версию. Замок не даёт
+/// двум сборкам одновременно запускать один установщик в общие папки, а
+/// битый профиль от прошлого сбоя удаляется и создаётся заново.
+#[allow(clippy::too_many_arguments)]
+async fn ensure_loader_profile(
+    app: &AppHandle,
+    paths: &AppPaths,
+    data_dir: &Path,
+    instance_id: &str,
+    java_exec: &str,
+    version_id: &str,
+    installer_url: &str,
+    installer_name: &str,
+    label: &str,
+) -> AppResult<(LoaderProfileJson, bool)> {
+    let profile_path = paths
+        .version_dir(data_dir, version_id)
+        .join(format!("{version_id}.json"));
+    let _guard =
+        crate::storage::json_store::lock_key(&format!("loader-install:{version_id}")).await;
+
+    if let Some(profile) = read_loader_profile(&profile_path).await {
+        return Ok((profile, false));
+    }
+    if profile_path.exists() {
+        let _ = tokio::fs::remove_file(&profile_path).await;
+    }
+
+    run_installer(
+        app,
+        data_dir,
+        instance_id,
+        java_exec,
+        installer_url,
+        installer_name,
+        label,
+    )
+    .await?;
+
+    let profile = read_loader_profile(&profile_path).await.ok_or_else(|| {
+        AppError::NotFound(format!(
+            "Установщик {label} не создал профиль {version_id}.json"
+        ))
+    })?;
+    Ok((profile, true))
 }
 
 async fn run_installer(
@@ -512,26 +549,41 @@ async fn run_installer(
         1,
         2,
     );
-    let output = Command::new(java_exec)
+    let child = Command::new(java_exec)
         .arg("-jar")
         .arg(&installer_path)
         .arg("--installClient")
         .arg(data_dir)
-        .output()
-        .await
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .kill_on_drop(true)
+        .spawn()
         .map_err(|e| AppError::Process(format!("Не удалось запустить установщик {label}: {e}")))?;
+
+    // Долгая установка не должна висеть вечно: по таймауту процесс снимается,
+    // а запуск получает понятную ошибку вместо бесконечной «подготовки».
+    let output = tokio::time::timeout(INSTALLER_TIMEOUT, child.wait_with_output())
+        .await
+        .map_err(|_| {
+            AppError::Process(format!(
+                "Установка {label} заняла больше {} минут и была прервана",
+                INSTALLER_TIMEOUT.as_secs() / 60
+            ))
+        })?
+        .map_err(|e| AppError::Process(format!("Не удалось дождаться установщика {label}: {e}")))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stdout = String::from_utf8_lossy(&output.stdout);
+        let details = if !stderr.trim().is_empty() {
+            stderr.trim().to_string()
+        } else if !stdout.trim().is_empty() {
+            stdout.trim().to_string()
+        } else {
+            format!("код выхода {:?}", output.status.code())
+        };
         return Err(AppError::Process(format!(
-            "Установка {label} завершилась с ошибкой: {}{}",
-            stderr.trim(),
-            if stderr.trim().is_empty() {
-                stdout.trim()
-            } else {
-                ""
-            }
+            "Установка {label} завершилась с ошибкой: {details}"
         )));
     }
 

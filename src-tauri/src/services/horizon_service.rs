@@ -6,9 +6,33 @@ use crate::services::downloader::{download_file, get_json_cached};
 use crate::storage::paths::{sanitize_tag, AppPaths};
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
+
+/// Проверка `--check` должна быть быстрой: зависший horizon-prepare не должен
+/// держать запуск игры бесконечно.
+const PREPARE_CHECK_TIMEOUT: Duration = Duration::from_secs(60);
+
+/// Спрашивает у horizon-prepare, готовы ли ресурсы. Таймаут и `kill_on_drop`
+/// не дают зависшему процессу остановить запуск.
+async fn prepared_ready(prepare_bin: &Path, prepared_dir: &Path, prepare_root: &Path) -> bool {
+    let command = async {
+        Command::new(prepare_bin)
+            .arg("--check")
+            .arg("--output")
+            .arg(prepared_dir)
+            .current_dir(prepare_root)
+            .kill_on_drop(true)
+            .output()
+            .await
+    };
+    matches!(
+        tokio::time::timeout(PREPARE_CHECK_TIMEOUT, command).await,
+        Ok(Ok(output)) if output.status.success()
+    )
+}
 
 #[derive(Debug, Deserialize)]
 struct GitHubRelease {
@@ -505,6 +529,10 @@ async fn download_horizon_binaries(
     tag: Option<&str>,
 ) -> AppResult<(PathBuf, PathBuf)> {
     let tag = effective_tag(tag);
+    // Две сборки могут стартовать одновременно: без замка они по очереди
+    // удаляют и распаковывают одну и ту же папку бинарников.
+    let _guard =
+        crate::storage::json_store::lock_key(&format!("horizon-bin:{}", sanitize_tag(&tag))).await;
 
     emit_progress(
         app,
@@ -645,15 +673,7 @@ pub async fn is_horizon_prepared(prepare_bin: &Path, prepared_dir: &Path) -> boo
         .parent()
         .map(Path::to_path_buf)
         .unwrap_or_else(|| prepared_dir.to_path_buf());
-    Command::new(prepare_bin)
-        .arg("--check")
-        .arg("--output")
-        .arg(prepared_dir)
-        .current_dir(&prepare_root)
-        .output()
-        .await
-        .map(|out| out.status.success())
-        .unwrap_or(false)
+    prepared_ready(prepare_bin, prepared_dir, &prepare_root).await
 }
 
 pub async fn ensure_horizon_prepared(
@@ -675,19 +695,8 @@ pub async fn ensure_horizon_prepared(
         .unwrap_or_else(|| paths.horizon_bin_tag_dir(data_dir, &tag));
 
     // Быстрая проверка: если ресурсы уже подготовлены под эту версию horizon-prepare
-    if prepared_dir.exists() {
-        let check = Command::new(prepare_bin)
-            .arg("--check")
-            .arg("--output")
-            .arg(&prepared_dir)
-            .current_dir(&prepare_root)
-            .output()
-            .await;
-        if let Ok(out) = check {
-            if out.status.success() {
-                return Ok(prepared_dir);
-            }
-        }
+    if prepared_dir.exists() && prepared_ready(prepare_bin, &prepared_dir, &prepare_root).await {
+        return Ok(prepared_dir);
     }
 
     tokio::fs::create_dir_all(&prepared_dir).await?;

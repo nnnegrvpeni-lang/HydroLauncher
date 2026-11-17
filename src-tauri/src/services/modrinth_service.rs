@@ -6,7 +6,11 @@ use crate::storage::paths::AppPaths;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+/// Предел размера `.mrpack`: архив читается в память целиком, и без лимита
+/// подменённый или повреждённый файл мог бы исчерпать память.
+const MAX_MRPACK_BYTES: u64 = 1024 * 1024 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -441,7 +445,6 @@ async fn install_mod_inner(
         })?
     };
 
-    let _ = (&chosen.id, &chosen.version_number);
     let file = chosen
         .files
         .iter()
@@ -467,30 +470,8 @@ async fn install_mod_inner(
     };
     tokio::fs::create_dir_all(&dest_dir).await?;
 
-    // Если этот проект уже установлен в сборку — удаляем старый файл перед заменой версии
-    let meta_path = paths.instance_dir(data_dir, &instance.id).join("mods-meta.json");
-    let mut meta_list: Vec<ModMetaEntry> =
-        crate::storage::json_store::read_json_or_default(&meta_path)
-            .await
-            .unwrap_or_default();
-
-    for old in meta_list
-        .iter()
-        .filter(|m| m.project_id == project_id && m.file_name != safe_name)
-    {
-        for dir in [
-            paths.instance_mods_dir(data_dir, &instance.id),
-            paths.instance_shaderpacks_dir(data_dir, &instance.id),
-            paths.instance_resourcepacks_dir(data_dir, &instance.id),
-        ] {
-            let old_path = dir.join(&old.file_name);
-            if old_path.exists() {
-                let _ = tokio::fs::remove_file(old_path).await;
-            }
-        }
-    }
-    meta_list.retain(|m| m.project_id != project_id && m.file_name != safe_name);
-
+    // Скачиваем до правки списка: при сбое загрузки метаданные не будут
+    // ссылаться на отсутствующий файл.
     let dest = dest_dir.join(safe_name);
     let sha1 = file.hashes.get("sha1").map(String::as_str);
     downloader::download_file(&client, &file.url, &dest, sha1).await?;
@@ -509,8 +490,32 @@ async fn install_mod_inner(
         version_id: chosen.id.clone(),
         version_number: chosen.version_number.clone(),
     };
-    meta_list.push(entry.clone());
-    let _ = crate::storage::json_store::write_json_atomic(&meta_path, &meta_list).await;
+
+    // Список модов читают и правят несколько команд: держим замок файла на
+    // всё время read-modify-write, иначе установка теряет чужие записи, а
+    // старый файл проекта удаляется по устаревшему списку.
+    let meta_path = paths.instance_dir(data_dir, &instance.id).join("mods-meta.json");
+    let meta_list = {
+        let _guard = crate::storage::json_store::lock_file(&meta_path).await;
+        let mut meta_list: Vec<ModMetaEntry> =
+            crate::storage::json_store::read_json_or_default(&meta_path)
+                .await
+                .unwrap_or_default();
+
+        remove_previous_mod_files(
+            paths,
+            data_dir,
+            &instance.id,
+            &meta_list,
+            project_id,
+            safe_name,
+        )
+        .await;
+        meta_list.retain(|m| m.project_id != project_id && m.file_name != safe_name);
+        meta_list.push(entry.clone());
+        crate::storage::json_store::write_json_atomic(&meta_path, &meta_list).await?;
+        meta_list
+    };
 
     // Автоматически устанавливаем обязательные (required) зависимости мода
     if is_mod {
@@ -546,6 +551,34 @@ async fn install_mod_inner(
         version_id: Some(entry.version_id),
         version_number: Some(entry.version_number),
     })
+}
+
+/// Удаляет файлы прошлых версий того же проекта из всех папок контента:
+/// имя файла у новой версии обычно другое, и без этого в сборке оставались
+/// бы два мода сразу.
+async fn remove_previous_mod_files(
+    paths: &AppPaths,
+    data_dir: &Path,
+    instance_id: &str,
+    meta_list: &[ModMetaEntry],
+    project_id: &str,
+    keep_name: &str,
+) {
+    for old in meta_list
+        .iter()
+        .filter(|m| m.project_id == project_id && m.file_name != keep_name)
+    {
+        for dir in [
+            paths.instance_mods_dir(data_dir, instance_id),
+            paths.instance_shaderpacks_dir(data_dir, instance_id),
+            paths.instance_resourcepacks_dir(data_dir, instance_id),
+        ] {
+            let old_path = dir.join(&old.file_name);
+            if old_path.exists() {
+                let _ = tokio::fs::remove_file(old_path).await;
+            }
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -751,12 +784,13 @@ pub async fn remove_installed_mod(
 
     let meta_path = paths.instance_dir(data_dir, instance_id).join("mods-meta.json");
     if meta_path.exists() {
+        let _guard = crate::storage::json_store::lock_file(&meta_path).await;
         let mut meta_list: Vec<ModMetaEntry> =
             crate::storage::json_store::read_json_or_default(&meta_path)
                 .await
                 .unwrap_or_default();
         meta_list.retain(|m| m.file_name != file_name);
-        let _ = crate::storage::json_store::write_json_atomic(&meta_path, &meta_list).await;
+        crate::storage::json_store::write_json_atomic(&meta_path, &meta_list).await?;
     }
 
     Ok(())
@@ -804,6 +838,7 @@ pub async fn toggle_installed_mod(
 
     let meta_path = paths.instance_dir(data_dir, instance_id).join("mods-meta.json");
     if meta_path.exists() {
+        let _guard = crate::storage::json_store::lock_file(&meta_path).await;
         let mut meta_list: Vec<ModMetaEntry> =
             crate::storage::json_store::read_json_or_default(&meta_path)
                 .await
@@ -813,7 +848,7 @@ pub async fn toggle_installed_mod(
                 m.file_name = new_name.clone();
             }
         }
-        let _ = crate::storage::json_store::write_json_atomic(&meta_path, &meta_list).await;
+        crate::storage::json_store::write_json_atomic(&meta_path, &meta_list).await?;
     }
 
     Ok(new_name)
@@ -941,6 +976,11 @@ pub async fn install_modrinth_modpack(
         .bytes()
         .await?
         .to_vec();
+    if bytes.len() as u64 > MAX_MRPACK_BYTES {
+        return Err(AppError::Validation(
+            "Файл модпака слишком большой".into(),
+        ));
+    }
 
     install_mrpack_from_bytes(paths, data_dir, bytes, custom_name).await
 }
@@ -951,6 +991,12 @@ pub async fn import_mrpack_file(
     file_path: &Path,
     custom_name: Option<&str>,
 ) -> AppResult<Instance> {
+    let size = tokio::fs::metadata(file_path).await?.len();
+    if size > MAX_MRPACK_BYTES {
+        return Err(AppError::Validation(
+            "Файл модпака слишком большой".into(),
+        ));
+    }
     let bytes = tokio::fs::read(file_path).await?;
     install_mrpack_from_bytes(paths, data_dir, bytes, custom_name).await
 }
@@ -1013,7 +1059,10 @@ async fn install_mrpack_from_bytes(
     .await?;
 
     let game_dir = paths.instance_game_dir(data_dir, &instance.id);
-    tokio::fs::create_dir_all(&game_dir).await?;
+    if let Err(err) = tokio::fs::create_dir_all(&game_dir).await {
+        rollback_mrpack_install(paths, data_dir, &instance.id).await;
+        return Err(err.into());
+    }
 
     // Распаковываем overrides/ и client-overrides/
     let bytes_clone = bytes;
@@ -1088,17 +1137,16 @@ async fn install_mrpack_from_bytes(
 
     // Скачиваем файлы модпака параллельно, но не больше лимита одновременных загрузок.
     let client = crate::services::downloader::build_client()?;
-    let mut jobs: Vec<(String, String, Option<String>)> = Vec::new();
+    let mut jobs: Vec<(PathBuf, String, Option<String>)> = Vec::new();
     for mf in index.files {
         if let Some(env) = &mf.env {
             if env.client.as_deref() == Some("unsupported") {
                 continue;
             }
         }
-        let rel = mf.path.replace('\\', "/");
-        if rel.is_empty() || rel.contains("..") {
+        let Some(rel) = safe_mrpack_relative_path(&mf.path) else {
             continue;
-        }
+        };
         let Some(dl_url) = mf.downloads.first() else {
             continue;
         };
@@ -1121,6 +1169,29 @@ async fn install_mrpack_from_bytes(
     }
 
     Ok(instance)
+}
+
+/// Путь файла из `modrinth.index.json` обязан остаться внутри папки игры.
+/// В чужих архивах встречаются абсолютные пути, диск и `..`, а `join` с ними
+/// пишет мимо сборки.
+fn safe_mrpack_relative_path(raw: &str) -> Option<PathBuf> {
+    let normalized = raw.replace('\\', "/");
+    let path = Path::new(&normalized);
+    if path.is_absolute() {
+        return None;
+    }
+    let mut result = PathBuf::new();
+    for component in path.components() {
+        match component {
+            std::path::Component::Normal(part) => result.push(part),
+            _ => return None,
+        }
+    }
+    if result.as_os_str().is_empty() {
+        None
+    } else {
+        Some(result)
+    }
 }
 
 /// Удаляет частично установленную сборку модпака, чтобы не оставлять мусор в списке.
@@ -1407,4 +1478,30 @@ pub async fn install_local_mod(
             version_id: None,
             version_number: None,
         }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::safe_mrpack_relative_path;
+    use std::path::PathBuf;
+
+    #[test]
+    fn mrpack_paths_stay_inside_game_dir() {
+        assert_eq!(
+            safe_mrpack_relative_path("mods/example.jar"),
+            Some(PathBuf::from("mods").join("example.jar"))
+        );
+        assert_eq!(
+            safe_mrpack_relative_path("mods\\example.jar"),
+            Some(PathBuf::from("mods").join("example.jar"))
+        );
+        // В чужих модпаках встречаются абсолютные пути и переходы вверх.
+        assert!(safe_mrpack_relative_path("../outside.jar").is_none());
+        assert!(safe_mrpack_relative_path("mods/../../outside.jar").is_none());
+        assert!(safe_mrpack_relative_path("").is_none());
+        assert!(safe_mrpack_relative_path("/etc/passwd").is_none());
+        if cfg!(windows) {
+            assert!(safe_mrpack_relative_path("C:/Windows/System32/drivers").is_none());
+        }
+    }
 }

@@ -240,7 +240,14 @@ fn extract_game_files(
     game_dir: &Path,
     on_progress: impl Fn(usize, usize),
 ) -> AppResult<()> {
+    // Архив приходит извне: ограничиваем распаковку, чтобы повреждённый или
+    // специально собранный файл не заполнил диск.
+    const MAX_EXTRACT_BYTES: u64 = 8 * 1024 * 1024 * 1024;
+    const MAX_EXTRACT_ENTRIES: usize = 200_000;
+
     let total = archive.len();
+    let mut extracted_entries = 0usize;
+    let mut extracted_bytes = 0u64;
     for index in 0..total {
         let mut entry = archive.by_index(index)?;
         let Some(relative) = entry.enclosed_name() else {
@@ -258,6 +265,21 @@ fn extract_game_files(
         let rest: PathBuf = components.collect();
         if rest.as_os_str().is_empty() {
             continue;
+        }
+
+        extracted_entries += 1;
+        if extracted_entries > MAX_EXTRACT_ENTRIES {
+            return Err(AppError::Validation(
+                "В архиве сборки слишком много файлов".into(),
+            ));
+        }
+        if !entry.is_dir() {
+            extracted_bytes = extracted_bytes.saturating_add(entry.size());
+            if extracted_bytes > MAX_EXTRACT_BYTES {
+                return Err(AppError::Validation(
+                    "Архив сборки больше допустимого размера".into(),
+                ));
+            }
         }
 
         let out_path = game_dir.join(&rest);
