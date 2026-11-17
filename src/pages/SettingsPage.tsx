@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   AlertCircle,
   Check,
@@ -23,7 +23,7 @@ import { useLinksStore } from '../stores/linksStore';
 import { useNotifyStore } from '../stores/notifyStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUpdateStore } from '../stores/updateStore';
-import { api, type JavaRuntime, type OfflineAccount, type ReleaseChannel, type ThemeMode } from '../api';
+import { api, type JavaRuntime, type OfflineAccount, type ReleaseChannel, type ThemeMode, type StorageReport } from '../api';
 import { cn } from '../utils/cn';
 import { formatBytes, formatMemory } from '../utils/format';
 
@@ -616,6 +616,16 @@ function StorageGroup() {
   const { t, tf, language } = useI18n();
   const [error, setError] = useState<string | null>(null);
   const [cleaning, setCleaning] = useState(false);
+  const [storage, setStorage] = useState<StorageReport | null>(null);
+  const [storageLoading, setStorageLoading] = useState(false);
+  const [storageCleaning, setStorageCleaning] = useState(false);
+  const loadStorage = async () => {
+    setStorageLoading(true);
+    try { setStorage(await api.getStorageReport()); }
+    catch (err) { notify(String(err), 'error'); }
+    finally { setStorageLoading(false); }
+  };
+  useEffect(() => { void loadStorage(); }, []);
 
   if (!settings) return null;
 
@@ -733,6 +743,15 @@ function StorageGroup() {
         </div>
       )}
 
+      <div className="border-t border-line px-5 py-4">
+        <div className="mb-3 flex items-center justify-between">
+          <div><p className="text-[13px] font-medium text-ink">{t('Использование места')}</p><p className="text-xs text-muted">{storage ? formatBytes(storage.totalBytes, language) : t('Размеры файлов лаунчера')}</p></div>
+          <Button size="sm" variant="ghost" onClick={() => void loadStorage()} disabled={storageLoading}>{storageLoading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}{t('Обновить')}</Button>
+        </div>
+        {storage?.categories.map((category) => <div key={category.id} className="mb-2 flex items-center gap-3 text-xs"><span className="w-24 text-muted">{t(category.id)}</span><div className="h-1.5 flex-1 overflow-hidden rounded bg-bg-well"><div className="h-full rounded bg-accent" style={{ width: `${storage.totalBytes ? Math.min(100, category.sizeBytes / storage.totalBytes * 100) : 0}%` }} /></div><span className="w-20 text-right text-ink">{formatBytes(category.sizeBytes, language)}</span></div>)}
+        {storage?.instances.map((instance) => <p key={instance.id} className="mt-2 flex justify-between text-xs text-muted"><span>{instance.name}</span><span>{formatBytes(instance.totalBytes, language)}</span></p>)}
+      </div>
+      <div className="flex items-center justify-between gap-4 px-5 py-3.5"><div><p className="text-[13px] font-medium text-ink">{t('Очистка кэша и логов')}</p><p className="text-xs text-muted">{t('Удаляются только кэш и логи; сборки и миры сохраняются')}</p></div><div className="flex gap-2">{(['cache', 'logs'] as const).map((kind) => <Button key={kind} size="md" variant="secondary" disabled={storageCleaning} onClick={async () => { setStorageCleaning(true); try { const freed = await api.cleanupStorage(kind); notify(tf('Освобождено {size}', { size: formatBytes(freed, language) })); await loadStorage(); } catch (err) { notify(String(err), 'error'); } finally { setStorageCleaning(false); } }}>{storageCleaning ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}{t(kind === 'cache' ? 'Кэш' : 'Логи')}</Button>)}</div></div>
       <div className="flex items-center justify-between gap-4 px-5 py-3.5">
         <div>
           <p className="text-[13px] font-medium text-ink">{t('Кэш движка Horizon')}</p>

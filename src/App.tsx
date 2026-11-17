@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Loader2, Package } from 'lucide-react';
+import { Modal } from './components/ui/Modal';
+import { Button } from './components/ui/Button';
+import type { DropItem } from './api/types';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { api } from './api';
 import { isMockEnabled } from './api/mock';
@@ -52,7 +55,11 @@ export default function App() {
   const [quickAccountOpen, setQuickAccountOpen] = useState(false);
   const [quitPromptOpen, setQuitPromptOpen] = useState(false);
   const [dropActive, setDropActive] = useState(false);
+  const [dropItems, setDropItems] = useState<DropItem[]>([]);
+  const [dropTargetId, setDropTargetId] = useState('');
+  const [dropBusy, setDropBusy] = useState(false);
   const loading = useSettingsStore((s) => s.loading);
+  const availableInstances = useInstancesStore((s) => s.instances);
 
   useInitSettings();
   useInitAccounts();
@@ -87,62 +94,42 @@ export default function App() {
     };
   }, []);
 
-  // Перетаскивание .mrpack или архива сборки прямо в окно.
+  // Распознаём перетаскиваемые файлы и просим подтвердить импорт.
   useEffect(() => {
     if (isMockEnabled()) return;
     let disposed = false;
     let unlisten: (() => void) | undefined;
-
-    const importDropped = async (paths: string[]) => {
-      const files = paths.filter((path) => /\.(mrpack|zip)$/i.test(path));
-      if (files.length === 0) {
-        useNotifyStore
-          .getState()
-          .push(translate('Поддерживаются файлы .mrpack и .zip'), 'error');
-        return;
+    void getCurrentWebview().onDragDropEvent((event) => {
+      if (event.payload.type === 'enter' || event.payload.type === 'over') setDropActive(true);
+      else if (event.payload.type === 'leave') setDropActive(false);
+      else if (event.payload.type === 'drop') {
+        setDropActive(false);
+        void api.inspectDropPaths(event.payload.paths).then((items) => {
+          setDropItems(items);
+          setDropTargetId(useInstancesStore.getState().instances[0]?.id ?? '');
+        }).catch((err) => useNotifyStore.getState().push(String(err), 'error'));
       }
-      for (const path of files) {
-        try {
-          if (/\.mrpack$/i.test(path)) {
-            const created = await api.importMrpackFile(path);
-            useNotifyStore.getState().push(
-              translate('Импортирована сборка: {name}', { name: created.name }),
-            );
-          } else {
-            const created = await api.importInstanceArchive(path);
-            useNotifyStore.getState().push(
-              translate('Сборка импортирована: {name}', { name: created.name }),
-            );
-          }
-        } catch (err) {
-          useNotifyStore.getState().push(String(err), 'error');
+    }).then((fn) => { if (disposed) fn(); else unlisten = fn; });
+    return () => { disposed = true; unlisten?.(); };
+  }, []);
+
+  const confirmDropImport = async () => {
+    setDropBusy(true);
+    try {
+      for (const item of dropItems) {
+        if (item.kind === 'modpack') await api.importMrpackFile(item.path);
+        else if (item.kind === 'instance' || item.kind === 'prism') await api.importDropInstance(item.path);
+        else if (['world', 'resourcepack', 'mod'].includes(item.kind)) {
+          if (!dropTargetId) throw new Error(translate('Сначала выберите сборку'));
+          await api.importDropContent(dropTargetId, item.path);
         }
       }
       await useInstancesStore.getState().load();
+      setDropItems([]);
       setPage('instances');
-    };
-
-    void getCurrentWebview()
-      .onDragDropEvent((event) => {
-        if (event.payload.type === 'enter' || event.payload.type === 'over') {
-          setDropActive(true);
-        } else if (event.payload.type === 'leave') {
-          setDropActive(false);
-        } else if (event.payload.type === 'drop') {
-          setDropActive(false);
-          void importDropped(event.payload.paths);
-        }
-      })
-      .then((fn) => {
-        if (disposed) fn();
-        else unlisten = fn;
-      });
-
-    return () => {
-      disposed = true;
-      unlisten?.();
-    };
-  }, [setPage]);
+    } catch (err) { useNotifyStore.getState().push(String(err), 'error'); }
+    finally { setDropBusy(false); }
+  };
 
   if (loading) {
     return (
@@ -212,6 +199,13 @@ export default function App() {
         onClose={() => setQuickAccountOpen(false)}
       />
 
+      <Modal open={dropItems.length > 0} title={translate('Подтвердить импорт')} subtitle={dropItems.map((item) => item.fileName).join(', ')} onClose={() => !dropBusy && setDropItems([])} footer={<><Button variant="ghost" onClick={() => setDropItems([])} disabled={dropBusy}>{translate('Отмена')}</Button><Button onClick={() => void confirmDropImport()} disabled={dropBusy || dropItems.some((item) => item.kind === 'unknown') || (dropItems.some((item) => ['world', 'resourcepack', 'mod'].includes(item.kind)) && !dropTargetId)}>{dropBusy ? <Loader2 size={13} className="animate-spin" /> : null}{translate('Импортировать')}</Button></>}>
+        <div className="space-y-3 text-[13px] text-muted">
+          <ul className="space-y-2">{dropItems.map((item) => <li key={item.path} className="flex justify-between gap-4"><span className="truncate text-ink">{item.fileName}</span><span>{translate(item.kind)}</span></li>)}</ul>
+          {dropItems.some((item) => item.kind === 'unknown') && <p className="text-danger">{translate('Тип архива не распознан. Импортировать его нельзя.')}</p>}
+          {dropItems.some((item) => ['world', 'resourcepack', 'mod'].includes(item.kind)) && <label className="block">{translate('Целевая сборка')}<select className="hl-input mt-1 w-full" value={dropTargetId} onChange={(event) => setDropTargetId(event.target.value)}><option value="">{translate('Выберите сборку')}</option>{availableInstances.map((instance) => <option key={instance.id} value={instance.id}>{instance.name}</option>)}</select></label>}
+        </div>
+      </Modal>
       <ToastHost />
       <CrashReportModal />
       <QuitConfirmModal open={quitPromptOpen} onClose={() => setQuitPromptOpen(false)} />

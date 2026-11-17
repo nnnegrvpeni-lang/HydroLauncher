@@ -51,6 +51,8 @@ pub enum JobKind {
     Prepare,
     ModInstall,
     Modpack,
+    /// Импорт мира, ресурспака или файла в существующую сборку.
+    Import,
 }
 
 impl Default for JobKind {

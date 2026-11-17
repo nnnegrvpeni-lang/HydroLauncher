@@ -34,6 +34,10 @@ use commands::{
         check_launcher_update, get_app_links, get_settings, get_system_info, open_data_dir,
         open_external_url, pick_directory, quit_app, save_settings_cmd, validate_data_dir,
     },
+    storage::{
+        cleanup_storage, get_storage_report, import_drop_content, import_drop_instance,
+        inspect_drop_paths,
+    },
     versions::{
         check_horizon_update, cleanup_horizon_cache, ensure_java_runtime, get_install_status,
         get_loader_supported_mc_versions, get_loader_versions, get_running_instances,
@@ -236,6 +240,12 @@ pub fn run() {
             resume_job,
             cancel_job,
             dismiss_job,
+            // Хранилище и перетаскивание
+            get_storage_report,
+            cleanup_storage,
+            inspect_drop_paths,
+            import_drop_instance,
+            import_drop_content,
             // Версии и запуск
             get_version_catalog,
             get_install_status,

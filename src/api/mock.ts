@@ -309,6 +309,51 @@ export async function mockInvoke<T>(
     }
     case 'get_system_info':
       return structuredClone(systemInfo) as T;
+    case 'get_storage_report':
+      return {
+        totalBytes: 18_700_000_000,
+        categories: [
+          { id: 'instances', sizeBytes: 12_400_000_000 },
+          { id: 'assets', sizeBytes: 2_100_000_000 },
+          { id: 'libraries', sizeBytes: 2_800_000_000 },
+          { id: 'versions', sizeBytes: 900_000_000 },
+          { id: 'runtimes', sizeBytes: 450_000_000 },
+          { id: 'cache', sizeBytes: 50_000_000 },
+          { id: 'other', sizeBytes: 0 },
+        ],
+        instances: instances.map((instance, index) => ({
+          id: instance.id,
+          name: instance.name,
+          totalBytes: [5_200_000_000, 3_100_000_000, 1_600_000_000][index] ?? 850_000_000,
+          worldsBytes: [3_800_000_000, 2_100_000_000, 900_000_000][index] ?? 500_000_000,
+          modsBytes: [1_200_000_000, 760_000_000, 420_000_000][index] ?? 220_000_000,
+          backupsBytes: 150_000_000,
+          logsBytes: 5_000_000,
+        })),
+      } as T;
+    case 'cleanup_storage':
+      return 45_000_000 as T;
+    case 'inspect_drop_paths':
+      return ((args?.paths as string[] | undefined) ?? []).map((path) => {
+        const fileName = path.split(/[\\\\/]/).pop() ?? path;
+        const lower = fileName.toLowerCase();
+        const kind = lower.endsWith('.mrpack') ? 'modpack'
+          : lower.endsWith('.jar') ? 'mod'
+          : lower.endsWith('.zip') ? 'unknown' : 'unknown';
+        return { path, fileName, kind, sizeBytes: 12_000_000, isDir: false, hint: kind === 'unknown' ? 'Содержимое архива будет проверено в приложении' : null };
+      }) as T;
+    case 'import_drop_instance': {
+      const imported: Instance = {
+        id: `inst-${Date.now()}`, name: 'Импортированная сборка', minecraftVersion: '1.21.4',
+        engine: 'java', loader: 'fabric', loaderVersion: '0.16.9', autoUpdateHorizon: true,
+        memoryMbOverride: null, javaPathOverride: null, jvmArgs: [], gameArgs: [], icon: '',
+        background: '', createdAt: now(), lastPlayedAt: null, playTimeSeconds: 0,
+      };
+      instances = [...instances, imported];
+      return imported as T;
+    }
+    case 'import_drop_content':
+      return { kind: 'world', instanceId: String(args?.instanceId ?? 'inst-1'), name: 'Импортированный мир' } as T;
     case 'pick_directory':
       return null as T;
     case 'validate_data_dir':

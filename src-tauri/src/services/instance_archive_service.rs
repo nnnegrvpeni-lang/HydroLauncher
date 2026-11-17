@@ -329,7 +329,11 @@ fn extract_game_files(
     Ok(())
 }
 
-async fn unique_name(paths: &AppPaths, data_dir: &Path, base: &str) -> AppResult<String> {
+pub(crate) async fn unique_name(
+    paths: &AppPaths,
+    data_dir: &Path,
+    base: &str,
+) -> AppResult<String> {
     let existing: HashSet<String> = instance_service::load_instances(paths, data_dir)
         .await?
         .into_iter()
@@ -481,11 +485,99 @@ pub async fn import_instance(
     Ok(updated)
 }
 
+/// Импорт папки, полученной распаковкой архива HydroLauncher: манифест лежит
+/// рядом с `game/`, поэтому файлы просто копируются в новую сборку.
+pub async fn import_instance_folder(
+    paths: &AppPaths,
+    data_dir: &Path,
+    source: &Path,
+) -> AppResult<Instance> {
+    if !source.is_dir() {
+        return Err(AppError::NotFound("Папка сборки не найдена".into()));
+    }
+    let game_source = source.join(GAME_PREFIX);
+    if !game_source.is_dir() {
+        return Err(AppError::Validation(
+            "В папке нет game/ — это не экспорт HydroLauncher".into(),
+        ));
+    }
+
+    let manifest_path = source.join(MANIFEST_NAME);
+    let bytes = tokio::fs::read(&manifest_path).await.map_err(|_| {
+        AppError::Validation(
+            "В папке нет hydro-instance.json — это не экспорт HydroLauncher".into(),
+        )
+    })?;
+    let manifest: InstanceArchiveManifest = serde_json::from_slice(&bytes)
+        .map_err(|e| AppError::Validation(format!("Некорректный манифест сборки: {e}")))?;
+
+    if manifest.format != ARCHIVE_FORMAT {
+        return Err(AppError::Validation(
+            "Неподдерживаемая версия архива сборки".into(),
+        ));
+    }
+    if manifest.minecraft_version.trim().is_empty() {
+        return Err(AppError::Validation(
+            "В манифесте не указана версия Minecraft".into(),
+        ));
+    }
+
+    let name = unique_name(paths, data_dir, &manifest.name).await?;
+    let created = instance_service::create_instance(
+        paths,
+        data_dir,
+        CreateInstanceRequest {
+            name,
+            minecraft_version: manifest.minecraft_version.clone(),
+            engine: manifest.engine,
+            loader: manifest.loader,
+            loader_version: manifest.loader_version.clone(),
+            icon: Some(manifest.icon.clone()),
+            background: Some(manifest.background.clone()),
+        },
+    )
+    .await?;
+
+    let updated = match instance_service::update_instance(
+        paths,
+        data_dir,
+        UpdateInstanceRequest {
+            id: created.id.clone(),
+            name: created.name.clone(),
+            memory_mb_override: manifest.memory_mb_override,
+            // Чужой путь к Java не переносим: он почти наверняка не существует
+            // на этой машине.
+            java_path_override: None,
+            jvm_args: manifest.jvm_args,
+            game_args: manifest.game_args,
+            loader_version: manifest.loader_version,
+            auto_update_horizon: true,
+            icon: None,
+            background: None,
+        },
+    )
+    .await
+    {
+        Ok(instance) => instance,
+        Err(err) => {
+            let _ = instance_service::delete_instance(paths, data_dir, &created.id).await;
+            return Err(err);
+        }
+    };
+
+    let game_dir = paths.instance_game_dir(data_dir, &updated.id);
+    if let Err(err) = instance_service::copy_dir_recursive(&game_source, &game_dir).await {
+        let _ = instance_service::delete_instance(paths, data_dir, &updated.id).await;
+        return Err(err);
+    }
+
+    Ok(updated)
+}
+
 #[cfg(test)]
 mod tests {
     use super::already_compressed;
     use std::path::Path;
-
     #[test]
     fn detects_already_compressed_files() {
         assert!(already_compressed(Path::new("mod.jar")));

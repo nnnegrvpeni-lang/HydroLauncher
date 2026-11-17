@@ -234,7 +234,7 @@ pub async fn duplicate_instance(
 }
 
 /// Рекурсивно копирует папку, пропуская символические ссылки.
-async fn copy_dir_recursive(source: &Path, target: &Path) -> AppResult<()> {
+pub(crate) async fn copy_dir_recursive(source: &Path, target: &Path) -> AppResult<()> {
     let mut stack = vec![(source.to_path_buf(), target.to_path_buf())];
     while let Some((from, to)) = stack.pop() {
         tokio::fs::create_dir_all(&to).await?;

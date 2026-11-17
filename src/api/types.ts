@@ -22,6 +22,20 @@ export interface AppSettings {
   releaseChannel: ReleaseChannel;
 }
 
+export interface StorageCategory { id: string; sizeBytes: number }
+export interface InstanceStorage {
+  id: string; name: string; totalBytes: number; worldsBytes: number;
+  modsBytes: number; backupsBytes: number; logsBytes: number;
+}
+export interface StorageReport {
+  totalBytes: number; categories: StorageCategory[]; instances: InstanceStorage[];
+}
+export type DropKind = 'modpack' | 'instance' | 'prism' | 'world' | 'resourcepack' | 'mod' | 'unknown';
+export interface DropItem {
+  path: string; fileName: string; kind: DropKind; sizeBytes: number; isDir: boolean; hint: string | null;
+}
+export interface DropImportResult { kind: DropKind; instanceId: string; name: string }
+
 export interface SystemInfo {
   totalMemoryMb: number;
   availableMemoryMb: number;
@@ -524,6 +538,12 @@ export const api = {
   updateHorizonBinaries: (instanceId?: string, tag?: string) =>
     invoke<HorizonUpdateInfo>('update_horizon_binaries', { instanceId, tag }),
   cleanupHorizonCache: () => invoke<HorizonCleanupResult>('cleanup_horizon_cache'),
+  getStorageReport: () => invoke<StorageReport>('get_storage_report'),
+  cleanupStorage: (kind: 'cache' | 'logs') => invoke<number>('cleanup_storage', { kind }),
+  inspectDropPaths: (paths: string[]) => invoke<DropItem[]>('inspect_drop_paths', { paths }),
+  importDropInstance: (path: string) => invoke<Instance>('import_drop_instance', { path }),
+  importDropContent: (instanceId: string, path: string) =>
+    invoke<DropImportResult>('import_drop_content', { instanceId, path }),
 
   // Моды (Modrinth)
   searchModrinthMods: (request: SearchModrinthRequest) =>

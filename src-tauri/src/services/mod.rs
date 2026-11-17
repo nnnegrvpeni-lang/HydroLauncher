@@ -6,6 +6,7 @@
 
 pub mod account_service;
 pub mod downloader;
+pub mod drop_service;
 pub mod horizon_mods_service;
 pub mod horizon_service;
 pub mod instance_archive_service;
@@ -20,4 +21,5 @@ pub mod modrinth_service;
 pub mod mojang_service;
 pub mod server_ping_service;
 pub mod settings_service;
+pub mod storage_service;
 pub mod world_backup_service;
