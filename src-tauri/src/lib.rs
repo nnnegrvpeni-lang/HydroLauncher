@@ -15,12 +15,11 @@ use commands::{
     },
     instances::{
         add_quick_server, backup_instance_world, create_instance, delete_instance,
-        delete_instance_screenshot, delete_instance_world, delete_world_backup,
-        duplicate_instance, export_instance_archive, get_instance_quick_play,
-        get_instance_screenshots, get_instances, import_instance_archive, list_instance_worlds,
-        list_world_backups, open_instance_folder, open_instance_log, open_screenshot_file,
-        pick_instance_archive, read_instance_log, remove_quick_server, restore_world_backup,
-        toggle_quick_server_favorite, update_instance,
+        delete_instance_screenshot, delete_instance_world, delete_world_backup, duplicate_instance,
+        export_instance_archive, get_instance_quick_play, get_instance_screenshots, get_instances,
+        import_instance_archive, list_instance_worlds, list_world_backups, open_instance_folder,
+        open_instance_log, open_screenshot_file, pick_instance_archive, read_instance_log,
+        remove_quick_server, restore_world_backup, toggle_quick_server_favorite, update_instance,
     },
     java_cmd::{download_java_runtime, get_java_runtimes},
     mods::{
@@ -65,8 +64,7 @@ fn request_quit(app: &tauri::AppHandle) {
 }
 
 fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
-    let open_item =
-        MenuItem::with_id(app, "open", "Открыть HydroLauncher", true, None::<&str>)?;
+    let open_item = MenuItem::with_id(app, "open", "Открыть HydroLauncher", true, None::<&str>)?;
     let quit_item = MenuItem::with_id(app, "quit", "Выйти", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&open_item, &quit_item])?;
 
@@ -148,9 +146,8 @@ pub fn run() {
 
             let state_handle = app.handle().clone();
             app.listen("launch://state", move |event| {
-                let Ok(state) = serde_json::from_str::<
-                    crate::models::events::GameStateEvent,
-                >(event.payload())
+                let Ok(state) =
+                    serde_json::from_str::<crate::models::events::GameStateEvent>(event.payload())
                 else {
                     return;
                 };

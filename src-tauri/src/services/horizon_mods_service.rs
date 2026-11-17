@@ -3,7 +3,7 @@ use crate::error::{AppError, AppResult};
 use crate::services::downloader::get_json;
 use crate::services::modrinth_service::{InstalledModFile, ModMetaEntry};
 use crate::storage::paths::AppPaths;
- 
+
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::time::{Duration, SystemTime};
@@ -308,7 +308,9 @@ pub async fn install_mod(
     };
     tokio::fs::create_dir_all(&dest_dir).await?;
 
-    let meta_path = paths.instance_dir(data_dir, instance_id).join("mods-meta.json");
+    let meta_path = paths
+        .instance_dir(data_dir, instance_id)
+        .join("mods-meta.json");
 
     let client = crate::services::downloader::build_client()?;
     let dest = dest_dir.join(safe_name);

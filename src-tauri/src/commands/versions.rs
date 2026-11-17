@@ -4,8 +4,8 @@ use crate::services::launch_service;
 use crate::services::mojang_service::{is_version_installed, MojangService};
 use crate::services::settings_service;
 use crate::state::AppState;
-use crate::{commands::shared, AppError};
 use crate::storage::paths::AppPaths;
+use crate::{commands::shared, AppError};
 use serde::Serialize;
 use tauri::State;
 
@@ -16,9 +16,7 @@ pub struct VersionCatalog {
 }
 
 #[tauri::command]
-pub async fn get_version_catalog(
-    state: State<'_, AppState>,
-) -> Result<VersionCatalog, AppError> {
+pub async fn get_version_catalog(state: State<'_, AppState>) -> Result<VersionCatalog, AppError> {
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
     let service = MojangService::new();
     let manifest = service.fetch_manifest(&paths, &data_dir).await?;
@@ -124,7 +122,8 @@ pub async fn get_loader_supported_mc_versions(
 }
 
 #[tauri::command]
-pub async fn list_horizon_releases() -> Result<Vec<crate::services::horizon_service::HorizonReleaseSummary>, AppError> {
+pub async fn list_horizon_releases(
+) -> Result<Vec<crate::services::horizon_service::HorizonReleaseSummary>, AppError> {
     crate::services::horizon_service::list_horizon_releases().await
 }
 

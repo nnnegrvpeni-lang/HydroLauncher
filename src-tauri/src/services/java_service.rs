@@ -43,7 +43,8 @@ pub struct JavaService {
 impl JavaService {
     pub fn new() -> Self {
         Self {
-            client: crate::services::downloader::build_client().unwrap_or_else(|_| reqwest::Client::new()),
+            client: crate::services::downloader::build_client()
+                .unwrap_or_else(|_| reqwest::Client::new()),
         }
     }
 
@@ -323,16 +324,14 @@ pub async fn probe_java(exec: &Path) -> AppResult<JavaRuntime> {
             ))
         })?
         .map_err(|e| {
-            AppError::Process(format!(
-                "Не удалось запустить '{}': {}",
-                exec.display(),
-                e
-            ))
+            AppError::Process(format!("Не удалось запустить '{}': {}", exec.display(), e))
         })?;
 
-    // java -version пишет сведения о версии в stderr
+    // java -version пишет сведения о версии в stderr. Первой строкой может
+    // быть предупреждение (JAVA_TOOL_OPTIONS, _JAVA_OPTIONS), поэтому ищем
+    // именно строку с версией, а не берём первую попавшуюся.
     let stderr = String::from_utf8_lossy(&output.stderr);
-    let version_line = stderr.lines().next().unwrap_or("").trim().to_string();
+    let version_line = first_version_line(&stderr);
 
     let (version, major) = parse_java_version(&version_line)?;
 
@@ -365,6 +364,16 @@ fn detect_vendor(version_line: &str) -> String {
     }
 }
 
+fn first_version_line(output: &str) -> String {
+    output
+        .lines()
+        .find(|line| line.to_ascii_lowercase().contains("version \""))
+        .or_else(|| output.lines().next())
+        .unwrap_or("")
+        .trim()
+        .to_string()
+}
+
 fn parse_java_version(version_line: &str) -> AppResult<(String, u32)> {
     // Примеры: 'java version "17.0.11"' | 'openjdk version "21.0.3"'
     let quoted = version_line
@@ -378,13 +387,25 @@ fn parse_java_version(version_line: &str) -> AppResult<(String, u32)> {
         })?
         .to_string();
 
-    let major: u32 = quoted
-        .split('.')
-        .next()
-        .and_then(|v| v.parse().ok())
-        .ok_or_else(|| {
-            AppError::JavaRequired(format!("Некорректный номер версии Java: {}", quoted))
-        })?;
+    let major: u32 = if quoted.starts_with("1.") {
+        // Старая схема: 1.8.0_401 — это Java 8, а не Java 1. Иначе поиск
+        // установленной Java 8 по majorVersion из манифеста не сработает.
+        quoted
+            .split('.')
+            .nth(1)
+            .and_then(|v| v.parse().ok())
+            .ok_or_else(|| {
+                AppError::JavaRequired(format!("Некорректный номер версии Java: {}", quoted))
+            })?
+    } else {
+        quoted
+            .split('.')
+            .next()
+            .and_then(|v| v.parse().ok())
+            .ok_or_else(|| {
+                AppError::JavaRequired(format!("Некорректный номер версии Java: {}", quoted))
+            })?
+    };
 
     Ok((quoted, major))
 }
@@ -427,4 +448,61 @@ fn find_java_home_dir(dest_dir: &Path) -> AppResult<PathBuf> {
         }
     }
     Ok(dest_dir.to_path_buf())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{detect_vendor, first_version_line, parse_java_version};
+
+    #[test]
+    fn skips_warning_lines_before_the_version() {
+        let output = "Picked up JAVA_TOOL_OPTIONS: -Xmx1G\nopenjdk version \"21.0.5\" 2024-10-15\nOpenJDK Runtime Environment\n";
+        assert_eq!(
+            first_version_line(output),
+            "openjdk version \"21.0.5\" 2024-10-15"
+        );
+    }
+
+    #[test]
+    fn falls_back_to_the_first_line_without_a_version_match() {
+        assert_eq!(first_version_line("unexpected output"), "unexpected output");
+        assert_eq!(first_version_line(""), "");
+    }
+
+    #[test]
+    fn parses_current_and_legacy_version_schemes() {
+        assert_eq!(
+            parse_java_version("openjdk version \"21.0.5\" 2024-10-15").unwrap(),
+            ("21.0.5".into(), 21)
+        );
+        assert_eq!(
+            parse_java_version("java version \"17.0.11\" 2024-04-16").unwrap(),
+            ("17.0.11".into(), 17)
+        );
+        // 1.8 — это Java 8: иначе установленная Java 8 не находится по
+        // majorVersion из манифеста и лаунчер качает её заново.
+        assert_eq!(
+            parse_java_version("java version \"1.8.0_401\"").unwrap(),
+            ("1.8.0_401".into(), 8)
+        );
+    }
+
+    #[test]
+    fn rejects_lines_without_a_quoted_version() {
+        assert!(parse_java_version("Picked up JAVA_TOOL_OPTIONS: -Xmx1G").is_err());
+        assert!(parse_java_version("openjdk version \"next\"").is_err());
+    }
+
+    #[test]
+    fn detects_vendors_case_insensitively() {
+        assert_eq!(
+            detect_vendor("openjdk version \"21\" 2024-10-15 LTS"),
+            "OpenJDK"
+        );
+        assert_eq!(
+            detect_vendor("OpenJDK Runtime Environment Temurin-21.0.5+11"),
+            "Eclipse Temurin"
+        );
+        assert_eq!(detect_vendor("java version \"1.8.0_401\""), "Unknown");
+    }
 }

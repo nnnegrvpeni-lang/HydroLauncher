@@ -36,9 +36,7 @@ where
     result
 }
 
-pub async fn resolve_data_dir(
-    state: &State<'_, AppState>,
-) -> AppResult<(AppPaths, PathBuf)> {
+pub async fn resolve_data_dir(state: &State<'_, AppState>) -> AppResult<(AppPaths, PathBuf)> {
     let paths = AppPaths::discover()?;
     let data_dir = data_dir(&paths, state).await?;
     Ok((paths, data_dir))

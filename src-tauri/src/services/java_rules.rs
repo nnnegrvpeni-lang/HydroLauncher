@@ -87,14 +87,16 @@ pub fn library_allows(lib: &Library) -> bool {
     match &lib.rules {
         None => true,
         Some(rules) if rules.is_empty() => true,
-        Some(rules) => rules
-            .iter()
-            .filter(|r| r.action == "allow")
-            .any(rule_allows)
-            && !rules
+        Some(rules) => {
+            rules
                 .iter()
-                .filter(|r| r.action == "disallow")
-                .any(rule_allows),
+                .filter(|r| r.action == "allow")
+                .any(rule_allows)
+                && !rules
+                    .iter()
+                    .filter(|r| r.action == "disallow")
+                    .any(rule_allows)
+        }
     }
 }
 

@@ -35,9 +35,11 @@ pub async fn save_settings_cmd(
         };
         let current_dir = match current_dir {
             Some(dir) => dir,
-            None => settings_service::load_or_init_settings(&paths)
-                .await?
-                .data_dir,
+            None => {
+                settings_service::load_or_init_settings(&paths)
+                    .await?
+                    .data_dir
+            }
         };
         if settings.data_dir.trim() != current_dir.trim() {
             return Err(AppError::Validation(
@@ -77,9 +79,7 @@ pub async fn pick_directory() -> Result<Option<String>, AppError> {
 pub async fn validate_data_dir(path: String) -> Result<String, AppError> {
     let p = PathBuf::from(&path);
     if p.as_os_str().is_empty() {
-        return Err(AppError::Validation(
-            "Путь не может быть пустым".into(),
-        ));
+        return Err(AppError::Validation("Путь не может быть пустым".into()));
     }
     tokio::fs::create_dir_all(&p).await?;
     let test_file = p.join(".hydro-write-test");

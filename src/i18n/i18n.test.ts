@@ -21,6 +21,14 @@ describe('i18n', () => {
     }
   });
 
+  it('keeps placeholders from the source phrase', () => {
+    for (const [phrase, translation] of Object.entries(en)) {
+      const placeholders = (text: string) =>
+        [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
+      expect(placeholders(translation), phrase).toEqual(placeholders(phrase));
+    }
+  });
+
   it('covers the main navigation and language switcher', () => {
     for (const phrase of ['Обзор', 'Сборки', 'Моды', 'Настройки', 'Язык интерфейса']) {
       expect(translateIn('en', phrase), phrase).not.toBe(phrase);

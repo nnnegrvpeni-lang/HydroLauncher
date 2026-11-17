@@ -55,7 +55,9 @@ async fn wait_before_retry(response: &Response, attempt: u32) {
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.trim().parse::<u64>().ok())
         .map(Duration::from_secs);
-    let delay = hinted.unwrap_or_else(|| backoff(attempt)).min(Duration::from_secs(10));
+    let delay = hinted
+        .unwrap_or_else(|| backoff(attempt))
+        .min(Duration::from_secs(10));
     tokio::time::sleep(delay).await;
 }
 

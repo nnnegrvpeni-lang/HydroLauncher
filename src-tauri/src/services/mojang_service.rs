@@ -145,10 +145,7 @@ pub async fn install_version_files(
 /// Ставит файлы версии один раз, даже если её одновременно готовят несколько
 /// сборок. Замок версии защищает общие папки библиотек и ассетов, а повторная
 /// проверка после замка не заставляет качать всё второй раз.
-pub async fn ensure_version_files(
-    ctx: &InstallContext,
-    details: &VersionDetails,
-) -> AppResult<()> {
+pub async fn ensure_version_files(ctx: &InstallContext, details: &VersionDetails) -> AppResult<()> {
     let key = format!(
         "version-install:{}",
         ctx.paths.version_dir(&ctx.data_dir, &details.id).display()
@@ -256,7 +253,10 @@ async fn download_assets(ctx: &InstallContext, details: &VersionDetails) -> AppR
                     AppError::Validation(format!("Некорректный хеш ассета: {}", obj.hash))
                 })?
                 .to_string();
-            let dest = assets_dir.join("objects").join(&hash_prefix).join(&obj.hash);
+            let dest = assets_dir
+                .join("objects")
+                .join(&hash_prefix)
+                .join(&obj.hash);
             let url = format!("{}/{}/{}", MOJANG_RESOURCES_BASE_URL, hash_prefix, obj.hash);
             download_file(&client, &url, &dest, Some(&obj.hash)).await?;
 
@@ -331,9 +331,7 @@ async fn download_libraries(ctx: &InstallContext, details: &VersionDetails) -> A
         .libraries
         .iter()
         .filter(|l| library_allows(l))
-        .filter_map(|l| {
-            library_artifact(l).map(|(artifact, _)| (l, artifact))
-        })
+        .filter_map(|l| library_artifact(l).map(|(artifact, _)| (l, artifact)))
         .collect();
 
     let total = allowed.len() as u64;
@@ -394,10 +392,7 @@ pub fn maven_artifact_path(coords: &str) -> String {
     let group = parts[0].replace('.', "/");
     let artifact = parts[1];
     let version = parts[2];
-    let classifier_ext = parts
-        .get(3)
-        .map(|c| format!("-{}", c))
-        .unwrap_or_default();
+    let classifier_ext = parts.get(3).map(|c| format!("-{}", c)).unwrap_or_default();
     format!(
         "{}/{}/{}/{}-{}{}.jar",
         group, artifact, version, artifact, version, classifier_ext
@@ -598,17 +593,15 @@ pub fn compute_launch_args(
                                 ));
                             }
                             crate::models::mojang::ArgumentValue::Multiple(list) => {
-                                args.extend(
-                                    list.iter().map(|value| {
-                                        replace_jvm_placeholders(
-                                            value,
-                                            &natives_str,
-                                            &libs_str,
-                                            &classpath_str,
-                                            &details.id,
-                                        )
-                                    }),
-                                );
+                                args.extend(list.iter().map(|value| {
+                                    replace_jvm_placeholders(
+                                        value,
+                                        &natives_str,
+                                        &libs_str,
+                                        &classpath_str,
+                                        &details.id,
+                                    )
+                                }));
                             }
                         }
                     }

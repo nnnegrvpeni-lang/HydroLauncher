@@ -229,7 +229,10 @@ pub async fn search_mods(
     if let Some(ver) = game_version.map(str::trim).filter(|v| !v.is_empty()) {
         facets.push(vec![format!("versions:{ver}")]);
     }
-    if let Some(cat) = category.map(str::trim).filter(|c| !c.is_empty() && *c != "all") {
+    if let Some(cat) = category
+        .map(str::trim)
+        .filter(|c| !c.is_empty() && *c != "all")
+    {
         facets.push(vec![format!("categories:{cat}")]);
     }
 
@@ -362,7 +365,15 @@ pub async fn install_mod(
     version_id: Option<&str>,
 ) -> AppResult<InstalledModFile> {
     let mut visited = std::collections::HashSet::new();
-    install_mod_inner(paths, data_dir, instance, project_id, version_id, &mut visited).await
+    install_mod_inner(
+        paths,
+        data_dir,
+        instance,
+        project_id,
+        version_id,
+        &mut visited,
+    )
+    .await
 }
 
 async fn install_mod_inner(
@@ -494,7 +505,9 @@ async fn install_mod_inner(
     // Список модов читают и правят несколько команд: держим замок файла на
     // всё время read-modify-write, иначе установка теряет чужие записи, а
     // старый файл проекта удаляется по устаревшему списку.
-    let meta_path = paths.instance_dir(data_dir, &instance.id).join("mods-meta.json");
+    let meta_path = paths
+        .instance_dir(data_dir, &instance.id)
+        .join("mods-meta.json");
     let meta_list = {
         let _guard = crate::storage::json_store::lock_file(&meta_path).await;
         let mut meta_list: Vec<ModMetaEntry> =
@@ -611,7 +624,9 @@ pub async fn list_installed_mods(
     let shaderpacks_dir = paths.instance_shaderpacks_dir(data_dir, instance_id);
     let resourcepacks_dir = paths.instance_resourcepacks_dir(data_dir, instance_id);
 
-    let meta_path = paths.instance_dir(data_dir, instance_id).join("mods-meta.json");
+    let meta_path = paths
+        .instance_dir(data_dir, instance_id)
+        .join("mods-meta.json");
     let mut meta_list: Vec<ModMetaEntry> =
         crate::storage::json_store::read_json_or_default(&meta_path)
             .await
@@ -619,11 +634,34 @@ pub async fn list_installed_mods(
 
     let mut files: Vec<(String, String, u64, std::path::PathBuf)> = Vec::new();
     for (dir, kind, exts) in [
-        (&mods_dir, "mod", &[".jar", ".jar.disabled", ".hmod", ".hmod.disabled", ".hnmod", ".hnmod.disabled"][..]),
+        (
+            &mods_dir,
+            "mod",
+            &[
+                ".jar",
+                ".jar.disabled",
+                ".hmod",
+                ".hmod.disabled",
+                ".hnmod",
+                ".hnmod.disabled",
+            ][..],
+        ),
         (&horizon_mods_dir, "mod", &[".hmod", ".hmod.disabled"][..]),
-        (&horizon_native_mods_dir, "mod", &[".hnmod", ".hnmod.disabled"][..]),
-        (&shaderpacks_dir, "shader", &[".hshader", ".hshader.disabled", ".zip", ".zip.disabled"][..]),
-        (&resourcepacks_dir, "resourcepack", &[".zip", ".zip.disabled"][..]),
+        (
+            &horizon_native_mods_dir,
+            "mod",
+            &[".hnmod", ".hnmod.disabled"][..],
+        ),
+        (
+            &shaderpacks_dir,
+            "shader",
+            &[".hshader", ".hshader.disabled", ".zip", ".zip.disabled"][..],
+        ),
+        (
+            &resourcepacks_dir,
+            "resourcepack",
+            &[".zip", ".zip.disabled"][..],
+        ),
     ] {
         if !dir.exists() {
             continue;
@@ -713,10 +751,10 @@ pub async fn list_installed_mods(
                         meta_list.push(ModMetaEntry {
                             file_name: file_name.clone(),
                             project_id: ver.project_id.clone(),
-                            title: proj
-                                .map(|p| p.title.clone())
-                                .or_else(|| ver.name.clone()),
-                            icon_url: proj.and_then(|p| p.icon_url.clone()).filter(|u| !u.is_empty()),
+                            title: proj.map(|p| p.title.clone()).or_else(|| ver.name.clone()),
+                            icon_url: proj
+                                .and_then(|p| p.icon_url.clone())
+                                .filter(|u| !u.is_empty()),
                             version_id: ver.id.clone(),
                             version_number: ver.version_number.clone(),
                         });
@@ -725,8 +763,8 @@ pub async fn list_installed_mods(
                 }
 
                 if changed {
-                    let _ = crate::storage::json_store::write_json_atomic(&meta_path, &meta_list)
-                        .await;
+                    let _ =
+                        crate::storage::json_store::write_json_atomic(&meta_path, &meta_list).await;
                 }
             }
         }
@@ -782,7 +820,9 @@ pub async fn remove_installed_mod(
         }
     }
 
-    let meta_path = paths.instance_dir(data_dir, instance_id).join("mods-meta.json");
+    let meta_path = paths
+        .instance_dir(data_dir, instance_id)
+        .join("mods-meta.json");
     if meta_path.exists() {
         let _guard = crate::storage::json_store::lock_file(&meta_path).await;
         let mut meta_list: Vec<ModMetaEntry> =
@@ -836,7 +876,9 @@ pub async fn toggle_installed_mod(
         return Err(AppError::NotFound(format!("Файл {file_name} не найден")));
     }
 
-    let meta_path = paths.instance_dir(data_dir, instance_id).join("mods-meta.json");
+    let meta_path = paths
+        .instance_dir(data_dir, instance_id)
+        .join("mods-meta.json");
     if meta_path.exists() {
         let _guard = crate::storage::json_store::lock_file(&meta_path).await;
         let mut meta_list: Vec<ModMetaEntry> =
@@ -977,9 +1019,7 @@ pub async fn install_modrinth_modpack(
         .await?
         .to_vec();
     if bytes.len() as u64 > MAX_MRPACK_BYTES {
-        return Err(AppError::Validation(
-            "Файл модпака слишком большой".into(),
-        ));
+        return Err(AppError::Validation("Файл модпака слишком большой".into()));
     }
 
     install_mrpack_from_bytes(paths, data_dir, bytes, custom_name).await
@@ -993,9 +1033,7 @@ pub async fn import_mrpack_file(
 ) -> AppResult<Instance> {
     let size = tokio::fs::metadata(file_path).await?.len();
     if size > MAX_MRPACK_BYTES {
-        return Err(AppError::Validation(
-            "Файл модпака слишком большой".into(),
-        ));
+        return Err(AppError::Validation("Файл модпака слишком большой".into()));
     }
     let bytes = tokio::fs::read(file_path).await?;
     install_mrpack_from_bytes(paths, data_dir, bytes, custom_name).await
@@ -1011,9 +1049,9 @@ async fn install_mrpack_from_bytes(
         let cursor = std::io::Cursor::new(&bytes);
         let mut archive = zip::ZipArchive::new(cursor)
             .map_err(|e| AppError::Validation(format!("Некорректный .mrpack архив: {e}")))?;
-        let mut idx_file = archive.by_name("modrinth.index.json").map_err(|_| {
-            AppError::Validation("В архиве отсутствует modrinth.index.json".into())
-        })?;
+        let mut idx_file = archive
+            .by_name("modrinth.index.json")
+            .map_err(|_| AppError::Validation("В архиве отсутствует modrinth.index.json".into()))?;
         let mut buf = Vec::new();
         std::io::Read::read_to_end(&mut idx_file, &mut buf)?;
         serde_json::from_slice(&buf)?
@@ -1218,10 +1256,9 @@ pub async fn export_instance_mrpack(
     let mods_dir = instance_dir.join("game").join("mods");
     let game_dir = instance_dir.join("game");
     let meta_path = instance_dir.join("mods-meta.json");
-    let meta_list: Vec<ModMetaEntry> =
-        crate::storage::json_store::read_json_or_default(&meta_path)
-            .await
-            .unwrap_or_default();
+    let meta_list: Vec<ModMetaEntry> = crate::storage::json_store::read_json_or_default(&meta_path)
+        .await
+        .unwrap_or_default();
 
     let mut index_files: Vec<serde_json::Value> = Vec::new();
     let mut overrides: Vec<(String, std::path::PathBuf)> = Vec::new();
@@ -1387,10 +1424,7 @@ async fn resolve_mrpack_file(
     let mut hashes = serde_json::Map::new();
     for key in ["sha1", "sha512"] {
         if let Some(value) = file.hashes.get(key) {
-            hashes.insert(
-                key.to_string(),
-                serde_json::Value::String(value.clone()),
-            );
+            hashes.insert(key.to_string(), serde_json::Value::String(value.clone()));
         }
     }
     if hashes.is_empty() {

@@ -248,7 +248,10 @@ mod tests {
 
         let value: Sample = read_json_or_default(&path).await.unwrap();
         assert_eq!(value, Sample::default());
-        assert!(!path.exists(), "битый файл должен быть перемещён в карантин");
+        assert!(
+            !path.exists(),
+            "битый файл должен быть перемещён в карантин"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

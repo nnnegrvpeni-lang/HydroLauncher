@@ -25,4 +25,12 @@ describe('mock API contract', () => {
     const missing = readCommands(typesSource).filter((command) => !cases.has(command));
     expect(missing).toEqual([]);
   });
+
+  it('does not embed real external URLs', () => {
+    const urls = [...mockSource.matchAll(/https?:\/\/[^\s'"`]+/g)].map((match) => match[0]);
+    expect(urls.length).toBeGreaterThan(0);
+    for (const url of urls) {
+      expect(new URL(url).hostname, url).toBe('example.invalid');
+    }
+  });
 });

@@ -126,8 +126,21 @@ fn already_compressed(path: &Path) -> bool {
         .to_ascii_lowercase();
     matches!(
         extension.as_str(),
-        "jar" | "zip" | "png" | "jpg" | "jpeg" | "webp" | "ogg" | "mca" | "mcr" | "hnmod" | "hmod"
-            | "hshader" | "gz" | "xz" | "zst"
+        "jar"
+            | "zip"
+            | "png"
+            | "jpg"
+            | "jpeg"
+            | "webp"
+            | "ogg"
+            | "mca"
+            | "mcr"
+            | "hnmod"
+            | "hmod"
+            | "hshader"
+            | "gz"
+            | "xz"
+            | "zst"
     )
 }
 
@@ -204,25 +217,30 @@ pub async fn export_instance(
     let app_for_task = app.clone();
     let instance_id = instance.id.clone();
     let written = tokio::task::spawn_blocking(move || {
-        write_archive(&target_owned, &manifest_bytes, &files, |done, total, name| {
-            let percent = if total == 0 {
-                0.0
-            } else {
-                (done as f64 / total as f64) * 100.0
-            };
-            let relative = name.trim_start_matches("game/");
-            let _ = app_for_task.emit(
-                "launch://progress",
-                LaunchProgressEvent {
-                    instance_id: instance_id.clone(),
-                    stage: "archive".to_string(),
-                    message: format!("Экспорт сборки: {relative}"),
-                    current: done,
-                    total,
-                    percent,
-                },
-            );
-        })
+        write_archive(
+            &target_owned,
+            &manifest_bytes,
+            &files,
+            |done, total, name| {
+                let percent = if total == 0 {
+                    0.0
+                } else {
+                    (done as f64 / total as f64) * 100.0
+                };
+                let relative = name.trim_start_matches("game/");
+                let _ = app_for_task.emit(
+                    "launch://progress",
+                    LaunchProgressEvent {
+                        instance_id: instance_id.clone(),
+                        stage: "archive".to_string(),
+                        message: format!("Экспорт сборки: {relative}"),
+                        current: done,
+                        total,
+                        percent,
+                    },
+                );
+            },
+        )
     })
     .await
     .map_err(|e| AppError::Process(format!("Не удалось экспортировать сборку: {e}")))?;
@@ -359,10 +377,14 @@ pub async fn import_instance(
 
     let manifest: InstanceArchiveManifest = {
         let mut entry = archive.by_name(MANIFEST_NAME).map_err(|_| {
-            AppError::Validation("В архиве нет hydro-instance.json — это не экспорт HydroLauncher".into())
+            AppError::Validation(
+                "В архиве нет hydro-instance.json — это не экспорт HydroLauncher".into(),
+            )
         })?;
         if entry.size() > 1024 * 1024 {
-            return Err(AppError::Validation("Манифест сборки слишком большой".into()));
+            return Err(AppError::Validation(
+                "Манифест сборки слишком большой".into(),
+            ));
         }
         let mut bytes = Vec::new();
         entry.read_to_end(&mut bytes)?;

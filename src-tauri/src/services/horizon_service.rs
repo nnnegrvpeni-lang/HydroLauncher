@@ -117,7 +117,14 @@ fn expected_archive_name() -> AppResult<&'static str> {
     }
 }
 
-fn emit_progress(app: &AppHandle, instance_id: &str, stage: &str, message: &str, current: u64, total: u64) {
+fn emit_progress(
+    app: &AppHandle,
+    instance_id: &str,
+    stage: &str,
+    message: &str,
+    current: u64,
+    total: u64,
+) {
     let percent = if total == 0 {
         0.0
     } else {
@@ -259,8 +266,7 @@ pub async fn list_horizon_releases() -> AppResult<Vec<HorizonReleaseSummary>> {
     Ok(releases
         .into_iter()
         .filter(|r| {
-            r.tag_name.starts_with("nightly")
-                && r.assets.iter().any(|a| a.name == archive_name)
+            r.tag_name.starts_with("nightly") && r.assets.iter().any(|a| a.name == archive_name)
         })
         .map(|r| HorizonReleaseSummary {
             name: r.name.unwrap_or_else(|| r.tag_name.clone()),
@@ -296,10 +302,11 @@ pub async fn list_installed_horizon_binaries(
         if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
             continue;
         }
-        let meta = match crate::storage::json_store::read_json_or_default::<HorizonMeta>(&path).await {
-            Ok(meta) if !meta.tag_name.trim().is_empty() => meta,
-            _ => continue,
-        };
+        let meta =
+            match crate::storage::json_store::read_json_or_default::<HorizonMeta>(&path).await {
+                Ok(meta) if !meta.tag_name.trim().is_empty() => meta,
+                _ => continue,
+            };
         if resolve_horizon_binaries(paths, data_dir, Some(&meta.tag_name)).is_none() {
             continue;
         }
@@ -446,7 +453,10 @@ pub async fn ensure_horizon_binaries(
     preferred_tag: Option<&str>,
     auto_update: bool,
 ) -> AppResult<(PathBuf, PathBuf)> {
-    let pinned = preferred_tag.map(str::trim).filter(|t| !t.is_empty()).is_some();
+    let pinned = preferred_tag
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .is_some();
     let tag = effective_tag(preferred_tag);
 
     if let Some(pair) = resolve_horizon_binaries(paths, data_dir, Some(&tag)) {
@@ -609,10 +619,19 @@ async fn download_horizon_binaries(
     }
     let _ = crate::storage::json_store::write_json_atomic(&meta_path, &meta).await;
 
-    emit_progress(app, instance_id, "horizon", "Движок Horizon установлен", 1, 1);
+    emit_progress(
+        app,
+        instance_id,
+        "horizon",
+        "Движок Horizon установлен",
+        1,
+        1,
+    );
 
     resolve_horizon_binaries(paths, data_dir, Some(&release.tag_name)).ok_or_else(|| {
-        AppError::NotFound("После распаковки не найдены бинарники horizon-client / horizon-prepare".into())
+        AppError::NotFound(
+            "После распаковки не найдены бинарники horizon-client / horizon-prepare".into(),
+        )
     })
 }
 
@@ -646,7 +665,10 @@ fn extract_archive(archive_path: &Path, dest_dir: &Path) -> AppResult<()> {
                 {
                     use std::os::unix::fs::PermissionsExt;
                     if let Some(mode) = entry.unix_mode() {
-                        let _ = std::fs::set_permissions(&out_path, std::fs::Permissions::from_mode(mode));
+                        let _ = std::fs::set_permissions(
+                            &out_path,
+                            std::fs::Permissions::from_mode(mode),
+                        );
                     }
                 }
             }
@@ -706,7 +728,13 @@ pub async fn ensure_horizon_prepared(
     // horizon-prepare проверяет точный SHA-1 оригинального <version>.json от Mojang
     let version_dir = paths.version_dir(data_dir, &details.id);
     let version_json = version_dir.join(format!("{}.json", details.id));
-    download_file(&client, &summary.url, &version_json, summary.sha1.as_deref()).await?;
+    download_file(
+        &client,
+        &summary.url,
+        &version_json,
+        summary.sha1.as_deref(),
+    )
+    .await?;
 
     // Для первой подготовки horizon-prepare требуется server.jar версии 26.3
     let server_jar = version_dir.join("server.jar");

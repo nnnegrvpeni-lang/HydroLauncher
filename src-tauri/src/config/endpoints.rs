@@ -19,8 +19,7 @@ pub const HORIZON_RELEASES_API_URL: &str =
 pub fn horizon_release_by_tag_url(tag: &str) -> String {
     format!("https://api.github.com/repos/horizon-rust/horizon/releases/tags/{tag}")
 }
-pub const HORIZON_MODS_INDEX_URL: &str =
-    "https://horizon-rust.github.io/horizon-mods/index.json";
+pub const HORIZON_MODS_INDEX_URL: &str = "https://horizon-rust.github.io/horizon-mods/index.json";
 pub const HORIZON_MINECRAFT_VERSION: &str = "26.3";
 
 /// Репозиторий и релизы самого лаунчера.

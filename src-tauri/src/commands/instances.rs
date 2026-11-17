@@ -153,7 +153,9 @@ pub async fn get_instance_quick_play(
     instance_id: String,
 ) -> Result<InstanceQuickPlay, AppError> {
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
-    let saves_dir = paths.instance_game_dir(&data_dir, &instance_id).join("saves");
+    let saves_dir = paths
+        .instance_game_dir(&data_dir, &instance_id)
+        .join("saves");
 
     let mut worlds: Vec<QuickPlayWorld> = Vec::new();
     if saves_dir.exists() {
@@ -450,7 +452,9 @@ pub async fn list_instance_worlds(
     instance_id: String,
 ) -> Result<Vec<InstanceWorld>, AppError> {
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
-    let saves_dir = paths.instance_game_dir(&data_dir, &instance_id).join("saves");
+    let saves_dir = paths
+        .instance_game_dir(&data_dir, &instance_id)
+        .join("saves");
     if !saves_dir.exists() {
         return Ok(Vec::new());
     }
@@ -609,7 +613,9 @@ pub async fn delete_instance_world(
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
     shared::with_instance_reserved(&registry, &instance_id, async {
         let folder = crate::services::world_backup_service::validate_world_folder(&folder_name)?;
-        let saves_dir = paths.instance_game_dir(&data_dir, &instance_id).join("saves");
+        let saves_dir = paths
+            .instance_game_dir(&data_dir, &instance_id)
+            .join("saves");
         let target = saves_dir.join(&folder);
         if !target.is_dir() {
             return Err(AppError::NotFound("Мир не найден".into()));
@@ -690,7 +696,8 @@ pub async fn read_instance_log(
 pub async fn open_instance_log(
     state: State<'_, AppState>,
     instance_id: String,
-) -> Result<(), AppError> {    let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
+) -> Result<(), AppError> {
+    let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
     let target = instance_latest_log(&paths, &data_dir, &instance_id);
     if !target.is_file() {
         return Err(AppError::NotFound(
@@ -726,8 +733,7 @@ pub async fn export_instance_archive(
     state: State<'_, AppState>,
     registry: State<'_, crate::services::launch_service::LaunchRegistry>,
     instance_id: String,
-) -> Result<Option<crate::services::instance_archive_service::ExportedInstanceArchive>, AppError>
-{
+) -> Result<Option<crate::services::instance_archive_service::ExportedInstanceArchive>, AppError> {
     // Проверяем занятость до диалога, а сам архив пишем под резервом слота.
     shared::ensure_instance_idle(&registry, &instance_id).await?;
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
@@ -826,10 +832,7 @@ mod tests {
 
     #[tokio::test]
     async fn missing_log_returns_empty_list() {
-        let path = std::env::temp_dir().join(format!(
-            "hydro-missing-{}.log",
-            uuid::Uuid::new_v4()
-        ));
+        let path = std::env::temp_dir().join(format!("hydro-missing-{}.log", uuid::Uuid::new_v4()));
         assert!(read_log_tail(&path, 10).await.unwrap().is_empty());
     }
 }

@@ -209,27 +209,28 @@ async fn prepare_instance_inner(app: AppHandle, instance: Instance) -> AppResult
             .await?;
             let horizon_tag = horizon_service::effective_tag(instance.loader_version.as_deref());
             let prepared_dir = paths.horizon_prepared_dir(&data_dir, &details.id, &horizon_tag);
-            let java_exec = if horizon_service::is_horizon_prepared(&prepare_bin, &prepared_dir).await {
-                String::new()
-            } else {
-                let required_major = details
-                    .java_version
-                    .as_ref()
-                    .map(|j| j.major_version)
-                    .unwrap_or(8);
-                let java_service = crate::services::java_service::JavaService::new();
-                resolve_java_exec(
-                    &app,
-                    &instance.id,
-                    &java_service,
-                    &paths,
-                    &data_dir,
-                    &settings,
-                    required_major,
-                    instance.java_path_override.as_deref(),
-                )
-                .await?
-            };
+            let java_exec =
+                if horizon_service::is_horizon_prepared(&prepare_bin, &prepared_dir).await {
+                    String::new()
+                } else {
+                    let required_major = details
+                        .java_version
+                        .as_ref()
+                        .map(|j| j.major_version)
+                        .unwrap_or(8);
+                    let java_service = crate::services::java_service::JavaService::new();
+                    resolve_java_exec(
+                        &app,
+                        &instance.id,
+                        &java_service,
+                        &paths,
+                        &data_dir,
+                        &settings,
+                        required_major,
+                        instance.java_path_override.as_deref(),
+                    )
+                    .await?
+                };
             horizon_service::ensure_horizon_prepared(
                 &app,
                 &paths,
@@ -447,7 +448,8 @@ async fn launch_inner(
             )
             .await?;
             let horizon_tag = horizon_service::effective_tag(instance.loader_version.as_deref());
-            let prepared_dir_path = paths.horizon_prepared_dir(&data_dir, &details.id, &horizon_tag);
+            let prepared_dir_path =
+                paths.horizon_prepared_dir(&data_dir, &details.id, &horizon_tag);
             let java_exec =
                 if horizon_service::is_horizon_prepared(&prepare_bin, &prepared_dir_path).await {
                     String::new()
@@ -553,11 +555,7 @@ async fn launch_inner(
     let (kill_tx, mut kill_rx) = tokio::sync::oneshot::channel::<()>();
     let cleanup_done = Arc::new(tokio::sync::Notify::new());
     app.state::<LaunchRegistry>()
-        .attach(
-            instance.id.clone(),
-            kill_tx,
-            cleanup_done.clone(),
-        )
+        .attach(instance.id.clone(), kill_tx, cleanup_done.clone())
         .await;
     emit_state(&app, &instance.id, "running");
 
@@ -795,12 +793,7 @@ fn emit_state(app: &AppHandle, instance_id: &str, state: &str) {
     emit_state_with_code(app, instance_id, state, None);
 }
 
-fn emit_state_with_code(
-    app: &AppHandle,
-    instance_id: &str,
-    state: &str,
-    exit_code: Option<i32>,
-) {
+fn emit_state_with_code(app: &AppHandle, instance_id: &str, state: &str, exit_code: Option<i32>) {
     let _ = app.emit(
         "launch://state",
         GameStateEvent {

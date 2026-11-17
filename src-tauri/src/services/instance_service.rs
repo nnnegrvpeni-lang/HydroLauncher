@@ -43,13 +43,13 @@ pub async fn create_instance(
     if req.minecraft_version.trim().is_empty() {
         return Err(AppError::Validation("Не выбрана версия Minecraft".into()));
     }
-    let minecraft_version = sanitize_version_token(&req.minecraft_version).ok_or_else(|| {
-        AppError::Validation("Некорректная версия Minecraft".into())
-    })?;
+    let minecraft_version = sanitize_version_token(&req.minecraft_version)
+        .ok_or_else(|| AppError::Validation("Некорректная версия Minecraft".into()))?;
     let loader_version = match req.loader_version.as_deref() {
-        Some(value) => Some(sanitize_version_token(value).ok_or_else(|| {
-            AppError::Validation("Некорректная версия загрузчика".into())
-        })?),
+        Some(value) => Some(
+            sanitize_version_token(value)
+                .ok_or_else(|| AppError::Validation("Некорректная версия загрузчика".into()))?,
+        ),
         None => None,
     };
 
@@ -111,7 +111,10 @@ pub async fn update_instance(
     // ручной ввод могли передать JVM бессмысленный `-Xmx`.
     instance.memory_mb_override = req.memory_mb_override.map(|value| {
         let total = crate::services::settings_service::collect_system_info(paths).total_memory_mb;
-        value.clamp(crate::config::endpoints::MIN_MEMORY_MB, total.max(crate::config::endpoints::MIN_MEMORY_MB))
+        value.clamp(
+            crate::config::endpoints::MIN_MEMORY_MB,
+            total.max(crate::config::endpoints::MIN_MEMORY_MB),
+        )
     });
     instance.java_path_override = req
         .java_path_override
@@ -287,12 +290,12 @@ mod tests {
 
     #[test]
     fn rejects_paths_and_empty_ids() {
-        assert_eq!(sanitize_icon_id(Some("../secret".into()), "purple"), "purple");
-        assert_eq!(sanitize_icon_id(Some("  ".into()), "purple"), "purple");
-        assert_eq!(sanitize_icon_id(None, "purple"), "purple");
         assert_eq!(
-            sanitize_icon_id(Some("a".repeat(64)), "purple"),
+            sanitize_icon_id(Some("../secret".into()), "purple"),
             "purple"
         );
+        assert_eq!(sanitize_icon_id(Some("  ".into()), "purple"), "purple");
+        assert_eq!(sanitize_icon_id(None, "purple"), "purple");
+        assert_eq!(sanitize_icon_id(Some("a".repeat(64)), "purple"), "purple");
     }
 }

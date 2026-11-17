@@ -164,7 +164,12 @@ pub async fn list_backups(
         return Ok(backups);
     };
     while let Ok(Some(world_entry)) = worlds.next_entry().await {
-        if !world_entry.file_type().await.map(|t| t.is_dir()).unwrap_or(false) {
+        if !world_entry
+            .file_type()
+            .await
+            .map(|t| t.is_dir())
+            .unwrap_or(false)
+        {
             continue;
         }
         let world_folder = world_entry.file_name().to_string_lossy().to_string();
@@ -237,7 +242,12 @@ async fn migrate_legacy_backups(paths: &AppPaths, data_dir: &Path, instance_id: 
     let mut world_names = Vec::new();
     if let Ok(mut worlds) = tokio::fs::read_dir(&saves_dir).await {
         while let Ok(Some(entry)) = worlds.next_entry().await {
-            if entry.file_type().await.map(|kind| kind.is_dir()).unwrap_or(false) {
+            if entry
+                .file_type()
+                .await
+                .map(|kind| kind.is_dir())
+                .unwrap_or(false)
+            {
                 world_names.push(entry.file_name().to_string_lossy().to_string());
             }
         }
@@ -247,7 +257,12 @@ async fn migrate_legacy_backups(paths: &AppPaths, data_dir: &Path, instance_id: 
     }
 
     while let Ok(Some(entry)) = entries.next_entry().await {
-        if !entry.file_type().await.map(|kind| kind.is_file()).unwrap_or(false) {
+        if !entry
+            .file_type()
+            .await
+            .map(|kind| kind.is_file())
+            .unwrap_or(false)
+        {
             continue;
         }
         let file_name = entry.file_name().to_string_lossy().to_string();
@@ -277,7 +292,8 @@ async fn migrate_legacy_backups(paths: &AppPaths, data_dir: &Path, instance_id: 
     }
 }
 
-pub async fn delete_backup(    paths: &AppPaths,
+pub async fn delete_backup(
+    paths: &AppPaths,
     data_dir: &Path,
     instance_id: &str,
     world_folder: &str,
@@ -336,11 +352,10 @@ pub async fn restore_backup(
 
     let archive_clone = archive.clone();
     let target_clone = target.clone();
-    let extracted = tokio::task::spawn_blocking(move || {
-        extract_world_zip(&archive_clone, &target_clone)
-    })
-    .await
-    .map_err(|e| AppError::Process(format!("Не удалось восстановить мир: {e}")))?;
+    let extracted =
+        tokio::task::spawn_blocking(move || extract_world_zip(&archive_clone, &target_clone))
+            .await
+            .map_err(|e| AppError::Process(format!("Не удалось восстановить мир: {e}")))?;
 
     if let Err(err) = extracted {
         let _ = tokio::fs::remove_dir_all(&target).await;
@@ -489,7 +504,11 @@ pub async fn auto_backup_changed_worlds(
         if stamp == 0 {
             continue;
         }
-        if latest.get(&folder).map(|saved| *saved >= stamp).unwrap_or(false) {
+        if latest
+            .get(&folder)
+            .map(|saved| *saved >= stamp)
+            .unwrap_or(false)
+        {
             continue;
         }
         pending.push(folder);
@@ -539,7 +558,9 @@ pub async fn auto_backup_changed_worlds(
 
 #[cfg(test)]
 mod tests {
-    use super::{extract_world_zip, legacy_backup_stem, is_backup_timestamp, validate_world_folder};
+    use super::{
+        extract_world_zip, is_backup_timestamp, legacy_backup_stem, validate_world_folder,
+    };
 
     #[test]
     fn validates_world_folder_names() {

@@ -42,9 +42,7 @@ pub async fn search_modrinth_mods(
 }
 
 #[tauri::command]
-pub async fn get_modrinth_project(
-    project_id: String,
-) -> Result<ModrinthProjectDetails, AppError> {
+pub async fn get_modrinth_project(project_id: String) -> Result<ModrinthProjectDetails, AppError> {
     modrinth_service::get_project(&project_id).await
 }
 

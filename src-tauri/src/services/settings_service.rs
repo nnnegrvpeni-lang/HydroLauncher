@@ -1,5 +1,6 @@
 use crate::config::endpoints::{
-    DEFAULT_CONCURRENT_DOWNLOADS, MIN_MEMORY_MB, RECOMMENDED_MAX_MEMORY_MB, RECOMMENDED_MIN_MEMORY_MB,
+    DEFAULT_CONCURRENT_DOWNLOADS, MIN_MEMORY_MB, RECOMMENDED_MAX_MEMORY_MB,
+    RECOMMENDED_MIN_MEMORY_MB,
 };
 use crate::error::{AppError, AppResult};
 use crate::models::settings::{AppSettings, SystemInfo, ThemeMode};

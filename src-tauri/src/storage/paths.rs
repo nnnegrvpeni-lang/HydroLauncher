@@ -11,8 +11,8 @@ pub struct AppPaths {
 
 impl AppPaths {
     pub fn discover() -> AppResult<Self> {
-        let proj_dirs = ProjectDirs::from(APP_QUALIFIER, APP_ORGANIZATION, APP_NAME)
-            .ok_or_else(|| {
+        let proj_dirs =
+            ProjectDirs::from(APP_QUALIFIER, APP_ORGANIZATION, APP_NAME).ok_or_else(|| {
                 AppError::Custom("Не удалось определить системную директорию приложения".into())
             })?;
 
@@ -119,7 +119,8 @@ impl AppPaths {
     }
 
     pub fn horizon_meta_file(&self, data_dir: &Path, tag: &str) -> PathBuf {
-        self.horizon_meta_dir(data_dir).join(format!("{}.json", sanitize_tag(tag)))
+        self.horizon_meta_dir(data_dir)
+            .join(format!("{}.json", sanitize_tag(tag)))
     }
 
     pub fn horizon_prepared_dir(&self, data_dir: &Path, mc_version: &str, tag: &str) -> PathBuf {

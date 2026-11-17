@@ -9,7 +9,7 @@ use crate::models::mojang::{Library, VersionArguments, VersionDetails};
 use crate::services::downloader;
 use crate::services::mojang_service::maven_artifact_path;
 use crate::storage::paths::AppPaths;
- 
+
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::Path;
@@ -95,9 +95,8 @@ pub async fn list_supported_mc_versions(loader: ModLoaderKind) -> AppResult<Vec<
             Ok(entries.into_iter().map(|e| e.version).collect())
         }
         ModLoaderKind::Forge => {
-            let xml_url = format!(
-                "{FORGE_MAVEN_BASE_URL}/net/minecraftforge/forge/maven-metadata.xml"
-            );
+            let xml_url =
+                format!("{FORGE_MAVEN_BASE_URL}/net/minecraftforge/forge/maven-metadata.xml");
             let xml = client
                 .get(&xml_url)
                 .header("User-Agent", crate::services::downloader::USER_AGENT)
@@ -168,9 +167,8 @@ pub async fn list_loader_versions(
             Ok(entries.into_iter().map(|e| e.loader.version).collect())
         }
         ModLoaderKind::Forge => {
-            let xml_url = format!(
-                "{FORGE_MAVEN_BASE_URL}/net/minecraftforge/forge/maven-metadata.xml"
-            );
+            let xml_url =
+                format!("{FORGE_MAVEN_BASE_URL}/net/minecraftforge/forge/maven-metadata.xml");
             let xml = client
                 .get(&xml_url)
                 .header("User-Agent", crate::services::downloader::USER_AGENT)
@@ -290,7 +288,8 @@ async fn install_fabric_or_quilt(
         .version_dir(data_dir, &profile_id)
         .join(format!("{profile_id}.json"));
 
-    let profile: LoaderProfileJson = if let Some(cached) = read_loader_profile(&profile_path).await {
+    let profile: LoaderProfileJson = if let Some(cached) = read_loader_profile(&profile_path).await
+    {
         cached
     } else {
         let url = format!("{meta_base}/versions/loader/{mc_ver}/{loader_ver}/profile/json");
@@ -364,9 +363,7 @@ async fn install_forge(
             .get(&format!("{mc_ver}-recommended"))
             .or_else(|| promos.promos.get(&format!("{mc_ver}-latest")))
             .cloned()
-            .ok_or_else(|| {
-                AppError::NotFound(format!("Forge не найден для Minecraft {mc_ver}"))
-            })?
+            .ok_or_else(|| AppError::NotFound(format!("Forge не найден для Minecraft {mc_ver}")))?
     };
 
     let version_id = format!("{mc_ver}-forge-{forge_ver}");
