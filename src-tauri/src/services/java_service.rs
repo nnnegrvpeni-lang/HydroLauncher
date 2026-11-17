@@ -2,9 +2,39 @@ use crate::config::endpoints::ADOPTIUM_API_BASE_URL;
 use crate::error::{AppError, AppResult};
 use crate::models::java::JavaRuntime;
 use crate::services::downloader::download_file;
+use crate::storage::json_store::lock_key;
 use crate::storage::paths::AppPaths;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
 use tokio::process::Command;
+
+/// `java -version` не должен вешать интерфейс: зависший процесс убиваем.
+const PROBE_TIMEOUT: Duration = Duration::from_secs(10);
+/// Повторно опрашивать ту же Java на каждом запуске незачем.
+const PROBE_TTL: Duration = Duration::from_secs(10 * 60);
+
+fn probe_cache() -> &'static Mutex<HashMap<PathBuf, (Instant, JavaRuntime)>> {
+    static CACHE: OnceLock<Mutex<HashMap<PathBuf, (Instant, JavaRuntime)>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn cached_probe(exec: &Path) -> Option<JavaRuntime> {
+    let guard = probe_cache().lock().ok()?;
+    let (checked_at, runtime) = guard.get(exec)?;
+    if checked_at.elapsed() < PROBE_TTL {
+        Some(runtime.clone())
+    } else {
+        None
+    }
+}
+
+fn cache_probe(exec: &Path, runtime: &JavaRuntime) {
+    if let Ok(mut guard) = probe_cache().lock() {
+        guard.insert(exec.to_path_buf(), (Instant::now(), runtime.clone()));
+    }
+}
 
 pub struct JavaService {
     client: reqwest::Client,
@@ -91,7 +121,20 @@ impl JavaService {
         Ok(result)
     }
 
+    /// Скачивает рантайм заново. Замок на мажорную версию не даёт двум
+    /// запускам одновременно распаковывать архивы в одну папку.
     pub async fn download_runtime(
+        &self,
+        paths: &AppPaths,
+        data_dir: &Path,
+        major_version: u32,
+    ) -> AppResult<JavaRuntime> {
+        let _guard = lock_key(&format!("java-install:{major_version}")).await;
+        self.download_runtime_locked(paths, data_dir, major_version)
+            .await
+    }
+
+    async fn download_runtime_locked(
         &self,
         paths: &AppPaths,
         data_dir: &Path,
@@ -104,13 +147,19 @@ impl JavaService {
 
         let runtimes_dir = paths.runtimes_dir(data_dir);
         let dest_dir = runtimes_dir.join(format!("jdk-{}", major_version));
+        // Старые файлы могли остаться от оборванной распаковки: чистим папку,
+        // иначе в неё попадут бинарники двух разных версий.
+        if tokio::fs::try_exists(&dest_dir).await? {
+            tokio::fs::remove_dir_all(&dest_dir).await?;
+        }
         tokio::fs::create_dir_all(&dest_dir).await?;
 
         let archive_path = dest_dir.join(&archive_name);
         download_file(&self.client, &download_url, &archive_path, None).await?;
 
-        extract_archive(&archive_path, &dest_dir)?;
+        let extract_result = extract_archive(&archive_path, &dest_dir);
         let _ = tokio::fs::remove_file(&archive_path).await;
+        extract_result?;
 
         // При распаковке может появиться вложенная папка "jdk-XX.Y.Z+N" — нормализуем.
         let home_dir = find_java_home_dir(&dest_dir)?;
@@ -133,11 +182,36 @@ impl JavaService {
         data_dir: &Path,
         major_version: u32,
     ) -> AppResult<JavaRuntime> {
-        let managed = self.list_managed_runtimes(paths, data_dir).await?;
-        if let Some(existing) = managed.iter().find(|r| r.major_version == major_version) {
-            return Ok(existing.clone());
+        if let Some(existing) = self
+            .find_managed_runtime(paths, data_dir, major_version)
+            .await?
+        {
+            return Ok(existing);
         }
-        self.download_runtime(paths, data_dir, major_version).await
+
+        let _guard = lock_key(&format!("java-install:{major_version}")).await;
+        // Пока ждали замок, рантайм мог скачать другой запуск.
+        if let Some(existing) = self
+            .find_managed_runtime(paths, data_dir, major_version)
+            .await?
+        {
+            return Ok(existing);
+        }
+        self.download_runtime_locked(paths, data_dir, major_version)
+            .await
+    }
+
+    async fn find_managed_runtime(
+        &self,
+        paths: &AppPaths,
+        data_dir: &Path,
+        major_version: u32,
+    ) -> AppResult<Option<JavaRuntime>> {
+        Ok(self
+            .list_managed_runtimes(paths, data_dir)
+            .await?
+            .into_iter()
+            .find(|runtime| runtime.major_version == major_version))
     }
 
     /// Определяет имя архива: из заголовка Content-Disposition, иначе — запасной вариант.
@@ -228,10 +302,26 @@ fn well_known_locations() -> Vec<PathBuf> {
 }
 
 pub async fn probe_java(exec: &Path) -> AppResult<JavaRuntime> {
-    let output = Command::new(exec)
-        .arg("-version")
-        .output()
+    if let Some(cached) = cached_probe(exec) {
+        return Ok(cached);
+    }
+
+    let command = async {
+        Command::new(exec)
+            .arg("-version")
+            .kill_on_drop(true)
+            .output()
+            .await
+    };
+    let output = tokio::time::timeout(PROBE_TIMEOUT, command)
         .await
+        .map_err(|_| {
+            AppError::Process(format!(
+                "Java не ответила за {} секунд: {}",
+                PROBE_TIMEOUT.as_secs(),
+                exec.display()
+            ))
+        })?
         .map_err(|e| {
             AppError::Process(format!(
                 "Не удалось запустить '{}': {}",
@@ -246,14 +336,16 @@ pub async fn probe_java(exec: &Path) -> AppResult<JavaRuntime> {
 
     let (version, major) = parse_java_version(&version_line)?;
 
-    Ok(JavaRuntime {
+    let runtime = JavaRuntime {
         path: exec.to_string_lossy().into_owned(),
         version,
         major_version: major,
         vendor: detect_vendor(&version_line),
         arch: std::env::consts::ARCH.to_string(),
         is_managed: false,
-    })
+    };
+    cache_probe(exec, &runtime);
+    Ok(runtime)
 }
 
 fn detect_vendor(version_line: &str) -> String {

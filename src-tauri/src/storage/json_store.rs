@@ -8,28 +8,38 @@ use std::sync::{Arc, OnceLock};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::{Mutex, OwnedMutexGuard};
 
-/// Замок на конкретный файл. Без него два параллельных read-modify-write
-/// (например, статистика после выхода из игры и правка сборки из интерфейса)
-/// затирают изменения друг друга.
-static FILE_LOCKS: OnceLock<Mutex<HashMap<PathBuf, Arc<Mutex<()>>>>> = OnceLock::new();
+/// Замок на конкретный файл или именованную операцию. Без него два
+/// параллельных read-modify-write (например, статистика после выхода из игры и
+/// правка сборки из интерфейса) затирают изменения друг друга.
+static FILE_LOCKS: OnceLock<Mutex<HashMap<String, Arc<Mutex<()>>>>> = OnceLock::new();
 static TMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
-fn normalized(path: &Path) -> PathBuf {
+fn normalized(path: &Path) -> String {
     // Windows не различает регистр в путях, поэтому и замок должен быть один.
-    PathBuf::from(path.to_string_lossy().to_lowercase())
+    path.to_string_lossy().to_lowercase()
 }
 
-/// Захватывает замок файла. Держите его на всё время read-modify-write.
-pub async fn lock_file(path: &Path) -> OwnedMutexGuard<()> {
+async fn lock_named(key: String) -> OwnedMutexGuard<()> {
     let map = FILE_LOCKS.get_or_init(|| Mutex::new(HashMap::new()));
     let lock = {
         let mut guard = map.lock().await;
         guard
-            .entry(normalized(path))
+            .entry(key)
             .or_insert_with(|| Arc::new(Mutex::new(())))
             .clone()
     };
     lock.lock_owned().await
+}
+
+/// Захватывает замок файла. Держите его на всё время read-modify-write.
+pub async fn lock_file(path: &Path) -> OwnedMutexGuard<()> {
+    lock_named(normalized(path)).await
+}
+
+/// Замок для операции без одного файла: установка версии в общую папку,
+/// выгрузка архива и т. п. Ключ должен быть стабильным между вызовами.
+pub async fn lock_key(key: &str) -> OwnedMutexGuard<()> {
+    lock_named(format!("op:{key}")).await
 }
 
 fn backup_path(path: &Path) -> PathBuf {

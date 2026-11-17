@@ -4,7 +4,8 @@ use reqwest::{Client, Response, StatusCode};
 use sha1::{Digest, Sha1};
 use sha2::Sha256;
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -16,6 +17,7 @@ const MAX_ATTEMPTS: u32 = 3;
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 const READ_TIMEOUT: Duration = Duration::from_secs(60);
 const TOTAL_TIMEOUT: Duration = Duration::from_secs(60 * 30);
+static TMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 /// HTTP-клиент с таймаутами и общим User-Agent.
 pub fn build_client() -> AppResult<Client> {
@@ -140,6 +142,21 @@ where
     Ok(serde_json::from_str::<T>(&body)?)
 }
 
+/// Уникальное имя временного файла: один и тот же ассет или библиотеку могут
+/// качать параллельно несколько сборок, и общий `.tmp` они бы затёрли.
+fn temp_path_for(dest: &Path) -> PathBuf {
+    let mut name = dest
+        .file_name()
+        .map(|value| value.to_os_string())
+        .unwrap_or_else(|| "download".into());
+    name.push(format!(
+        ".{}-{}.hydro.tmp",
+        std::process::id(),
+        TMP_COUNTER.fetch_add(1, Ordering::Relaxed)
+    ));
+    dest.with_file_name(name)
+}
+
 pub async fn download_file(
     client: &Client,
     url: &str,
@@ -154,7 +171,7 @@ pub async fn download_file(
         return Ok(());
     }
 
-    let tmp_path = dest.with_extension("hydro.tmp");
+    let tmp_path = temp_path_for(dest);
     let mut attempt = 0;
     loop {
         attempt += 1;
@@ -183,8 +200,40 @@ pub async fn download_file(
         }
     }
 
-    tokio::fs::rename(&tmp_path, dest).await?;
-    Ok(())
+    place_downloaded_file(&tmp_path, dest, expected_sha1).await
+}
+
+/// Переносит проверенный файл на место. Параллельная загрузка того же файла
+/// могла закончиться раньше — тогда её копия уже подходит, и перезаписывать
+/// её не нужно.
+async fn place_downloaded_file(
+    tmp: &Path,
+    dest: &Path,
+    expected_sha1: Option<&str>,
+) -> AppResult<()> {
+    if verify_sha1(dest, expected_sha1).await? {
+        let _ = tokio::fs::remove_file(tmp).await;
+        return Ok(());
+    }
+
+    match tokio::fs::rename(tmp, dest).await {
+        Ok(()) => Ok(()),
+        Err(err) => {
+            // Windows не заменяет существующий файл при rename.
+            if verify_sha1(dest, expected_sha1).await.unwrap_or(false) {
+                let _ = tokio::fs::remove_file(tmp).await;
+                return Ok(());
+            }
+            let _ = tokio::fs::remove_file(dest).await;
+            match tokio::fs::rename(tmp, dest).await {
+                Ok(()) => Ok(()),
+                Err(_) => {
+                    let _ = tokio::fs::remove_file(tmp).await;
+                    Err(err.into())
+                }
+            }
+        }
+    }
 }
 
 fn retryable_download(err: &AppError) -> bool {
@@ -262,6 +311,21 @@ mod tests {
         assert_eq!(backoff(1), Duration::from_millis(300));
         assert_eq!(backoff(2), Duration::from_millis(900));
         assert_eq!(backoff(3), Duration::from_millis(2700));
+    }
+
+    #[test]
+    fn temp_paths_are_unique_and_keep_directory() {
+        let dest = Path::new("cache/libraries/example.jar");
+        let first = temp_path_for(dest);
+        let second = temp_path_for(dest);
+
+        assert_ne!(first, second);
+        assert_eq!(first.parent(), dest.parent());
+        assert!(first
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .starts_with("example.jar."));
     }
 
     #[tokio::test]

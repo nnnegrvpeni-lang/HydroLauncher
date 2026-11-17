@@ -142,6 +142,24 @@ pub async fn install_version_files(
     Ok(())
 }
 
+/// Ставит файлы версии один раз, даже если её одновременно готовят несколько
+/// сборок. Замок версии защищает общие папки библиотек и ассетов, а повторная
+/// проверка после замка не заставляет качать всё второй раз.
+pub async fn ensure_version_files(
+    ctx: &InstallContext,
+    details: &VersionDetails,
+) -> AppResult<()> {
+    let key = format!(
+        "version-install:{}",
+        ctx.paths.version_dir(&ctx.data_dir, &details.id).display()
+    );
+    let _guard = crate::storage::json_store::lock_key(&key).await;
+    if is_version_installed(&ctx.paths, &ctx.data_dir, &details.id).await {
+        return Ok(());
+    }
+    install_version_files(ctx, details).await
+}
+
 /// Собирает результат параллельных загрузок: первая ошибка становится
 /// причиной провала установки, а не теряется в `JoinHandle`.
 async fn collect_download_results(
@@ -278,15 +296,32 @@ fn artifact_path(coords: &str, artifact: &DownloadArtifact) -> String {
         .unwrap_or_else(|| maven_artifact_path(coords))
 }
 
+/// Классификатор нативов из карты `natives` самой библиотеки: в старых
+/// манифестах там встречается `${arch}` (32/64), и без подстановки игра
+/// получала не тот бинарник.
+fn native_classifier_for(lib: &Library) -> Option<String> {
+    let template = lib
+        .natives
+        .as_ref()?
+        .get(crate::services::java_rules::normalized_os())?;
+    let arch = if std::env::consts::ARCH == "x86" {
+        "32"
+    } else {
+        "64"
+    };
+    Some(template.replace("${arch}", arch))
+}
+
 fn library_artifact<'a>(
     lib: &'a Library,
 ) -> Option<(&'a DownloadArtifact, Option<&'a DownloadArtifact>)> {
     let downloads = lib.downloads.as_ref()?;
     let artifact = downloads.artifact.as_ref()?;
-    let natives = downloads
-        .classifiers
-        .as_ref()
-        .and_then(|c| c.get(native_classifier()));
+    let natives = downloads.classifiers.as_ref().and_then(|classifiers| {
+        native_classifier_for(lib)
+            .and_then(|key| classifiers.get(&key))
+            .or_else(|| classifiers.get(native_classifier()))
+    });
     Some((artifact, natives))
 }
 
@@ -501,6 +536,7 @@ pub fn compute_launch_args(
     game_dir: &Path,
     memory_mb: u64,
     extra_jvm_args: &[String],
+    extra_game_args: &[String],
 ) -> Vec<String> {
     let natives_str = natives_dir.to_string_lossy().replace('\\', "/");
     let libs_str = libs_dir.to_string_lossy().replace('\\', "/");
@@ -511,11 +547,29 @@ pub fn compute_launch_args(
     let mut args: Vec<String> = vec![
         format!("-Xmx{}M", memory_mb),
         "-Dfile.encoding=UTF-8".to_string(),
-        format!("-Djava.library.path={}", natives_str),
-        format!("-Dorg.lwjgl.opengl.Display.noinput=false"),
-        format!("-cp"),
-        classpath_str.clone(),
     ];
+
+    // Манифест сам задаёт classpath и путь к нативам в JVM-аргументах, поэтому
+    // добавляем свои только при их отсутствии: два `-cp` в одной команде
+    // бессмысленны, а последний молча затирает первый.
+    let manifest_jvm = active_jvm_values(details);
+    let has_library_path = manifest_jvm.iter().any(|value| {
+        value
+            .split_whitespace()
+            .any(|token| token.starts_with("-Djava.library.path="))
+    });
+    if !has_library_path {
+        args.push(format!("-Djava.library.path={}", natives_str));
+    }
+    let has_classpath = manifest_jvm.iter().any(|value| {
+        value
+            .split_whitespace()
+            .any(|token| token == "-cp" || token == "-classpath")
+    });
+    if !has_classpath {
+        args.push("-cp".to_string());
+        args.push(classpath_str.clone());
+    }
 
     args.extend(extra_jvm_args.iter().cloned());
 
@@ -544,7 +598,17 @@ pub fn compute_launch_args(
                                 ));
                             }
                             crate::models::mojang::ArgumentValue::Multiple(list) => {
-                                args.extend(list.iter().cloned());
+                                args.extend(
+                                    list.iter().map(|value| {
+                                        replace_jvm_placeholders(
+                                            value,
+                                            &natives_str,
+                                            &libs_str,
+                                            &classpath_str,
+                                            &details.id,
+                                        )
+                                    }),
+                                );
                             }
                         }
                     }
@@ -584,7 +648,17 @@ pub fn compute_launch_args(
                                 ));
                             }
                             crate::models::mojang::ArgumentValue::Multiple(list) => {
-                                args.extend(list.iter().cloned());
+                                args.extend(list.iter().map(|value| {
+                                    replace_game_placeholders(
+                                        value,
+                                        username,
+                                        user_uuid,
+                                        &game_dir_str,
+                                        &assets_str,
+                                        &details.asset_index.id,
+                                        &details.id,
+                                    )
+                                }));
                             }
                         }
                     }
@@ -592,21 +666,112 @@ pub fn compute_launch_args(
             }
         }
     } else if let Some(legacy) = &details.minecraft_arguments {
-        let replaced = legacy
-            .replace("${auth_player_name}", username)
-            .replace("${version_name}", &details.id)
-            .replace("${game_directory}", &game_dir_str)
-            .replace("${assets_root}", &assets_str)
-            .replace("${assets_index_name}", &details.asset_index.id)
-            .replace("${auth_uuid}", user_uuid)
-            .replace("${auth_access_token}", "0")
-            .replace("${user_type}", "legacy")
-            .replace("${version_type}", "HydroLauncher")
-            .replace("${user_properties}", "{}");
-        args.extend(replaced.split_whitespace().map(str::to_string));
+        // Сначала делим строку на аргументы, потом подставляем значения:
+        // путь с пробелами остаётся одним аргументом.
+        for token in split_quoted_args(legacy) {
+            args.push(replace_legacy_placeholders(
+                &token,
+                username,
+                user_uuid,
+                &game_dir_str,
+                &assets_str,
+                &details.asset_index.id,
+                &details.id,
+            ));
+        }
     }
 
+    args.extend(extra_game_args.iter().cloned());
+
     args
+}
+
+/// Значения JVM-аргументов, которые действительно попадут в командную строку.
+fn active_jvm_values(details: &VersionDetails) -> Vec<String> {
+    let mut values = Vec::new();
+    let Some(launch_args) = &details.arguments else {
+        return values;
+    };
+    for entry in &launch_args.jvm {
+        match entry {
+            crate::models::mojang::ArgumentEntry::Simple(value) => values.push(value.clone()),
+            crate::models::mojang::ArgumentEntry::Conditional { rules, value } => {
+                if !conditional_allows(rules) {
+                    continue;
+                }
+                match value {
+                    crate::models::mojang::ArgumentValue::Single(value) => {
+                        values.push(value.clone())
+                    }
+                    crate::models::mojang::ArgumentValue::Multiple(list) => {
+                        values.extend(list.iter().cloned())
+                    }
+                }
+            }
+        }
+    }
+    values
+}
+
+/// Делит строку аргументов как оболочка: пробелы внутри кавычек не разделяют
+/// аргументы, сами кавычки в результат не попадают.
+fn split_quoted_args(input: &str) -> Vec<String> {
+    let mut result = Vec::new();
+    let mut current = String::new();
+    let mut quote: Option<char> = None;
+    let mut has_chars = false;
+
+    for ch in input.chars() {
+        match quote {
+            Some(opened) if ch == opened => quote = None,
+            Some(_) => {
+                current.push(ch);
+                has_chars = true;
+            }
+            None if ch == '"' || ch == '\'' => {
+                quote = Some(ch);
+                has_chars = true;
+            }
+            None if ch.is_whitespace() => {
+                if has_chars {
+                    result.push(std::mem::take(&mut current));
+                    has_chars = false;
+                }
+            }
+            None => {
+                current.push(ch);
+                has_chars = true;
+            }
+        }
+    }
+    if has_chars {
+        result.push(current);
+    }
+    result
+}
+
+fn replace_legacy_placeholders(
+    template: &str,
+    username: &str,
+    user_uuid: &str,
+    game_dir_str: &str,
+    assets_str: &str,
+    assets_index_id: &str,
+    version_id: &str,
+) -> String {
+    template
+        .replace("${auth_player_name}", username)
+        .replace("${version_name}", version_id)
+        .replace("${game_directory}", game_dir_str)
+        .replace("${assets_root}", assets_str)
+        .replace("${assets_index_name}", assets_index_id)
+        .replace("${auth_uuid}", user_uuid)
+        .replace("${auth_access_token}", "0")
+        .replace("${auth_session}", "0")
+        .replace("${user_type}", "legacy")
+        .replace("${version_type}", "HydroLauncher")
+        .replace("${user_properties}", "{}")
+        .replace("${profile_name}", username)
 }
 
 fn replace_jvm_placeholders(
@@ -622,7 +787,7 @@ fn replace_jvm_placeholders(
         .replace("${classpath}", classpath_str)
         .replace("${classpath_separator}", classpath_separator_str())
         .replace("${launcher_name}", "HydroLauncher")
-        .replace("${launcher_version}", "0.1.0")
+        .replace("${launcher_version}", env!("CARGO_PKG_VERSION"))
         .replace("${version_name}", version_id)
 }
 
@@ -665,6 +830,9 @@ fn replace_game_placeholders(
 }
 
 fn conditional_allows(rules: &[crate::models::mojang::LibraryRule]) -> bool {
+    if rules.is_empty() {
+        return true;
+    }
     rules
         .iter()
         .filter(|r| r.action == "allow")
@@ -673,4 +841,121 @@ fn conditional_allows(rules: &[crate::models::mojang::LibraryRule]) -> bool {
             .iter()
             .filter(|r| r.action == "disallow")
             .any(rule_allows)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::mojang::VersionDetails;
+    use std::path::Path;
+
+    fn base_details(extra: serde_json::Value) -> VersionDetails {
+        let mut value = serde_json::json!({
+            "id": "1.21.4",
+            "type": "release",
+            "mainClass": "net.minecraft.client.main.Main",
+            "assetIndex": {
+                "id": "17",
+                "sha1": "0000",
+                "size": 1,
+                "url": "https://example.invalid/17.json"
+            },
+            "assets": "17",
+            "downloads": {
+                "client": {
+                    "sha1": "0000",
+                    "size": 1,
+                    "url": "https://example.invalid/client.jar"
+                }
+            },
+            "libraries": []
+        });
+        if let (Some(target), Some(extra)) = (value.as_object_mut(), extra.as_object()) {
+            for (key, item) in extra {
+                target.insert(key.clone(), item.clone());
+            }
+        }
+        serde_json::from_value(value).expect("тестовый манифест должен разбираться")
+    }
+
+    #[test]
+    fn splits_legacy_arguments_respecting_quotes() {
+        let args = split_quoted_args("--width 1280 --title \"My World\" 'two words'");
+        assert_eq!(
+            args,
+            vec!["--width", "1280", "--title", "My World", "two words"]
+        );
+    }
+
+    #[test]
+    fn legacy_launch_keeps_path_with_spaces_as_one_argument() {
+        let details = base_details(serde_json::json!({
+            "minecraftArguments":
+                "--username ${auth_player_name} --gameDir ${game_directory} --session ${auth_session}"
+        }));
+
+        let args = compute_launch_args(
+            &details,
+            Path::new("/assets"),
+            Path::new("/natives"),
+            Path::new("/libraries"),
+            "/libraries/a.jar",
+            "Steve",
+            "uuid",
+            Path::new("C:/games/My World"),
+            1024,
+            &[],
+            &[],
+        );
+
+        assert!(args.contains(&"Steve".to_string()));
+        assert!(args.contains(&"C:/games/My World".to_string()));
+        let session = args
+            .iter()
+            .position(|value| value == "--session")
+            .expect("сессия должна быть в аргументах");
+        assert_eq!(args[session + 1], "0");
+        assert!(!args.iter().any(|value| value.contains("${auth_session}")));
+    }
+
+    #[test]
+    fn manifest_classpath_is_not_duplicated() {
+        let details = base_details(serde_json::json!({
+            "arguments": {
+                "game": ["--version", "${version_name}"],
+                "jvm": [
+                    "-Djava.library.path=${natives_directory}",
+                    { "rules": [], "value": ["-cp", "${classpath}"] }
+                ]
+            }
+        }));
+
+        let args = compute_launch_args(
+            &details,
+            Path::new("/assets"),
+            Path::new("/natives"),
+            Path::new("/libraries"),
+            "/libraries/a.jar",
+            "Steve",
+            "uuid",
+            Path::new("/game"),
+            1024,
+            &[],
+            &["--width".to_string(), "1920".to_string()],
+        );
+
+        assert_eq!(
+            args.iter().filter(|value| value.as_str() == "-cp").count(),
+            1,
+            "в команде должен остаться один classpath"
+        );
+        assert_eq!(
+            args.iter()
+                .filter(|value| value.starts_with("-Djava.library.path="))
+                .count(),
+            1
+        );
+        assert_eq!(args[args.len() - 2], "--width");
+        assert_eq!(args[args.len() - 1], "1920");
+    }
 }

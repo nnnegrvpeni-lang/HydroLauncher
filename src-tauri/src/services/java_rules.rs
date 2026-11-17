@@ -31,7 +31,39 @@ pub fn rule_matches_os(os_rule: &OsRule) -> bool {
             return false;
         }
     }
+    if let Some(version) = &os_rule.version {
+        if !os_version_matches(version) {
+            return false;
+        }
+    }
     true
+}
+
+/// Проверяет шаблон `os.version` из манифеста (регулярное выражение Mojang)
+/// по строкам версии системы. Неизвестный шаблон считается совпавшим: раньше
+/// поле `version` игнорировалось целиком, и отсекать библиотеку из-за него хуже,
+/// чем сохранить прежнее поведение.
+fn os_version_matches(pattern: &str) -> bool {
+    let versions: Vec<String> = [
+        sysinfo::System::os_version(),
+        sysinfo::System::long_os_version(),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+
+    if versions.is_empty() {
+        return true;
+    }
+    versions
+        .iter()
+        .any(|version| version_matches(pattern, version))
+}
+
+fn version_matches(pattern: &str, version: &str) -> bool {
+    regex::Regex::new(pattern)
+        .map(|regex| regex.is_match(version))
+        .unwrap_or(true)
 }
 
 /// Вычисляет, действует ли правило для текущей системы.
@@ -44,7 +76,6 @@ pub fn rule_allows(rule: &LibraryRule) -> bool {
     }
 
     match &rule.os {
-        Some(os_rule) if !os_rule.name.is_some() && !os_rule.arch.is_some() => true,
         Some(os_rule) => rule_matches_os(os_rule),
         None => true,
     }
@@ -55,6 +86,7 @@ pub fn rule_allows(rule: &LibraryRule) -> bool {
 pub fn library_allows(lib: &Library) -> bool {
     match &lib.rules {
         None => true,
+        Some(rules) if rules.is_empty() => true,
         Some(rules) => rules
             .iter()
             .filter(|r| r.action == "allow")
@@ -67,11 +99,13 @@ pub fn library_allows(lib: &Library) -> bool {
 }
 
 pub fn native_classifier() -> &'static str {
-    match normalized_os() {
-        "windows" => "natives-windows",
-        "osx" => "natives-macos",
-        "linux" => "natives-linux",
-        _ => "natives-windows",
+    match (normalized_os(), normalized_arch()) {
+        ("windows", "arm64") => "natives-windows-arm64",
+        ("osx", "arm64") => "natives-macos-arm64",
+        ("linux", "arm64") => "natives-linux-arm64",
+        ("windows", _) => "natives-windows",
+        ("osx", _) => "natives-osx",
+        _ => "natives-linux",
     }
 }
 
@@ -102,5 +136,16 @@ mod tests {
             features: None,
         };
         assert!(rule_allows(&rule));
+    }
+
+    #[test]
+    fn os_version_rules_follow_manifest_patterns() {
+        // Основные шаблоны Mojang: Windows 10+ и старые macOS.
+        assert!(version_matches("^10\\.", "10.0.22631"));
+        assert!(!version_matches("^10\\.", "11.0.1"));
+        assert!(version_matches("^14\\.", "14.5.0"));
+        assert!(!version_matches("^14\\.", "15.0"));
+        // Неизвестный шаблон не отсекает библиотеку.
+        assert!(version_matches("not a regex (", "10.0"));
     }
 }

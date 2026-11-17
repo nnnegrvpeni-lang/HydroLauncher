@@ -151,9 +151,11 @@ pub async fn quit_app(
     stop_games: bool,
 ) -> Result<(), AppError> {
     if stop_games {
-        registry.stop_all().await;
-        // Даём watcher-задачам убить процессы и записать сессию.
-        tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+        // Ждём, пока игра действительно завершится, а watcher успеет дописать
+        // статистику и лог. Фиксированная пауза этого не гарантировала.
+        registry
+            .stop_all_and_wait(std::time::Duration::from_secs(5))
+            .await;
     }
     app.exit(0);
     Ok(())

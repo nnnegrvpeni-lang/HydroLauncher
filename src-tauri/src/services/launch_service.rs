@@ -4,8 +4,7 @@ use crate::models::instance::{EngineKind, Instance};
 use crate::services::account_service;
 use crate::services::horizon_service;
 use crate::services::mojang_service::{
-    collect_classpath, compute_launch_args, install_version_files, is_version_installed,
-    InstallContext, MojangService,
+    collect_classpath, compute_launch_args, ensure_version_files, InstallContext, MojangService,
 };
 use crate::services::settings_service;
 use crate::storage::paths::AppPaths;
@@ -25,7 +24,12 @@ type KillHandle = tokio::sync::oneshot::Sender<()>;
 /// повторный запуск и удаление видели сборку свободной, пока она готовилась.
 enum LaunchSlot {
     Preparing,
-    Running(KillHandle),
+    Running {
+        kill_tx: KillHandle,
+        /// Сигнал «очистка после игры закончена» — по нему выход из лаунчера
+        /// ждёт, пока watcher допишет статистику и лог.
+        done: Arc<tokio::sync::Notify>,
+    },
 }
 
 /// Реестр занятых сборок, доступный из state Tauri.
@@ -66,15 +70,21 @@ impl LaunchRegistry {
     }
 
     /// Переводит занятый слот в состояние «игра запущена».
-    pub async fn attach(&self, instance_id: String, kill_tx: KillHandle) {
+    pub async fn attach(
+        &self,
+        instance_id: String,
+        kill_tx: KillHandle,
+        done: Arc<tokio::sync::Notify>,
+    ) {
         let mut slots = self.slots.lock().await;
+        let running = LaunchSlot::Running { kill_tx, done };
         match slots.get_mut(&instance_id) {
             Some(slot) => {
-                *slot = LaunchSlot::Running(kill_tx);
+                *slot = running;
                 self.running.fetch_add(1, Ordering::Relaxed);
             }
             None => {
-                slots.insert(instance_id, LaunchSlot::Running(kill_tx));
+                slots.insert(instance_id, running);
                 self.running.fetch_add(1, Ordering::Relaxed);
             }
         }
@@ -84,7 +94,7 @@ impl LaunchRegistry {
     pub async fn take(&self, instance_id: &str) -> Option<KillHandle> {
         let mut slots = self.slots.lock().await;
         match slots.remove(instance_id) {
-            Some(LaunchSlot::Running(kill_tx)) => {
+            Some(LaunchSlot::Running { kill_tx, .. }) => {
                 self.running.fetch_sub(1, Ordering::Relaxed);
                 Some(kill_tx)
             }
@@ -117,13 +127,36 @@ impl LaunchRegistry {
 
     /// Останавливает все запущенные игры (сигнал watcher-задачам).
     pub async fn stop_all(&self) {
+        let _ = self.signal_all_games().await;
+    }
+
+    /// То же, но ждёт окончания очистки (лог, статистика) не дольше таймаута.
+    /// Фиксированная пауза перед выходом не гарантировала, что watcher успел
+    /// дописать файлы.
+    pub async fn stop_all_and_wait(&self, timeout: std::time::Duration) {
+        let pending = self.signal_all_games().await;
+        if pending.is_empty() {
+            return;
+        }
+        let wait_all = async {
+            for done in pending {
+                done.notified().await;
+            }
+        };
+        let _ = tokio::time::timeout(timeout, wait_all).await;
+    }
+
+    async fn signal_all_games(&self) -> Vec<Arc<tokio::sync::Notify>> {
+        let mut pending = Vec::new();
         let mut slots = self.slots.lock().await;
         for (_, slot) in slots.drain() {
-            if let LaunchSlot::Running(kill_tx) = slot {
+            if let LaunchSlot::Running { kill_tx, done } = slot {
                 let _ = kill_tx.send(());
+                pending.push(done);
             }
         }
         self.running.store(0, Ordering::Relaxed);
+        pending
     }
 }
 
@@ -155,16 +188,14 @@ async fn prepare_instance_inner(app: AppHandle, instance: Instance) -> AppResult
             .resolve_details_from_manifest(&paths, &data_dir, &instance.minecraft_version)
             .await?;
 
-        if !is_version_installed(&paths, &data_dir, &details.id).await {
-            let ctx = InstallContext {
-                app: app.clone(),
-                paths: paths.clone(),
-                data_dir: data_dir.clone(),
-                instance_id: instance.id.clone(),
-                max_concurrent: settings.max_concurrent_downloads,
-            };
-            install_version_files(&ctx, &details).await?;
-        }
+        let ctx = InstallContext {
+            app: app.clone(),
+            paths: paths.clone(),
+            data_dir: data_dir.clone(),
+            instance_id: instance.id.clone(),
+            max_concurrent: settings.max_concurrent_downloads,
+        };
+        ensure_version_files(&ctx, &details).await?;
 
         if instance.engine == EngineKind::Horizon {
             let (_client_bin, prepare_bin) = horizon_service::ensure_horizon_binaries(
@@ -301,17 +332,16 @@ async fn launch_inner(
         .resolve_details_from_manifest(&paths, &data_dir, &instance.minecraft_version)
         .await?;
 
-    // 2. Файлы версии: клиент, ассеты, библиотеки, нативы
-    if !is_version_installed(&paths, &data_dir, &details.id).await {
-        let ctx = InstallContext {
-            app: app.clone(),
-            paths: paths.clone(),
-            data_dir: data_dir.clone(),
-            instance_id: instance.id.clone(),
-            max_concurrent: settings.max_concurrent_downloads,
-        };
-        install_version_files(&ctx, &details).await?;
-    }
+    // 2. Файлы версии: клиент, ассеты, библиотеки, нативы. Общая папка версии
+    // ставится под замок, чтобы две сборки не качали одно и то же параллельно.
+    let ctx = InstallContext {
+        app: app.clone(),
+        paths: paths.clone(),
+        data_dir: data_dir.clone(),
+        instance_id: instance.id.clone(),
+        max_concurrent: settings.max_concurrent_downloads,
+    };
+    ensure_version_files(&ctx, &details).await?;
 
     // 3. Активный офлайн-аккаунт
     let accounts = account_service::load_accounts(&paths, &data_dir).await?;
@@ -381,6 +411,7 @@ async fn launch_inner(
                 &game_dir,
                 memory_mb,
                 &instance.jvm_args,
+                &instance.game_args,
             );
             if let Some(qp) = quick_play.as_ref().filter(|q| !q.value.trim().is_empty()) {
                 if qp.kind == "world" {
@@ -393,13 +424,17 @@ async fn launch_inner(
             }
 
             emit_state(&app, &instance.id, "launching");
-            Command::new(&java_exec)
+            let mut command = Command::new(&java_exec);
+            command
                 .args(&args)
                 .current_dir(&game_dir)
                 .stdout(std::process::Stdio::piped())
-                .stderr(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped());
+            #[cfg(unix)]
+            command.process_group(0);
+            command
                 .spawn()
-                .map_err(|e| AppError::Process(format!("Не удалось запустить иг��у: {}", e)))?
+                .map_err(|e| AppError::Process(format!("Не удалось запустить игру: {}", e)))?
         }
         EngineKind::Horizon => {
             let (client_bin, prepare_bin) = horizon_service::ensure_horizon_binaries(
@@ -464,11 +499,13 @@ async fn launch_inner(
                     cmd.arg("--quickPlayMultiplayer").arg(&qp.value);
                 }
             }
-            let mut proc = cmd
-                .current_dir(&game_dir)
+            cmd.current_dir(&game_dir)
                 .stdin(std::process::Stdio::piped())
                 .stdout(std::process::Stdio::piped())
-                .stderr(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped());
+            #[cfg(unix)]
+            cmd.process_group(0);
+            let mut proc = cmd
                 .spawn()
                 .map_err(|e| AppError::Process(format!("Не удалось запустить Horizon: {}", e)))?;
 
@@ -514,8 +551,13 @@ async fn launch_inner(
     let log_sink_watcher = log_sink.clone();
 
     let (kill_tx, mut kill_rx) = tokio::sync::oneshot::channel::<()>();
+    let cleanup_done = Arc::new(tokio::sync::Notify::new());
     app.state::<LaunchRegistry>()
-        .attach(instance.id.clone(), kill_tx)
+        .attach(
+            instance.id.clone(),
+            kill_tx,
+            cleanup_done.clone(),
+        )
         .await;
     emit_state(&app, &instance.id, "running");
 
@@ -532,8 +574,7 @@ async fn launch_inner(
         let (was_killed, exit_code) = tokio::select! {
             res = child.wait() => (false, res.ok().and_then(|s| s.code())),
             _ = &mut kill_rx => {
-                let _ = child.kill().await;
-                let _ = child.wait().await;
+                kill_game_process(&mut child).await;
                 (true, None)
             }
         };
@@ -576,6 +617,9 @@ async fn launch_inner(
         if restore_window {
             restore_main_window(&watcher_app);
         }
+
+        // Выход из лаунчера ждёт этот сигнал, чтобы не оборвать запись лога.
+        cleanup_done.notify_one();
     });
 
     Ok(())
@@ -594,6 +638,32 @@ pub async fn running_ids(app: AppHandle) -> Vec<String> {
     app.state::<LaunchRegistry>().ids().await
 }
 
+/// Останавливает игру вместе с дочерними процессами. На Windows одного
+/// `kill()` мало: crash-обработчик и вспомогательные процессы остаются висеть.
+async fn kill_game_process(child: &mut tokio::process::Child) {
+    #[cfg(target_os = "windows")]
+    if let Some(pid) = child.id() {
+        let _ = Command::new("taskkill")
+            .args(["/PID", &pid.to_string(), "/T", "/F"])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .await;
+    }
+
+    #[cfg(unix)]
+    if let Some(pid) = child.id() {
+        // Игра запущена в отдельной группе процессов, поэтому отрицательный
+        // pid завершает всю группу, а не только сам JVM.
+        unsafe {
+            libc::kill(-(pid as i32), libc::SIGKILL);
+        }
+    }
+
+    let _ = child.kill().await;
+    let _ = child.wait().await;
+}
+
 async fn resolve_java_exec(
     app: &AppHandle,
     instance_id: &str,
@@ -605,6 +675,12 @@ async fn resolve_java_exec(
     override_path: Option<&str>,
 ) -> AppResult<String> {
     if let Some(override_path) = override_path {
+        let path = std::path::Path::new(override_path);
+        if !tokio::fs::try_exists(path).await.unwrap_or(false) {
+            return Err(AppError::Validation(format!(
+                "Java по указанному пути не найдена: {override_path}. Проверьте параметры сборки"
+            )));
+        }
         return Ok(override_path.to_string());
     }
 
@@ -800,7 +876,13 @@ mod tests {
         assert!(registry.contains("inst-1").await);
 
         let (tx, _rx) = tokio::sync::oneshot::channel();
-        registry.attach("inst-1".to_string(), tx).await;
+        registry
+            .attach(
+                "inst-1".to_string(),
+                tx,
+                std::sync::Arc::new(tokio::sync::Notify::new()),
+            )
+            .await;
         assert!(registry.has_running());
         assert!(registry.contains("inst-1").await);
 
@@ -808,7 +890,13 @@ mod tests {
         assert!(!registry.has_running());
 
         let (tx, _rx) = tokio::sync::oneshot::channel();
-        registry.attach("inst-2".to_string(), tx).await;
+        registry
+            .attach(
+                "inst-2".to_string(),
+                tx,
+                std::sync::Arc::new(tokio::sync::Notify::new()),
+            )
+            .await;
         registry.stop_all().await;
         assert!(!registry.has_running());
         assert!(!registry.has_active().await);
