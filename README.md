@@ -13,20 +13,22 @@
 
 | Сборки | Каталог модов (Modrinth) |
 | --- | --- |
-| ![Сборки](screenshots/instances.png) | ![Моды](screenshots/mods.png) |
+| ![Сборки](screenshots/instances-night.png) | ![Каталог модов](screenshots/mods-night.png) |
 
-![Настройки](screenshots/settings.png)
+| Моды сборки | Настройки |
+| --- | --- |
+| ![Моды сборки](screenshots/instance-mods-night.png) | ![Настройки](screenshots/settings-night.png) |
 
 <details>
 <summary>Другие темы оформления («Сумерки» и «День»)</summary>
 
 | Сумерки | День |
 | --- | --- |
-| ![Главная — тема «Сумерки»](screenshots/main.png) | ![Главная — тема «День»](screenshots/main-day.png) |
+| ![Главная — тема «Сумерки»](screenshots/main-sumerki.png) | ![Главная — тема «День»](screenshots/main-day.png) |
 
 </details>
 
-_Скриншоты сделаны в 0.1.x; в актуальной версии добавлены трей, история бэкапов миров и архивы сборок._
+_Скриншоты сделаны в HydroLauncher 0.2.7._
 
 ---
 
