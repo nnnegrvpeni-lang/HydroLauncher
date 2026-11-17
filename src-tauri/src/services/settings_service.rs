@@ -22,6 +22,7 @@ pub fn collect_system_info(paths: &AppPaths) -> SystemInfo {
     SystemInfo {
         total_memory_mb,
         available_memory_mb,
+        recommended_memory_mb: compute_recommended_memory_mb(total_memory_mb),
         cpu_cores,
         os_name,
         arch,
@@ -75,6 +76,7 @@ pub async fn load_or_init_settings(paths: &AppPaths) -> AppResult<AppSettings> {
         backup_retention: 5,
         show_snapshots: false,
         custom_java_paths: Vec::new(),
+        release_channel: crate::models::settings::ReleaseChannel::Stable,
     };
 
     write_json_atomic(&config_file, &defaults).await?;
@@ -100,4 +102,22 @@ pub async fn save_settings(paths: &AppPaths, mut settings: AppSettings) -> AppRe
 
     write_json_atomic(&paths.config_file(), &settings).await?;
     Ok(settings)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::compute_recommended_memory_mb;
+
+    #[test]
+    fn recommendation_uses_a_quarter_of_ram() {
+        assert_eq!(compute_recommended_memory_mb(16_384), 4096);
+        assert_eq!(compute_recommended_memory_mb(32_768), 8192);
+    }
+
+    #[test]
+    fn recommendation_stays_within_sane_bounds() {
+        assert_eq!(compute_recommended_memory_mb(4096), 2048);
+        assert_eq!(compute_recommended_memory_mb(65_536), 8192);
+        assert_eq!(compute_recommended_memory_mb(1024), 2048);
+    }
 }

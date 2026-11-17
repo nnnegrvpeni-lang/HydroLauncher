@@ -47,6 +47,7 @@ import { cn } from '../utils/cn';
 import { formatBytes, formatLoaderLabel } from '../utils/format';
 import { InstanceIcon } from './InstanceIcon';
 import { Button } from './ui/Button';
+import { Modal } from './ui/Modal';
 import { Switch } from './ui/Switch';
 
 type ModalTab = 'mods' | 'shaders' | 'resourcepacks' | 'worlds' | 'screenshots' | 'logs';
@@ -121,6 +122,7 @@ export function InstanceModsModal({
   const [updatingAll, setUpdatingAll] = useState(false);
   const [installingLocal, setInstallingLocal] = useState(false);
   const [updatesCheckedOnce, setUpdatesCheckedOnce] = useState(false);
+  const [pendingUpdates, setPendingUpdates] = useState<ModUpdateInfo[] | null>(null);
 
   const [versionPickerMod, setVersionPickerMod] = useState<InstalledModFile | null>(null);
   const [versions, setVersions] = useState<ModrinthVersionInfo[]>([]);
@@ -330,34 +332,14 @@ export function InstanceModsModal({
     }
   };
 
-  const handleApplyUpdate = async (upd: ModUpdateInfo) => {
-    if (!instance) return;
-    setUpdatingFile(upd.fileName);
-    setError(null);
-    try {
-      await api.installModrinthMod(instance.id, upd.projectId, upd.latestVersionId);
-      setUpdates((prev) => {
-        const next = { ...prev };
-        delete next[upd.fileName];
-        return next;
-      });
-      await loadMods(instance.id);
-    } catch (err) {
-      if (!isJobCanceled(String(err))) setError(String(err));
-    } finally {
-      setUpdatingFile(null);
-    }
-  };
-
-  const handleApplyAllUpdates = async () => {
-    if (!instance) return;
-    const pending = Object.values(updates);
-    if (pending.length === 0) return;
-
-    setUpdatingAll(true);
+  const applyUpdates = async (list: ModUpdateInfo[]) => {
+    if (!instance || list.length === 0) return;
+    const single = list.length === 1;
+    if (single) setUpdatingFile(list[0].fileName);
+    else setUpdatingAll(true);
     setError(null);
     let done = 0;
-    for (const upd of pending) {
+    for (const upd of list) {
       try {
         await api.installModrinthMod(instance.id, upd.projectId, upd.latestVersionId);
         done += 1;
@@ -372,8 +354,19 @@ export function InstanceModsModal({
       }
     }
     await loadMods(instance.id);
-    setUpdatingAll(false);
-    useNotifyStore.getState().push(tf('Обновлено модов: {count}', { count: done }));
+    if (single) setUpdatingFile(null);
+    else {
+      setUpdatingAll(false);
+      if (done > 0) {
+        useNotifyStore.getState().push(tf('Обновлено модов: {count}', { count: done }));
+      }
+    }
+  };
+
+  const confirmUpdates = async () => {
+    const list = pendingUpdates;
+    setPendingUpdates(null);
+    if (list) await applyUpdates(list);
   };
 
   const handleInstallLocalMod = async () => {
@@ -687,7 +680,7 @@ export function InstanceModsModal({
                 size="sm"
                 variant="primary"
                 disabled={updatingAll || runtimeLocked}
-                onClick={() => void handleApplyAllUpdates()}
+                onClick={() => setPendingUpdates(Object.values(updates))}
               >
                 {updatingAll ? (
                   <Loader2 size={13} className="animate-spin" />
@@ -1443,7 +1436,7 @@ export function InstanceModsModal({
                               size="sm"
                               variant="primary"
                               disabled={isUpdating || updatingAll || runtimeLocked}
-                              onClick={() => void handleApplyUpdate(upd)}
+                              onClick={() => setPendingUpdates([upd])}
                             >
                               {isUpdating ? (
                                 <Loader2 size={13} className="animate-spin" />
@@ -1485,6 +1478,66 @@ export function InstanceModsModal({
           </div>
         )}
       </div>
+
+      <Modal
+        open={Boolean(pendingUpdates && pendingUpdates.length > 0)}
+        title={
+          pendingUpdates && pendingUpdates.length > 1
+            ? t('Обновить все моды?')
+            : t('Обновить мод?')
+        }
+        subtitle={t('Файлы будут заменены новыми версиями с Modrinth')}
+        onClose={() => setPendingUpdates(null)}
+        footer={
+          <>
+            <Button size="sm" variant="secondary" onClick={() => setPendingUpdates(null)}>
+              {t('Отмена')}
+            </Button>
+            <Button size="sm" variant="primary" onClick={() => void confirmUpdates()}>
+              <ArrowUpCircle size={13} />
+              {tf('Обновить ({count})', { count: pendingUpdates?.length ?? 0 })}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-2">
+          {(pendingUpdates ?? []).map((upd) => {
+            const title =
+              mods.find((m) => m.fileName === upd.fileName)?.title ?? upd.fileName;
+            const channelLabel =
+              upd.latestChannel === 'release' ? t('стабильная') : upd.latestChannel;
+            const published = upd.latestPublished
+              ? new Date(upd.latestPublished).toLocaleDateString(
+                  language === 'en' ? 'en-US' : 'ru-RU',
+                )
+              : null;
+
+            return (
+              <div
+                key={upd.fileName}
+                className="rounded-[9px] border border-line bg-bg-well/60 px-3 py-2.5"
+              >
+                <p className="truncate text-[13px] font-medium text-ink">{title}</p>
+                <p className="mt-0.5 truncate font-mono text-[11px] text-muted">
+                  {upd.currentVersionNumber} →{' '}
+                  <span className="text-ink">{upd.latestVersionNumber}</span>
+                  {' · '}
+                  {channelLabel}
+                  {upd.latestFileSize > 0
+                    ? ` · ${formatBytes(upd.latestFileSize, language)}`
+                    : ''}
+                  {published ? ` · ${published}` : ''}
+                </p>
+                {upd.localModified && (
+                  <p className="mt-1 text-[11px] leading-snug text-warn">
+                    {t('Файл изменён вручную — обновление заменит его')}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </Modal>
     </div>
   );
 }

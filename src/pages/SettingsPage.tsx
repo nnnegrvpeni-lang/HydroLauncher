@@ -23,7 +23,7 @@ import { useLinksStore } from '../stores/linksStore';
 import { useNotifyStore } from '../stores/notifyStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUpdateStore } from '../stores/updateStore';
-import { api, type JavaRuntime, type OfflineAccount, type ThemeMode } from '../api';
+import { api, type JavaRuntime, type OfflineAccount, type ReleaseChannel, type ThemeMode } from '../api';
 import { cn } from '../utils/cn';
 import { formatBytes, formatMemory } from '../utils/format';
 
@@ -81,7 +81,12 @@ export function SettingsPage() {
             <AboutGroup />
           </>
         )}
-        {tab === 'launch' && <PerformanceGroup />}
+        {tab === 'launch' && (
+          <>
+            <PerformanceGroup />
+            <ContentGroup />
+          </>
+        )}
         {tab === 'java' && <JavaGroup />}
         {tab === 'storage' && <StorageGroup />}
       </div>
@@ -306,13 +311,15 @@ function PerformanceGroup() {
   const settings = useSettingsStore((s) => s.settings);
   const save = useSettingsStore((s) => s.save);
   const systemInfo = useSettingsStore((s) => s.systemInfo);
-  const { t } = useI18n();
+  const { t, tf } = useI18n();
 
   if (!settings) return null;
 
   const maxMb = systemInfo?.totalMemoryMb ?? 8192;
   const step = 512;
   const sliderMax = Math.max(step, Math.floor(maxMb / step) * step);
+  const recommended = systemInfo?.recommendedMemoryMb ?? 0;
+  const isRecommended = recommended > 0 && settings.defaultMemoryMb === recommended;
 
   return (
     <Group
@@ -341,6 +348,27 @@ function PerformanceGroup() {
           <span>{formatMemory(step)}</span>
           <span>{formatMemory(sliderMax)}</span>
         </div>
+
+        {recommended > 0 && (
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <span className="text-xs text-muted">
+              {tf('Рекомендуем {memory} для {total} ОЗУ', {
+                memory: formatMemory(recommended),
+                total: formatMemory(maxMb),
+              })}
+            </span>
+            <button
+              type="button"
+              onClick={() => void save({ ...settings, defaultMemoryMb: recommended })}
+              className={cn(
+                'shrink-0 rounded-[6px] px-2 py-1 text-[11.5px] font-medium text-accent transition-colors hover:bg-accent/10',
+                isRecommended && 'invisible',
+              )}
+            >
+              {t('Применить')}
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-between gap-4 px-5 py-3.5">
@@ -391,6 +419,62 @@ function PerformanceGroup() {
           onChange={(checked) => void save({ ...settings, showSnapshots: checked })}
           label={t('Показывать снапшоты')}
         />
+      </div>
+    </Group>
+  );
+}
+
+function ContentGroup() {
+  const settings = useSettingsStore((s) => s.settings);
+  const save = useSettingsStore((s) => s.save);
+  const { t } = useI18n();
+
+  if (!settings) return null;
+
+  const channels: Array<{ id: ReleaseChannel; label: string; hint: string }> = [
+    {
+      id: 'stable',
+      label: 'Стабильный',
+      hint: 'Только проверенные релизы — бета- и альфа-сборки скрыты',
+    },
+    {
+      id: 'beta',
+      label: 'Бета',
+      hint: 'Релизы и бета-сборки, без альфа-версий',
+    },
+    {
+      id: 'alpha',
+      label: 'Альфа',
+      hint: 'Все версии, включая экспериментальные альфа-сборки',
+    },
+  ];
+  const current = channels.find((channel) => channel.id === settings.releaseChannel) ?? channels[0];
+
+  return (
+    <Group
+      title={t('Обновления модов')}
+      description={t('Какие версии предлагать при проверке обновлений и установке')}
+    >
+      <div className="px-5 py-4">
+        <div className="inline-flex rounded-[9px] border border-line bg-bg-well/70 p-1">
+          {channels.map((channel) => (
+            <button
+              key={channel.id}
+              type="button"
+              onClick={() => void save({ ...settings, releaseChannel: channel.id })}
+              aria-pressed={settings.releaseChannel === channel.id}
+              className={cn(
+                'rounded-[6px] px-3 py-1 text-xs font-medium transition-colors duration-150',
+                settings.releaseChannel === channel.id
+                  ? 'bg-surface-2 text-ink'
+                  : 'text-muted hover:text-ink',
+              )}
+            >
+              {t(channel.label)}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-muted">{t(current.hint)}</p>
       </div>
     </Group>
   );

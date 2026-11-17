@@ -4,6 +4,9 @@ export const THEME_CHANNEL = 'hydro://theme-changed';
 
 export type ThemeMode = 'system' | 'dark' | 'night' | 'light';
 
+/** Канал обновлений контента: стабильный скрывает бета- и альфа-сборки. */
+export type ReleaseChannel = 'stable' | 'beta' | 'alpha';
+
 export interface AppSettings {
   theme: ThemeMode;
   dataDir: string;
@@ -16,11 +19,14 @@ export interface AppSettings {
   backupRetention: number;
   showSnapshots: boolean;
   customJavaPaths: string[];
+  releaseChannel: ReleaseChannel;
 }
 
 export interface SystemInfo {
   totalMemoryMb: number;
   availableMemoryMb: number;
+  /** Рекомендуемый лимит памяти, рассчитанный по объёму ОЗУ. */
+  recommendedMemoryMb: number;
   cpuCores: number;
   osName: string;
   arch: string;
@@ -206,6 +212,8 @@ export interface InstalledModFile {
   iconUrl: string | null;
   versionId: string | null;
   versionNumber: string | null;
+  /** SHA-1 на момент установки. */
+  sha1: string | null;
 }
 
 export interface ModrinthGalleryImage {
@@ -356,8 +364,15 @@ export interface ModUpdateInfo {
   fileName: string;
   projectId: string;
   currentVersionId: string;
+  currentVersionNumber: string;
   latestVersionId: string;
   latestVersionNumber: string;
+  /** `release`, `beta` или `alpha`. */
+  latestChannel: string;
+  latestFileSize: number;
+  latestPublished: string | null;
+  /** Локальный файл заменён вручную и будет перезаписан обновлением. */
+  localModified: boolean;
 }
 
 export interface InstanceScreenshot {

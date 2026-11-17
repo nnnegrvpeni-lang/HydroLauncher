@@ -46,6 +46,7 @@ let settings: AppSettings = {
   backupRetention: 5,
   showSnapshots: false,
   customJavaPaths: [],
+  releaseChannel: 'stable',
 };
 
 let accounts: AccountsStore = {
@@ -219,6 +220,7 @@ const runtime: JavaRuntime[] = [
 const systemInfo: SystemInfo = {
   totalMemoryMb: 32_768,
   availableMemoryMb: 12_700,
+  recommendedMemoryMb: 8192,
   cpuCores: 16,
   osName: 'Windows 11 Pro',
   arch: 'x86_64',
@@ -574,9 +576,22 @@ export async function mockInvoke<T>(
         iconUrl: null,
         versionId: String(args?.versionId ?? 'ver-1'),
         versionNumber: '1.0.0',
+        sha1: null,
       } as T;
     case 'get_installed_mods':
-      return [] as T;
+      return [
+        {
+          fileName: 'sodium-fabric-0.6.5.jar',
+          kind: 'mod',
+          sizeBytes: 812_400,
+          projectId: 'AANobbMI',
+          title: 'Sodium',
+          iconUrl: null,
+          versionId: 'ver-1',
+          versionNumber: '0.6.5',
+          sha1: 'demo-sha1',
+        },
+      ] as T;
     case 'remove_installed_mod':
       return undefined as T;
     case 'search_horizon_mods':
@@ -808,7 +823,20 @@ export async function mockInvoke<T>(
         (args?.loader as string) === 'forge' ? '47.2.0' : '0.16.9',
       ] as T;
     case 'check_mod_updates':
-      return [] as T;
+      return [
+        {
+          fileName: 'sodium-fabric-0.6.5.jar',
+          projectId: 'AANobbMI',
+          currentVersionId: 'ver-1',
+          currentVersionNumber: '0.6.5',
+          latestVersionId: 'ver-2',
+          latestVersionNumber: '0.7.0',
+          latestChannel: 'beta',
+          latestFileSize: 1_204_000,
+          latestPublished: '2026-11-02T10:00:00Z',
+          localModified: false,
+        },
+      ] as T;
     case 'toggle_installed_mod':
       return String(args?.fileName ?? 'mod.jar') as T;
 
@@ -855,6 +883,7 @@ export async function mockInvoke<T>(
         iconUrl: null,
         versionId: null,
         versionNumber: null,
+        sha1: null,
       } as T;
     case 'open_external_url':
       return undefined as T;

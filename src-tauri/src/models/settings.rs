@@ -30,6 +30,60 @@ fn default_backup_retention() -> usize {
     5
 }
 
+/// Канал обновлений контента. Определяет, какие версии модов считаются
+/// доступными: стабильный канал игнорирует бета- и альфа-сборки.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ReleaseChannel {
+    Stable,
+    Beta,
+    Alpha,
+}
+
+impl Default for ReleaseChannel {
+    fn default() -> Self {
+        ReleaseChannel::Stable
+    }
+}
+
+impl ReleaseChannel {
+    /// Разрешает ли канал версию с указанным типом Modrinth
+    /// (`release`, `beta`, `alpha`).
+    pub fn allows(self, version_type: &str) -> bool {
+        match self {
+            ReleaseChannel::Stable => version_type == "release",
+            ReleaseChannel::Beta => version_type == "release" || version_type == "beta",
+            ReleaseChannel::Alpha => true,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ReleaseChannel;
+
+    #[test]
+    fn stable_channel_hides_prereleases() {
+        assert!(ReleaseChannel::Stable.allows("release"));
+        assert!(!ReleaseChannel::Stable.allows("beta"));
+        assert!(!ReleaseChannel::Stable.allows("alpha"));
+    }
+
+    #[test]
+    fn beta_channel_allows_beta_but_not_alpha() {
+        assert!(ReleaseChannel::Beta.allows("release"));
+        assert!(ReleaseChannel::Beta.allows("beta"));
+        assert!(!ReleaseChannel::Beta.allows("alpha"));
+    }
+
+    #[test]
+    fn alpha_channel_allows_everything() {
+        for version_type in ["release", "beta", "alpha"] {
+            assert!(ReleaseChannel::Alpha.allows(version_type));
+        }
+    }
+}
+
 /// Новые поля получают значения по умолчанию: обновление лаунчера не должно
 /// ломать уже сохранённые настройки.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,6 +101,8 @@ pub struct AppSettings {
     pub backup_retention: usize,
     pub show_snapshots: bool,
     pub custom_java_paths: Vec<String>,
+    /// Канал обновлений модов и модпаков.
+    pub release_channel: ReleaseChannel,
 }
 
 impl Default for AppSettings {
@@ -63,6 +119,7 @@ impl Default for AppSettings {
             backup_retention: default_backup_retention(),
             show_snapshots: false,
             custom_java_paths: Vec::new(),
+            release_channel: ReleaseChannel::default(),
         }
     }
 }
@@ -72,6 +129,8 @@ impl Default for AppSettings {
 pub struct SystemInfo {
     pub total_memory_mb: u64,
     pub available_memory_mb: u64,
+    /// Рекомендуемый лимит памяти для сборок.
+    pub recommended_memory_mb: u64,
     pub cpu_cores: usize,
     pub os_name: String,
     pub arch: String,

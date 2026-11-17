@@ -65,6 +65,39 @@ export const en: Record<string, string> = {
   'Проверка установки…': 'Verifying installation…',
   'Сохранение списка модов…': 'Saving the mod list…',
 
+  // Канал обновлений и память
+  Стабильный: 'Stable',
+  Бета: 'Beta',
+  Альфа: 'Alpha',
+  'Обновления модов': 'Mod updates',
+  'Какие версии предлагать при проверке обновлений и установке':
+    'Which versions to offer when checking for updates and installing',
+  'Только проверенные релизы — бета- и альфа-сборки скрыты':
+    'Only vetted releases — beta and alpha builds are hidden',
+  'Релизы и бета-сборки, без альфа-версий': 'Releases and beta builds, no alpha versions',
+  'Все версии, включая экспериментальные альфа-сборки':
+    'All versions, including experimental alpha builds',
+  'Рекомендуем {memory} для {total} ОЗУ': 'Recommended {memory} for {total} RAM',
+  'Рекомендуем {memory}': 'Recommended {memory}',
+  'Java для сборки': 'Java for this instance',
+  'Автоматически — по версии Minecraft': 'Automatic — based on the Minecraft version',
+  'Свой путь': 'Custom path',
+  'Совместимая Java не найдена — лаунчер скачает Temurin при первом запуске':
+    'No compatible Java found — the launcher downloads Temurin on first launch',
+  'Автоматический режим подбирает Java нужной версии сам':
+    'Automatic mode picks the required Java version',
+  'Свой путь к Java (необязательно)': 'Custom Java path (optional)',
+
+  // Предпросмотр обновлений
+  'Обновить все моды?': 'Update all mods?',
+  'Обновить мод?': 'Update mod?',
+  'Файлы будут заменены новыми версиями с Modrinth':
+    'Files will be replaced with the new versions from Modrinth',
+  'Обновить ({count})': 'Update ({count})',
+  стабильная: 'stable',
+  'Файл изменён вручную — обновление заменит его':
+    'The file was modified manually — the update will replace it',
+
   // Настройки
   'Профили игроков, тема оформления, память и файлы лаунчера':
     'Player profiles, appearance, memory and launcher files',

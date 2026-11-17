@@ -338,6 +338,7 @@ pub async fn install_mod(
         icon_url: project.icon.clone(),
         version_id: chosen.version.clone(),
         version_number: chosen.version.clone(),
+        sha1: None,
     };
     {
         let _guard = crate::storage::json_store::lock_file(&meta_path).await;
@@ -376,5 +377,6 @@ pub async fn install_mod(
         icon_url: entry.icon_url,
         version_id: Some(entry.version_id),
         version_number: Some(entry.version_number),
+        sha1: entry.sha1,
     })
 }

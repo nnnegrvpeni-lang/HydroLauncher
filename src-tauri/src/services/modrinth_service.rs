@@ -45,6 +45,9 @@ pub struct InstalledModFile {
     pub icon_url: Option<String>,
     pub version_id: Option<String>,
     pub version_number: Option<String>,
+    /// SHA-1 на момент установки: нужен, чтобы отличить обновление от
+    /// локально изменённого файла.
+    pub sha1: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -56,6 +59,10 @@ pub struct ModMetaEntry {
     pub icon_url: Option<String>,
     pub version_id: String,
     pub version_number: String,
+    /// SHA-1 скачанного файла на момент установки: по нему видно, менялся
+    /// ли файл вручную, и нужен ли он вообще для обновления.
+    #[serde(default)]
+    pub sha1: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -180,6 +187,8 @@ struct ApiVersionFile {
     url: String,
     filename: String,
     primary: bool,
+    #[serde(default)]
+    size: u64,
     hashes: HashMap<String, String>,
 }
 
@@ -408,6 +417,15 @@ async fn install_mod_inner(
         None
     };
 
+    let channel = if version_id.filter(|s| !s.is_empty()).is_some() {
+        crate::models::settings::ReleaseChannel::Stable
+    } else {
+        crate::services::settings_service::load_or_init_settings(paths)
+            .await
+            .map(|settings| settings.release_channel)
+            .unwrap_or_default()
+    };
+
     let chosen: ApiVersion = if let Some(vid) = version_id.filter(|s| !s.is_empty()) {
         let url = format!("{MODRINTH_API_BASE_URL}/version/{vid}");
         client
@@ -448,6 +466,11 @@ async fn install_mod_inner(
                 .await?;
             versions = fallback;
         }
+        // Канал обновлений отсекает бета- и альфа-сборки: без этого
+        // «стабильный» лаунчер приносил бы пользователю чужие эксперименты.
+        versions.retain(|version| {
+            channel.allows(version.version_type.as_deref().unwrap_or("release"))
+        });
         versions.into_iter().next().ok_or_else(|| {
             AppError::NotFound(format!(
                 "Нет совместимой версии для {}",
@@ -502,6 +525,7 @@ async fn install_mod_inner(
         icon_url: project_info.and_then(|p| p.icon_url),
         version_id: chosen.id.clone(),
         version_number: chosen.version_number.clone(),
+        sha1: sha1.map(str::to_string),
     };
 
     // Список модов читают и правят несколько команд: держим замок файла на
@@ -565,6 +589,7 @@ async fn install_mod_inner(
         icon_url: entry.icon_url,
         version_id: Some(entry.version_id),
         version_number: Some(entry.version_number),
+        sha1: entry.sha1,
     })
 }
 
@@ -759,6 +784,7 @@ pub async fn list_installed_mods(
                                 .filter(|u| !u.is_empty()),
                             version_id: ver.id.clone(),
                             version_number: ver.version_number.clone(),
+                            sha1: Some(hash.clone()),
                         });
                         changed = true;
                     }
@@ -784,6 +810,7 @@ pub async fn list_installed_mods(
             icon_url: found.and_then(|m| m.icon_url.clone()),
             version_id: found.map(|m| m.version_id.clone()),
             version_number: found.map(|m| m.version_number.clone()),
+            sha1: found.and_then(|m| m.sha1.clone()),
         });
     }
 
@@ -904,8 +931,37 @@ pub struct ModUpdateInfo {
     pub file_name: String,
     pub project_id: String,
     pub current_version_id: String,
+    pub current_version_number: String,
     pub latest_version_id: String,
     pub latest_version_number: String,
+    /// `release`, `beta` или `alpha` — показывается в предпросмотре.
+    pub latest_channel: String,
+    pub latest_file_size: u64,
+    pub latest_published: Option<String>,
+    /// Локальный файл не совпадает с тем, что был скачан: пользователь
+    /// заменил мод вручную, и обновление перезапишет его.
+    pub local_modified: bool,
+}
+
+fn find_installed_file(
+    paths: &AppPaths,
+    data_dir: &Path,
+    instance_id: &str,
+    file_name: &str,
+) -> Option<std::path::PathBuf> {
+    for dir in [
+        paths.instance_mods_dir(data_dir, instance_id),
+        paths.instance_horizon_mods_dir(data_dir, instance_id),
+        paths.instance_horizon_native_mods_dir(data_dir, instance_id),
+        paths.instance_shaderpacks_dir(data_dir, instance_id),
+        paths.instance_resourcepacks_dir(data_dir, instance_id),
+    ] {
+        let candidate = dir.join(file_name);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    None
 }
 
 pub async fn check_mod_updates(
@@ -914,18 +970,32 @@ pub async fn check_mod_updates(
     instance: &Instance,
 ) -> AppResult<Vec<ModUpdateInfo>> {
     let installed = list_installed_mods(paths, data_dir, &instance.id).await?;
+    let channel = crate::services::settings_service::load_or_init_settings(paths)
+        .await
+        .map(|settings| settings.release_channel)
+        .unwrap_or_default();
     let loader = loader_slug(instance.loader);
     let client = crate::services::downloader::build_client()?;
     let versions_json = serde_json::to_string(&[instance.minecraft_version.as_str()])?;
     let mut updates = Vec::new();
 
     for mod_item in installed {
-        let Some(pid) = mod_item.project_id else {
+        let (Some(pid), Some(cur_vid)) = (mod_item.project_id, mod_item.version_id) else {
             continue;
         };
-        let Some(cur_vid) = mod_item.version_id else {
-            continue;
+
+        // Сравниваем файл с хэшем, записанным при установке: подменённый
+        // вручную мод нельзя молча перезаписывать.
+        let local_sha1 = match find_installed_file(paths, data_dir, &instance.id, &mod_item.file_name)
+        {
+            Some(path) => compute_sha1_hex(&path).await,
+            None => None,
         };
+        let local_modified = match (mod_item.sha1.as_deref(), local_sha1.as_deref()) {
+            (Some(stored), Some(actual)) => !stored.eq_ignore_ascii_case(actual),
+            _ => false,
+        };
+
         let url = format!("{MODRINTH_API_BASE_URL}/project/{pid}/version");
         let mut query: Vec<(&str, String)> = vec![("game_versions", versions_json.clone())];
         if let Some(l) = loader {
@@ -940,14 +1010,40 @@ pub async fn check_mod_updates(
             .await
         {
             if let Ok(list) = resp.json::<Vec<ApiVersion>>().await {
-                if let Some(latest) = list.into_iter().next() {
+                // Канал отсекает бета- и альфа-версии до выбора «последней».
+                let latest = list
+                    .into_iter()
+                    .find(|v| channel.allows(v.version_type.as_deref().unwrap_or("release")));
+                if let Some(latest) = latest {
                     if latest.id != cur_vid {
+                        let file = latest
+                            .files
+                            .iter()
+                            .find(|f| f.primary)
+                            .or_else(|| latest.files.first());
+                        let latest_sha1 = file.and_then(|f| f.hashes.get("sha1")).cloned();
+
+                        // Версию могли перезалить с тем же файлом: если SHA-1
+                        // совпадает, обновлять нечего.
+                        if latest_sha1.is_some() && latest_sha1 == local_sha1 {
+                            continue;
+                        }
+
                         updates.push(ModUpdateInfo {
                             file_name: mod_item.file_name,
                             project_id: pid,
                             current_version_id: cur_vid,
+                            current_version_number: mod_item
+                                .version_number
+                                .unwrap_or_else(|| "—".into()),
                             latest_version_id: latest.id,
                             latest_version_number: latest.version_number,
+                            latest_channel: latest
+                                .version_type
+                                .unwrap_or_else(|| "release".into()),
+                            latest_file_size: file.map(|f| f.size).unwrap_or(0),
+                            latest_published: latest.date_published,
+                            local_modified,
                         });
                     }
                 }
@@ -1000,9 +1096,14 @@ pub async fn install_modrinth_modpack(
         .json()
         .await?;
 
+    let channel = crate::services::settings_service::load_or_init_settings(paths)
+        .await
+        .map(|settings| settings.release_channel)
+        .unwrap_or_default();
+
     let chosen = versions
         .into_iter()
-        .next()
+        .find(|v| channel.allows(v.version_type.as_deref().unwrap_or("release")))
         .ok_or_else(|| AppError::NotFound("У выбранного модпака нет версий".into()))?;
     let file = chosen
         .files
@@ -1512,6 +1613,7 @@ pub async fn install_local_mod(
             icon_url: None,
             version_id: None,
             version_number: None,
+            sha1: None,
         }))
 }
 

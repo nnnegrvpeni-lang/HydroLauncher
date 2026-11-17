@@ -20,7 +20,7 @@ import {
   symbolLabel,
   type InstanceIconConfig,
 } from '../utils/instanceIcons';
-import { api, type InstalledHorizonBinary, type Instance } from '../api';
+import { api, type InstalledHorizonBinary, type Instance, type JavaRuntime } from '../api';
 
 interface InstanceSettingsModalProps {
   instance: Instance | null;
@@ -49,6 +49,7 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
   const [loaderDropdownOpen, setLoaderDropdownOpen] = useState(false);
   const loaderDropdownRef = useRef<HTMLDivElement>(null);
   const [installedHorizon, setInstalledHorizon] = useState<InstalledHorizonBinary[]>([]);
+  const [javaRuntimes, setJavaRuntimes] = useState<JavaRuntime[]>([]);
   const [saving, setSaving] = useState(false);
   const [iconConfig, setIconConfig] = useState<InstanceIconConfig>({ icon: '', background: '' });
   const [iconEditorOpen, setIconEditorOpen] = useState(false);
@@ -90,6 +91,25 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
       })
       .catch(() => {
         if (active) setInstalledHorizon([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [instance]);
+
+  useEffect(() => {
+    if (!instance || instance.engine !== 'java') {
+      setJavaRuntimes([]);
+      return;
+    }
+    let active = true;
+    api
+      .getJavaRuntimes()
+      .then((list) => {
+        if (active) setJavaRuntimes(list);
+      })
+      .catch(() => {
+        if (active) setJavaRuntimes([]);
       });
     return () => {
       active = false;
@@ -161,6 +181,7 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
   const maxMb = systemInfo?.totalMemoryMb ?? 8192;
   const step = 512;
   const sliderMax = Math.max(step, Math.floor(maxMb / step) * step);
+  const recommended = systemInfo?.recommendedMemoryMb ?? 0;
 
   const horizonTag = loaderVersion.trim() || 'nightly';
   const installedForTag = installedHorizon.find((bin) => bin.tagName === horizonTag);
@@ -395,16 +416,64 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
                   onChange={(e) => setMemoryMb(Number(e.target.value))}
                   className="hl-range"
                 />
+                {recommended > 0 && (
+                  <div className="mt-1 flex items-center justify-between gap-3">
+                    <span className="text-[11.5px] text-faint">
+                      {tf('Рекомендуем {memory}', {
+                        memory: formatMemory(recommended),
+                      })}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setMemoryMb(recommended)}
+                      className={cn(
+                        'shrink-0 rounded-[6px] px-2 py-1 text-[11.5px] font-medium text-accent transition-colors hover:bg-accent/10',
+                        memoryMb === recommended && 'invisible',
+                      )}
+                    >
+                      {t('Применить')}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
           <div>
             <label className="hl-field-label" htmlFor="edit-instance-java">
-              {t('Путь к Java (необязательно)')}
+              {t('Java для сборки')}
+            </label>
+            <select
+              id="edit-instance-java"
+              value={javaPath.trim()}
+              onChange={(e) => setJavaPath(e.target.value)}
+              className="hl-input cursor-pointer text-xs"
+            >
+              <option value="">{t('Автоматически — по версии Minecraft')}</option>
+              {javaPath.trim() &&
+                !javaRuntimes.some((runtime) => runtime.path === javaPath.trim()) && (
+                  <option value={javaPath.trim()}>{t('Свой путь')}</option>
+                )}
+              {javaRuntimes.map((runtime) => (
+                <option key={runtime.path} value={runtime.path} title={runtime.path}>
+                  Java {runtime.majorVersion} · {runtime.vendor}
+                  {runtime.isManaged ? ` · ${t('управляемая')}` : ''}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-[11px] text-faint">
+              {javaRuntimes.length === 0
+                ? t('Совместимая Java не найдена — лаунчер скачает Temurin при первом запуске')
+                : t('Автоматический режим подбирает Java нужной версии сам')}
+            </p>
+          </div>
+
+          <div>
+            <label className="hl-field-label" htmlFor="edit-instance-java-path">
+              {t('Свой путь к Java (необязательно)')}
             </label>
             <input
-              id="edit-instance-java"
+              id="edit-instance-java-path"
               value={javaPath}
               onChange={(e) => setJavaPath(e.target.value)}
               placeholder={t('Автоматический выбор')}
