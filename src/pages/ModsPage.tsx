@@ -817,9 +817,9 @@ export function ModsPage({
                   <p className="mt-1">
                     {t('Скачается в')}{' '}
                     <code className="font-mono text-ink">horizon-native-mods/</code>
-                    {t(', но готовый клиент Horizon Nightly не подгружает')}{' '}
-                    <code className="font-mono text-ink">.hnmod</code>{' '}
-                    {t('на лету — для него нужна пересборка движка из исходников Rust.')}
+                    {t(
+                      ', но наш лаунчер запускает готовый клиент и не собирает нативные моды. Это делает официальный Horizon Launcher кнопкой Build — без пересборки всего движка.',
+                    )}
                   </p>
                 </div>
               )}
@@ -1293,8 +1293,10 @@ export function ModsPage({
               <span>
                 <span className="font-medium text-ink">{t('Контент-моды (.hmod)')}</span>
                 {t(', шейдеры и ресурспаки работают сразу.')}{' '}
-                <span className="font-medium text-warn">{t('Нативные (.hnmod)')}</span>{' '}
-                {t('требуют пересборки Horizon из исходников.')}
+                <span className="font-medium text-warn">{t('Для нативных (.hnmod)')}</span>{' '}
+                {t(
+                  'нужен официальный Horizon Launcher: он собирает их одной кнопкой, без пересборки всего движка.',
+                )}
               </span>
             </div>
             <button
@@ -1325,28 +1327,20 @@ export function ModsPage({
               </p>
               <p>
                 <span className="font-medium text-ink">
-                  {t('2. Зачем .hnmod нужна компиляция:')}
+                  {t('2. Почему .hnmod не запускается сам:')}
                 </span>{' '}
-                {t('файлы')} <code className="font-mono text-ink">.hnmod</code>{' '}
-                {t('(например,')} <span className="font-mono">appleskin</span>,{' '}
-                <span className="font-mono">mod_menu</span>){' '}
-                {t('содержат Rust-миксины, которые встраиваются в исходный код движка до компиляции.')}
+                {t('внутри')} <code className="font-mono text-ink">.hnmod</code>{' '}
+                {t(
+                  'лежат Rust-исходники мода, а не готовый бинарник. Официальный лаунчер собирает их на основе готового SDK, поэтому пересобирать весь движок не нужно.',
+                )}
               </p>
               <p>
                 <span className="font-medium text-ink">
-                  {t('3. Как всё-таки запустить с .hnmod:')}
+                  {t('3. Как запустить .hnmod:')}
                 </span>{' '}
-                {t('установите')} <span className="font-mono text-ink">Rust (rustup)</span>{' '}
-                {t('и')} <span className="font-mono text-ink">MSVC Build Tools</span>
-                {t(', затем воспользуйтесь официальным')}{' '}
-                <span className="font-mono text-ink">horizon-launcher</span>{' '}
-                {t('(он сам подтянет исходники с GitHub и пересоберёт клиент с вашими')}{' '}
-                <code className="font-mono text-ink">.hnmod</code>
-                {t(') либо соберите')}{' '}
-                <span className="font-mono text-ink">horizon-rust/horizon</span>{' '}
-                {t('вручную через')}{' '}
-                <code className="font-mono text-ink">horizon-mixins</code> +{' '}
-                <code className="font-mono text-ink">cargo build</code>.
+                {t(
+                  'наш лаунчер этого не делает. Установите официальный Horizon Launcher, добавьте мод и нажмите Build. Он сам скачает закреплённый Rust и SDK — вручную ставить Rust или MSVC не нужно. Сборка идёт на вашем компьютере, занимает время и место, а мод получает доступ к системе без песочницы, поэтому лаунчер спросит согласие.',
+                )}
               </p>
             </div>
           )}
@@ -1423,7 +1417,7 @@ export function ModsPage({
                             hit.categories.includes('Native Mod') && (
                               <span className="text-warn">
                                 {' '}
-                                · {t('требует пересборки (.hnmod)')}
+                                · {t('нужна сборка официальным лаунчером')}
                               </span>
                             )}
                         </p>

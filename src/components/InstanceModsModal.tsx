@@ -1375,7 +1375,7 @@ export function InstanceModsModal({
                       {t('нативные моды сохранены в')}{' '}
                       <code className="font-mono text-ink">horizon-native-mods/</code>
                       {t(
-                        ', но готовый клиент Horizon Nightly не загружает их без пересборки движка из исходников Rust. Контент-моды (',
+                        ', но наш лаунчер запускает готовый клиент и не собирает их. Официальный Horizon Launcher собирает нативные моды кнопкой Build на основе готового SDK, без пересборки всего движка. Контент-моды (',
                       )}
                       <code className="font-mono text-ink">.hmod</code>
                       {t('), шейдеры и ресурспаки работают сразу.')}
@@ -1430,7 +1430,7 @@ export function InstanceModsModal({
                             <p className="mt-0.5 truncate font-mono text-[11px] text-muted">
                               {mod.versionNumber ?? mod.fileName} · {formatBytes(mod.sizeBytes, language)}
                               {isNativeHorizonMod && (
-                                <span className="text-warn"> · {t('требует пересборки (.hnmod)')}</span>
+                                <span className="text-warn"> · {t('нужна сборка официальным лаунчером')}</span>
                               )}
                             </p>
                           </div>

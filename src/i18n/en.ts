@@ -356,33 +356,26 @@ export const en: Record<string, string> = {
   'Нужен {loaders}': 'Requires {loaders}',
   'Нативный мод (.hnmod)': 'Native mod (.hnmod)',
   'Скачается в': 'Downloaded to',
-  ', но готовый клиент Horizon Nightly не подгружает':
-    ', but the ready-made Horizon Nightly client does not load',
-  'на лету — для него нужна пересборка движка из исходников Rust.':
-    'on the fly — it requires rebuilding the engine from Rust sources.',
+  ', но наш лаунчер запускает готовый клиент и не собирает нативные моды. Это делает официальный Horizon Launcher кнопкой Build — без пересборки всего движка.':
+    ', but our launcher starts the ready-made client and does not build native mods. The official Horizon Launcher does it with the Build button — without rebuilding the whole engine.',
   'Загрузка страницы мода…': 'Loading the mod page…',
   ', шейдеры и ресурспаки работают сразу.':
     ', shaders and resource packs work out of the box.',
-  'требуют пересборки Horizon из исходников.':
-    'require rebuilding Horizon from sources.',
+  'Для нативных (.hnmod)': 'For native (.hnmod) mods',
+  'нужен официальный Horizon Launcher: он собирает их одной кнопкой, без пересборки всего движка.':
+    'you need the official Horizon Launcher: it builds them with one button, without rebuilding the whole engine.',
   '1. Моды, которые работают без сборки:': '1. Mods that work without a rebuild:',
   'выберите фильтр': 'choose the filter',
   или: 'or',
   '— лаунчер сам положит их в': '— the launcher will put them into',
   ', и игра сразу их увидит.': ', and the game will see them right away.',
-  '2. Зачем .hnmod нужна компиляция:': '2. Why .hnmod needs compilation:',
-  файлы: 'files',
-  '(например,': '(for example,',
-  'содержат Rust-миксины, которые встраиваются в исходный код движка до компиляции.':
-    'contain Rust mixins that are embedded into the engine source before compilation.',
-  '3. Как всё-таки запустить с .hnmod:': '3. How to run with .hnmod anyway:',
-  установите: 'install',
-  и: 'and',
-  ', затем воспользуйтесь официальным': ', then use the official',
-  '(он сам подтянет исходники с GitHub и пересоберёт клиент с вашими':
-    '(it will fetch the sources from GitHub and rebuild the client with your',
-  ') либо соберите': ') or build',
-  'вручную через': 'manually with',
+  '2. Почему .hnmod не запускается сам:': '2. Why .hnmod does not run by itself:',
+  внутри: 'inside',
+  'лежат Rust-исходники мода, а не готовый бинарник. Официальный лаунчер собирает их на основе готового SDK, поэтому пересобирать весь движок не нужно.':
+    "are the mod's Rust sources, not a ready binary. The official launcher compiles them using a ready SDK, so the whole engine does not need rebuilding.",
+  '3. Как запустить .hnmod:': '3. How to run .hnmod:',
+  'наш лаунчер этого не делает. Установите официальный Horizon Launcher, добавьте мод и нажмите Build. Он сам скачает закреплённый Rust и SDK — вручную ставить Rust или MSVC не нужно. Сборка идёт на вашем компьютере, занимает время и место, а мод получает доступ к системе без песочницы, поэтому лаунчер спросит согласие.':
+    'our launcher does not do this. Install the official Horizon Launcher, add the mod and press Build. It downloads the pinned Rust and SDK itself — no manual Rust or MSVC install is needed. The build runs on your computer, takes time and disk space, and the mod gets unsandboxed access to the system, so the launcher asks for consent.',
   'У вас ещё нет сборок': 'You have no instances yet',
   'Создайте сборку с Fabric, Forge, NeoForge или Quilt, чтобы установить мод.':
     'Create an instance with Fabric, Forge, NeoForge or Quilt to install the mod.',
@@ -421,8 +414,8 @@ export const en: Record<string, string> = {
   Текущая: 'Current',
   'Внимание по .hnmod:': 'Note about .hnmod:',
   'нативные моды сохранены в': 'native mods are saved to',
-  ', но готовый клиент Horizon Nightly не загружает их без пересборки движка из исходников Rust. Контент-моды (':
-    ', but the ready-made Horizon Nightly client does not load them without rebuilding the engine from Rust sources. Content mods (',
+  ', но наш лаунчер запускает готовый клиент и не собирает их. Официальный Horizon Launcher собирает нативные моды кнопкой Build на основе готового SDK, без пересборки всего движка. Контент-моды (':
+    ', but our launcher starts the ready-made client and does not build them. The official Horizon Launcher builds native mods with the Build button using a ready SDK, without rebuilding the whole engine. Content mods (',
   '), шейдеры и ресурспаки работают сразу.':
     '), shaders and resource packs work out of the box.',
   'выкл.': 'off',
@@ -431,7 +424,7 @@ export const en: Record<string, string> = {
   'Контент-моды (.hmod)': 'Content mods (.hmod)',
   'Скрыть инструкцию': 'Hide instructions',
   'Как запустить .hnmod?': 'How to run .hnmod?',
-  'требует пересборки (.hnmod)': 'requires a rebuild (.hnmod)',
+  'нужна сборка официальным лаунчером': 'official launcher build required',
   'Установить «{name}»': 'Install “{name}”',
   'Версия {version} · выберите совместимую сборку':
     'Version {version} · choose a compatible instance',
