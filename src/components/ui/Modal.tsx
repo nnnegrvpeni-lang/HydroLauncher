@@ -1,6 +1,7 @@
 import { X } from 'lucide-react';
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useI18n } from '../../i18n';
 import { cn } from '../../utils/cn';
 
 interface ModalProps {
@@ -25,6 +26,7 @@ export function Modal({
   className,
   stacked,
 }: ModalProps) {
+  const { t } = useI18n();
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
@@ -67,7 +69,7 @@ export function Modal({
           </div>
           <button
             onClick={onClose}
-            aria-label="Закрыть"
+            aria-label={t('Закрыть')}
             className="flex h-7 w-7 items-center justify-center rounded-[6px] text-muted transition-colors hover:bg-surface-2 hover:text-ink"
           >
             <X size={15} />

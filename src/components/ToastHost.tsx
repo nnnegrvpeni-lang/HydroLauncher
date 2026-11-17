@@ -17,7 +17,7 @@ export function ToastHost() {
   const clearError = useInstancesStore((s) => s.clearError);
   const notices = useNotifyStore((s) => s.notices);
   const dismissNotice = useNotifyStore((s) => s.dismiss);
-  const { language } = useI18n();
+  const { t, language } = useI18n();
 
   // Автоматически скрываем уведомление об ошибке через 3 секунды
   useEffect(() => {
@@ -60,7 +60,7 @@ export function ToastHost() {
               <button
                 type="button"
                 onClick={() => clearProgress(progress.instanceId)}
-                aria-label="Закрыть уведомление"
+                aria-label={t('Закрыть уведомление')}
                 className="flex h-5 w-5 items-center justify-center rounded-[5px] text-muted transition-colors hover:bg-surface-2 hover:text-ink"
               >
                 <X size={12} />
@@ -83,7 +83,7 @@ export function ToastHost() {
           <button
             type="button"
             onClick={clearError}
-            aria-label="Закрыть уведомление"
+            aria-label={t('Закрыть уведомление')}
             className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] text-muted transition-colors hover:bg-danger/20 hover:text-ink"
           >
             <X size={12} />
@@ -116,7 +116,7 @@ export function ToastHost() {
           <button
             type="button"
             onClick={() => dismissNotice(notice.id)}
-            aria-label="Закрыть уведомление"
+            aria-label={t('Закрыть уведомление')}
             className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] text-muted transition-colors hover:bg-surface-2 hover:text-ink"
           >
             <X size={12} />

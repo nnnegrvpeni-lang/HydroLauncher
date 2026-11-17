@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown, Copy, Trash2 } from 'lucide-react';
+import { useI18n } from '../i18n';
 import { useLaunchStore } from '../stores/launchStore';
 import { cn } from '../utils/cn';
 import type { GameLog } from '../api';
@@ -8,6 +9,7 @@ const EMPTY_LOGS: GameLog[] = [];
 
 /** Консоль вывода игры — появляется только при наличии логов. */
 export function LogConsole({ instanceId }: { instanceId?: string }) {
+  const { t } = useI18n();
   const logsByInstance = useLaunchStore((s) => s.logsByInstance);
   const clearLogs = useLaunchStore((s) => s.clearLogs);
   const logs = instanceId ? (logsByInstance[instanceId] ?? EMPTY_LOGS) : EMPTY_LOGS;
@@ -41,7 +43,7 @@ export function LogConsole({ instanceId }: { instanceId?: string }) {
           className="flex items-center gap-2 text-[11.5px] font-medium text-muted transition-colors hover:text-ink"
         >
           <span className="h-1.5 w-1.5 rounded-full bg-led" />
-          <span>Вывод процесса</span>
+          <span>{t('Вывод процесса')}</span>
           <span className="rounded-[4px] border border-line bg-bg-well px-1.5 py-px font-mono text-[10px] text-muted tabular-nums">
             {logs.length}
           </span>
@@ -54,20 +56,20 @@ export function LogConsole({ instanceId }: { instanceId?: string }) {
         <div className="flex items-center gap-1">
           <button
             onClick={() => void copyLogs()}
-            title="Копировать все логи"
+            title={t('Копировать все логи')}
             className="flex h-6 items-center gap-1 rounded-[5px] px-2 text-[11px] text-muted transition-colors hover:bg-surface-2 hover:text-ink"
           >
             {copied ? <Check size={11} className="text-led" /> : <Copy size={11} />}
-            {copied ? 'Скопировано' : 'Копировать'}
+            {copied ? t('Скопировано') : t('Копировать')}
           </button>
 
           <button
             onClick={() => clearLogs(instanceId)}
-            title="Очистить консоль"
+            title={t('Очистить консоль')}
             className="flex h-6 items-center gap-1 rounded-[5px] px-2 text-[11px] text-muted transition-colors hover:bg-surface-2 hover:text-ink"
           >
             <Trash2 size={11} />
-            Очистить
+            {t('Очистить')}
           </button>
         </div>
       </div>

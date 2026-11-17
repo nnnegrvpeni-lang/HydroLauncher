@@ -11,14 +11,17 @@ export const en: Record<string, string> = {
   Открыть: 'Open',
   'Открыть папку': 'Open folder',
   Изменить: 'Change',
-  Очистить: 'Clean up',
+  Очистить: 'Clear',
   Сохранить: 'Save',
   Назад: 'Back',
   Показать: 'Show',
   Скрыть: 'Hide',
   Загрузка: 'Loading',
+  Java: 'Java',
   Ошибка: 'Error',
   'Разделы': 'Sections',
+  'Закрыть уведомление': 'Dismiss notification',
+  'Сохранить название': 'Save name',
 
   // Навигация
   Обзор: 'Overview',
@@ -242,6 +245,7 @@ export const en: Record<string, string> = {
   'Моды, конфиги и миры в одном zip': 'Mods, configs and worlds in one zip',
   'Поддерживаются файлы .mrpack и .zip': 'Only .mrpack and .zip files are supported',
   'Импортирована сборка: {name}': 'Instance imported: {name}',
+  'Сборка импортирована: {name}': 'Instance imported: {name}',
   'Отпустите файл, чтобы импортировать': 'Drop the file to import it',
   '.mrpack — модпак, .zip — архив сборки': '.mrpack — modpack, .zip — instance archive',
   'Игра завершилась': 'Game exited',
@@ -249,7 +253,7 @@ export const en: Record<string, string> = {
   'Сборка «{name}»: код {code}': 'Instance “{name}”: exit code {code}',
 
   // Ошибки
-  'Эта сборка уже запущена': 'This instance is already running',
+  'Эта сборка уже запускается': 'This instance is already starting',
   'Остановите игру перед этим действием': 'Stop the game before doing this',
   'Сборка не найдена': 'Instance not found',
   'Мир не найден': 'World not found',
@@ -306,11 +310,14 @@ export const en: Record<string, string> = {
   'Закрыть консоль': 'Close console',
   'Консоль пуста — после запуска здесь появится вывод Minecraft.':
     'The console is empty — Minecraft output will appear here after launch.',
+  'Вывод процесса': 'Process output',
+  'Копировать все логи': 'Copy all logs',
+  'Очистить консоль': 'Clear console',
 
   // Каталог модов
   Каталог: 'Catalog',
   '{count} проектов': '{count} projects',
-  'Установка в {name}': 'Installing into {name}',
+  'Установка в': 'Installing into',
   'Отвязать от сборки': 'Detach from instance',
   'Поиск модов и шейдеров Horizon (AE2, Zoom, Atlas)…':
     'Search Horizon mods and shaders (AE2, Zoom, Atlas)…',
@@ -345,6 +352,49 @@ export const en: Record<string, string> = {
   'Только для Horizon (Rust)': 'Horizon (Rust) only',
   'Только для Java Edition': 'Java Edition only',
   'Vanilla не поддерживает моды': 'Vanilla does not support mods',
+  'Версия {version} не поддерживается': 'Version {version} is not supported',
+  'Нужен {loaders}': 'Requires {loaders}',
+  'Нативный мод (.hnmod)': 'Native mod (.hnmod)',
+  'Скачается в': 'Downloaded to',
+  ', но готовый клиент Horizon Nightly не подгружает':
+    ', but the ready-made Horizon Nightly client does not load',
+  'на лету — для него нужна пересборка движка из исходников Rust.':
+    'on the fly — it requires rebuilding the engine from Rust sources.',
+  'Загрузка страницы мода…': 'Loading the mod page…',
+  ', шейдеры и ресурспаки работают сразу.':
+    ', shaders and resource packs work out of the box.',
+  'требуют пересборки Horizon из исходников.':
+    'require rebuilding Horizon from sources.',
+  '1. Моды, которые работают без сборки:': '1. Mods that work without a rebuild:',
+  'выберите фильтр': 'choose the filter',
+  или: 'or',
+  '— лаунчер сам положит их в': '— the launcher will put them into',
+  ', и игра сразу их увидит.': ', and the game will see them right away.',
+  '2. Зачем .hnmod нужна компиляция:': '2. Why .hnmod needs compilation:',
+  файлы: 'files',
+  '(например,': '(for example,',
+  'содержат Rust-миксины, которые встраиваются в исходный код движка до компиляции.':
+    'contain Rust mixins that are embedded into the engine source before compilation.',
+  '3. Как всё-таки запустить с .hnmod:': '3. How to run with .hnmod anyway:',
+  установите: 'install',
+  и: 'and',
+  ', затем воспользуйтесь официальным': ', then use the official',
+  '(он сам подтянет исходники с GitHub и пересоберёт клиент с вашими':
+    '(it will fetch the sources from GitHub and rebuild the client with your',
+  ') либо соберите': ') or build',
+  'вручную через': 'manually with',
+  'У вас ещё нет сборок': 'You have no instances yet',
+  'Создайте сборку с Fabric, Forge, NeoForge или Quilt, чтобы установить мод.':
+    'Create an instance with Fabric, Forge, NeoForge or Quilt to install the mod.',
+  'Нет совместимых сборок для этого мода': 'No compatible instances for this mod',
+  'Создайте сборку с подходящей версией Minecraft и загрузчиком (':
+    'Create an instance with a suitable Minecraft version and loader (',
+  'Создать совместимую сборку': 'Create a compatible instance',
+  'Смена версии': 'Change version',
+  'Совместимые релизы для {version} · {loader}':
+    'Compatible releases for {version} · {loader}',
+  'Нет доступных версий для этой конфигурации':
+    'No versions available for this configuration',
 
   // Управление модами сборки
   модов: 'mods',

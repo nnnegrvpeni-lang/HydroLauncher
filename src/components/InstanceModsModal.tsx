@@ -594,7 +594,7 @@ export function InstanceModsModal({
                     <button
                       type="submit"
                       disabled={savingName || !draftName.trim()}
-                      title="Сохранить название"
+                      title={t('Сохранить название')}
                       className="flex h-7 w-7 items-center justify-center rounded-[7px] bg-accent text-accent-ink transition-opacity hover:opacity-90 disabled:opacity-40"
                     >
                       <Check size={13} />
@@ -605,7 +605,7 @@ export function InstanceModsModal({
                         setRenaming(false);
                         setDraftName(instance.name);
                       }}
-                      title="Отмена"
+                      title={t('Отмена')}
                       className="flex h-7 w-7 items-center justify-center rounded-[7px] text-muted hover:bg-surface-2 hover:text-ink"
                     >
                       <X size={13} />
@@ -979,7 +979,7 @@ export function InstanceModsModal({
                         <button
                           type="button"
                           onClick={() => void api.openScreenshotFile(instance.id, shot.fileName)}
-                          title="Открыть"
+                          title={t('Открыть')}
                           className="rounded-[6px] p-1.5 text-muted transition-colors hover:bg-surface-2 hover:text-ink"
                         >
                           <ExternalLink size={13} />
@@ -987,7 +987,7 @@ export function InstanceModsModal({
                         <button
                           type="button"
                           onClick={() => void handleDeleteScreenshot(shot.fileName)}
-                          title="Удалить"
+                          title={t('Удалить')}
                           className="rounded-[6px] p-1.5 text-muted transition-colors hover:bg-danger/15 hover:text-danger"
                         >
                           <Trash2 size={13} />
@@ -1255,12 +1255,14 @@ export function InstanceModsModal({
                 )}
                 <div>
                   <h2 className="text-sm font-semibold text-ink">
-                    Смена версии ·{' '}
+                    {t('Смена версии')} ·{' '}
                     {versionPickerMod.title ?? fallbackModTitle(versionPickerMod.fileName)}
                   </h2>
                   <p className="text-xs text-muted">
-                    Совместимые релизы для {instance.minecraftVersion} ·{' '}
-                    {formatLoaderLabel(instance.loader)}
+                    {tf('Совместимые релизы для {version} · {loader}', {
+                      version: instance.minecraftVersion,
+                      loader: formatLoaderLabel(instance.loader),
+                    })}
                   </p>
                 </div>
               </div>
@@ -1282,7 +1284,7 @@ export function InstanceModsModal({
               </div>
             ) : versions.length === 0 ? (
               <p className="py-10 text-center text-xs text-muted">
-                Нет доступных версий для этой конфигурации
+                {t('Нет доступных версий для этой конфигурации')}
               </p>
             ) : (
               <div className="mt-3 divide-y divide-line rounded-[8px] border border-line bg-bg-well/40">

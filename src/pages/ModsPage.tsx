@@ -113,7 +113,11 @@ function isInstanceCompatible(
   supportedVersions: string[],
   isHorizonProject = false,
   projectType = 'mod',
-): { compatible: boolean; reason?: string } {
+): {
+  compatible: boolean;
+  reason?: string;
+  reasonParams?: Record<string, string>;
+} {
   if (isHorizonProject) {
     if (instance.engine !== 'horizon') {
       return { compatible: false, reason: 'Только для Horizon (Rust)' };
@@ -130,7 +134,8 @@ function isInstanceCompatible(
     ) {
       return {
         compatible: false,
-        reason: `Версия ${instance.minecraftVersion} не поддерживается`,
+        reason: 'Версия {version} не поддерживается',
+        reasonParams: { version: instance.minecraftVersion },
       };
     }
     return { compatible: true };
@@ -144,7 +149,8 @@ function isInstanceCompatible(
   if (normalizedSupported.length > 0 && !normalizedSupported.includes(instLoader)) {
     return {
       compatible: false,
-      reason: `Нужен ${supportedLoaders.map(formatLoaderLabel).join(' / ')}`,
+      reason: 'Нужен {loaders}',
+      reasonParams: { loaders: supportedLoaders.map(formatLoaderLabel).join(' / ') },
     };
   }
   if (
@@ -153,7 +159,8 @@ function isInstanceCompatible(
   ) {
     return {
       compatible: false,
-      reason: `Версия ${instance.minecraftVersion} не поддерживается`,
+      reason: 'Версия {version} не поддерживается',
+      reasonParams: { version: instance.minecraftVersion },
     };
   }
   return { compatible: true };
@@ -722,7 +729,11 @@ export function ModsPage({
     if (!installTarget) return { compatible: [], incompatible: [] };
     const isHorizonProj = installTarget.loaders.includes('horizon');
     const compatible: Instance[] = [];
-    const incompatible: Array<{ instance: Instance; reason: string }> = [];
+    const incompatible: Array<{
+      instance: Instance;
+      reason: string;
+      reasonParams?: Record<string, string>;
+    }> = [];
 
     for (const inst of instances) {
       if (running.get(inst.id)) {
@@ -742,6 +753,7 @@ export function ModsPage({
         incompatible.push({
           instance: inst,
           reason: check.reason ?? 'Несовместима',
+          reasonParams: check.reasonParams,
         });
       }
     }
@@ -801,11 +813,13 @@ export function ModsPage({
 
               {catalogSource === 'horizon' && detailHit.categories.includes('Native Mod') && (
                 <div className="mt-3.5 rounded-[8px] border border-warn/30 bg-warn/8 px-3 py-2.5 text-[11.5px] leading-relaxed text-muted">
-                  <p className="font-medium text-warn">Нативный мод (.hnmod)</p>
+                  <p className="font-medium text-warn">{t('Нативный мод (.hnmod)')}</p>
                   <p className="mt-1">
-                    Скачается в <code className="font-mono text-ink">horizon-native-mods/</code>, но
-                    готовый клиент Horizon Nightly не подгружает <code className="font-mono text-ink">.hnmod</code>{' '}
-                    на лету — для него нужна пересборка движка из исходников Rust.
+                    {t('Скачается в')}{' '}
+                    <code className="font-mono text-ink">horizon-native-mods/</code>
+                    {t(', но готовый клиент Horizon Nightly не подгружает')}{' '}
+                    <code className="font-mono text-ink">.hnmod</code>{' '}
+                    {t('на лету — для него нужна пересборка движка из исходников Rust.')}
                   </p>
                 </div>
               )}
@@ -924,7 +938,7 @@ export function ModsPage({
               {detailLoading ? (
                 <div className="flex items-center justify-center gap-2 py-16 text-xs text-muted">
                   <Loader2 size={15} className="animate-spin" />
-                  Загрузка страницы мода…
+                  {t('Загрузка страницы мода…')}
                 </div>
               ) : detailTab === 'description' ? (
                 <ModBodyMarkdown body={detailProject?.body ?? detailHit.description} />
@@ -1277,10 +1291,10 @@ export function ModsPage({
             <div className="flex items-center gap-2 text-muted">
               <Info size={14} className="shrink-0 text-ink/70" />
               <span>
-                <span className="font-medium text-ink">Контент-моды (.hmod)</span>, шейдеры и
-                ресурспаки работают сразу.{' '}
-                <span className="font-medium text-warn">Нативные (.hnmod)</span> требуют пересборки
-                Horizon из исходников.
+                <span className="font-medium text-ink">{t('Контент-моды (.hmod)')}</span>
+                {t(', шейдеры и ресурспаки работают сразу.')}{' '}
+                <span className="font-medium text-warn">{t('Нативные (.hnmod)')}</span>{' '}
+                {t('требуют пересборки Horizon из исходников.')}
               </span>
             </div>
             <button
@@ -1296,29 +1310,41 @@ export function ModsPage({
           {showHorizonGuide && (
             <div className="mt-2.5 space-y-1.5 border-t border-line pt-2.5 text-[11.5px] leading-relaxed text-muted">
               <p>
-                <span className="font-medium text-ink">1. Моды, которые работают без сборки:</span>{' '}
-                выберите фильтр <span className="font-mono text-ink">Контент (.hmod)</span>,{' '}
-                <span className="font-mono text-ink">Шейдеры</span> или{' '}
-                <span className="font-mono text-ink">Ресурспаки</span> — лаунчер сам положит их в{' '}
+                <span className="font-medium text-ink">
+                  {t('1. Моды, которые работают без сборки:')}
+                </span>{' '}
+                {t('выберите фильтр')}{' '}
+                <span className="font-mono text-ink">{t('Контент (.hmod)')}</span>,{' '}
+                <span className="font-mono text-ink">{t('Шейдеры')}</span> {t('или')}{' '}
+                <span className="font-mono text-ink">{t('Ресурспаки')}</span>{' '}
+                {t('— лаунчер сам положит их в')}{' '}
                 <code className="font-mono text-ink">horizon-mods/</code>,{' '}
-                <code className="font-mono text-ink">shaderpacks/</code> или{' '}
-                <code className="font-mono text-ink">resourcepacks/</code>, и игра сразу их увидит.
+                <code className="font-mono text-ink">shaderpacks/</code> {t('или')}{' '}
+                <code className="font-mono text-ink">resourcepacks/</code>
+                {t(', и игра сразу их увидит.')}
               </p>
               <p>
-                <span className="font-medium text-ink">2. Зачем .hnmod нужна компиляция:</span>{' '}
-                файлы <code className="font-mono text-ink">.hnmod</code> (например,{' '}
-                <span className="font-mono">appleskin</span>,{' '}
-                <span className="font-mono">mod_menu</span>) содержат Rust-миксины, которые
-                встраиваются в исходный код движка до компиляции.
+                <span className="font-medium text-ink">
+                  {t('2. Зачем .hnmod нужна компиляция:')}
+                </span>{' '}
+                {t('файлы')} <code className="font-mono text-ink">.hnmod</code>{' '}
+                {t('(например,')} <span className="font-mono">appleskin</span>,{' '}
+                <span className="font-mono">mod_menu</span>){' '}
+                {t('содержат Rust-миксины, которые встраиваются в исходный код движка до компиляции.')}
               </p>
               <p>
-                <span className="font-medium text-ink">3. Как всё-таки запустить с .hnmod:</span>{' '}
-                установите <span className="font-mono text-ink">Rust (rustup)</span> и{' '}
-                <span className="font-mono text-ink">MSVC Build Tools</span>, затем воспользуйтесь
-                официальным <span className="font-mono text-ink">horizon-launcher</span> (он сам
-                подтянет исходники с GitHub и пересоберёт клиент с вашими{' '}
-                <code className="font-mono text-ink">.hnmod</code>) либо соберите{' '}
-                <span className="font-mono text-ink">horizon-rust/horizon</span> вручную через{' '}
+                <span className="font-medium text-ink">
+                  {t('3. Как всё-таки запустить с .hnmod:')}
+                </span>{' '}
+                {t('установите')} <span className="font-mono text-ink">Rust (rustup)</span>{' '}
+                {t('и')} <span className="font-mono text-ink">MSVC Build Tools</span>
+                {t(', затем воспользуйтесь официальным')}{' '}
+                <span className="font-mono text-ink">horizon-launcher</span>{' '}
+                {t('(он сам подтянет исходники с GitHub и пересоберёт клиент с вашими')}{' '}
+                <code className="font-mono text-ink">.hnmod</code>
+                {t(') либо соберите')}{' '}
+                <span className="font-mono text-ink">horizon-rust/horizon</span>{' '}
+                {t('вручную через')}{' '}
                 <code className="font-mono text-ink">horizon-mixins</code> +{' '}
                 <code className="font-mono text-ink">cargo build</code>.
               </p>
@@ -1512,9 +1538,9 @@ export function ModsPage({
 
         {instances.length === 0 ? (
           <div className="py-6 text-center">
-            <p className="text-sm font-medium text-ink">У вас ещё нет сборок</p>
+            <p className="text-sm font-medium text-ink">{t('У вас ещё нет сборок')}</p>
             <p className="mt-1 text-xs text-muted">
-              Создайте сборку с Fabric, Forge, NeoForge или Quilt, чтобы установить мод.
+              {t('Создайте сборку с Fabric, Forge, NeoForge или Quilt, чтобы установить мод.')}
             </p>
             <Button
               className="mt-4"
@@ -1526,7 +1552,7 @@ export function ModsPage({
               }}
             >
               <Plus size={14} />
-              Создать сборку
+              {t('Создать сборку')}
             </Button>
           </div>
         ) : (
@@ -1534,10 +1560,10 @@ export function ModsPage({
             {compatibilityList.compatible.length === 0 ? (
               <div className="rounded-[8px] border border-line bg-bg-well/70 p-4 text-center">
                 <p className="text-xs font-medium text-ink">
-                  Нет совместимых сборок для этого мода
+                  {t('Нет совместимых сборок для этого мода')}
                 </p>
                 <p className="mt-1 text-[11.5px] text-muted">
-                  Создайте сборку с подходящей версией Minecraft и загрузчиком (
+                  {t('Создайте сборку с подходящей версией Minecraft и загрузчиком (')}
                   {installTarget?.loaders.map(formatLoaderLabel).join(', ') || 'Fabric / Forge'}).
                 </p>
                 <Button
@@ -1550,7 +1576,7 @@ export function ModsPage({
                   }}
                 >
                   <Plus size={14} />
-                  Создать совместимую сборку
+                  {t('Создать совместимую сборку')}
                 </Button>
               </div>
             ) : (
@@ -1607,7 +1633,7 @@ export function ModsPage({
                 <p className="text-[11px] font-medium uppercase tracking-wider text-faint">
                   {t('Несовместимые')}
                 </p>
-                {compatibilityList.incompatible.map(({ instance: inst, reason }) => (
+                {compatibilityList.incompatible.map(({ instance: inst, reason, reasonParams }) => (
                   <div
                     key={inst.id}
                     className="flex items-center justify-between gap-3 rounded-[8px] border border-line/60 bg-bg-well/25 px-3 py-2 opacity-60"
@@ -1626,7 +1652,7 @@ export function ModsPage({
                         </p>
                       </div>
                     </div>
-                    <span className="shrink-0 text-[11px] text-faint">{t(reason)}</span>
+                    <span className="shrink-0 text-[11px] text-faint">{tf(reason, reasonParams)}</span>
                   </div>
                 ))}
               </div>

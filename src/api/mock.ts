@@ -198,7 +198,7 @@ let instances: Instance[] = [
 
 const runtime: JavaRuntime[] = [
   {
-    path: 'C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.5.11-hotspot\\bin\\java.exe',
+    path: 'C:\\Java\\jdk-21\\bin\\java.exe',
     version: '21.0.5',
     majorVersion: 21,
     vendor: 'Eclipse Temurin',
@@ -232,7 +232,7 @@ const catalog: VersionCatalog = {
     versions: releaseVersions.map((id) => ({
       id,
       type: id.includes('snapshot') ? 'snapshot' : 'release',
-      url: 'https://piston-meta.mojang.com/mock.json',
+      url: 'https://example.invalid/version.json',
       time: now(),
       releaseTime: now(),
       sha1: null,
@@ -480,7 +480,7 @@ export async function mockInvoke<T>(
         categories: ['optimization', 'fabric'],
         loaders: ['fabric', 'neoforge'],
         gameVersions: ['1.21.11', '1.21.1'],
-        sourceUrl: 'https://github.com/CaffeineMC/sodium',
+        sourceUrl: 'https://example.invalid/sodium',
         gallery: [],
       } as T;
     case 'get_modrinth_versions':
@@ -550,7 +550,7 @@ export async function mockInvoke<T>(
         downloads: 86500,
         categories: ['utility'],
         screenshots: [],
-        source: 'https://github.com/horizon-rust/horizon-mods',
+        source: 'https://example.invalid/horizon-mods',
         license: 'MIT',
         versions: [
           {
@@ -584,17 +584,17 @@ export async function mockInvoke<T>(
     case 'check_launcher_update':
       return {
         currentVersion: '0.1.1',
-        latestVersion: '0.1.2',
-        updateAvailable: true,
-        releaseUrl: 'https://github.com/nnnegrvpeni-lang/HydroLauncher/releases/latest',
+        latestVersion: '0.1.1',
+        updateAvailable: false,
+        releaseUrl: 'https://example.invalid/releases/latest',
         publishedAt: now(),
       } as T;
     case 'get_app_links':
       return {
-        modrinthProject: 'https://modrinth.com/mod/',
-        horizonMod: 'https://playhorizon.dev/mods/',
-        repo: 'https://github.com/nnnegrvpeni-lang/HydroLauncher',
-        issues: 'https://github.com/nnnegrvpeni-lang/HydroLauncher/issues/new/choose',
+        modrinthProject: 'https://example.invalid/modrinth',
+        horizonMod: 'https://example.invalid/horizon-mods',
+        repo: 'https://example.invalid/repo',
+        issues: 'https://example.invalid/issues',
       } as T;
 
     // Быстрый запуск и скриншоты сборки
@@ -677,7 +677,7 @@ export async function mockInvoke<T>(
       return undefined as T;
     case 'export_instance_archive':
       return {
-        path: 'C:\\Users\\Public\\HydroLauncher-instance.zip',
+        path: 'C:\\HydroLauncher\\exports\\instance.zip',
         sizeBytes: 12 * 1024 * 1024,
       } as T;
     case 'pick_instance_archive':
@@ -771,7 +771,7 @@ export async function mockInvoke<T>(
       return null as T;
     case 'export_instance_mrpack':
       return {
-        path: 'C:\\Users\\Public\\HydroLauncher-export.mrpack',
+        path: 'C:\\HydroLauncher\\exports\\instance.mrpack',
         sizeBytes: 3 * 1024 * 1024,
       } as T;
     case 'pick_local_mod':
