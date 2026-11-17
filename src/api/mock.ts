@@ -361,6 +361,9 @@ export async function mockInvoke<T>(
         memoryMbOverride: number | null;
         javaPathOverride: string | null;
         jvmArgs: string[];
+        gameArgs?: string[];
+        loaderVersion?: string | null;
+        autoUpdateHorizon?: boolean;
         icon?: string | null;
         background?: string | null;
       };
@@ -372,6 +375,10 @@ export async function mockInvoke<T>(
               memoryMbOverride: request.memoryMbOverride,
               javaPathOverride: request.javaPathOverride,
               jvmArgs: request.jvmArgs,
+              gameArgs: request.gameArgs ?? i.gameArgs,
+              loaderVersion:
+                request.loaderVersion !== undefined ? request.loaderVersion : i.loaderVersion,
+              autoUpdateHorizon: request.autoUpdateHorizon ?? i.autoUpdateHorizon,
               icon: request.icon ?? i.icon,
               background: request.background ?? i.background,
             }

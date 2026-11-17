@@ -10,7 +10,9 @@ import { useInstancesStore } from '../stores/instancesStore';
 import { useNotifyStore } from '../stores/notifyStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useI18n } from '../i18n';
+import { localizeError } from '../i18n/errors';
 import { cn } from '../utils/cn';
+import { formatArgs, splitArgs } from '../utils/args';
 import { formatMemory } from '../utils/format';
 import {
   backgroundLabel,
@@ -39,6 +41,7 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
   const [memoryMb, setMemoryMb] = useState(4096);
   const [javaPath, setJavaPath] = useState('');
   const [jvmArgsText, setJvmArgsText] = useState('');
+  const [gameArgsText, setGameArgsText] = useState('');
   const [loaderVersion, setLoaderVersion] = useState('');
   const [autoUpdateHorizon, setAutoUpdateHorizon] = useState(true);
   const [loaderVersions, setLoaderVersions] = useState<string[]>([]);
@@ -60,7 +63,8 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
     setCustomMemory(instance.memoryMbOverride !== null);
     setMemoryMb(instance.memoryMbOverride ?? settings?.defaultMemoryMb ?? 4096);
     setJavaPath(instance.javaPathOverride ?? '');
-    setJvmArgsText(instance.jvmArgs.join(' '));
+    setJvmArgsText(formatArgs(instance.jvmArgs));
+    setGameArgsText(formatArgs(instance.gameArgs));
     setLoaderVersion(instance.loaderVersion ?? '');
     setAutoUpdateHorizon(instance.autoUpdateHorizon ?? true);
     setIconConfig(
@@ -148,7 +152,7 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
         notify(tf('Сборка экспортирована: {path}', { path: result.path }));
       }
     } catch (err) {
-      notify(String(err), 'error');
+      notify(localizeError(String(err), language), 'error');
     } finally {
       setExporting(false);
     }
@@ -185,10 +189,8 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
         name: name.trim(),
         memoryMbOverride: customMemory ? memoryMb : null,
         javaPathOverride: javaPath.trim() ? javaPath.trim() : null,
-        jvmArgs: jvmArgsText
-          .split(/\s+/)
-          .map((s) => s.trim())
-          .filter(Boolean),
+        jvmArgs: splitArgs(jvmArgsText),
+        gameArgs: splitArgs(gameArgsText),
         loaderVersion: nextLoaderVersion,
         autoUpdateHorizon,
         icon: iconConfig.icon,
@@ -196,8 +198,14 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
       });
       onClose();
       if (instance.engine === 'horizon' && nextLoaderVersion !== prevLoaderVersion) {
-        void api.updateHorizonBinaries(instance.id, nextLoaderVersion ?? undefined);
+        void api
+          .updateHorizonBinaries(instance.id, nextLoaderVersion ?? undefined)
+          .catch((err) => {
+            notify(localizeError(String(err), language), 'error');
+          });
       }
+    } catch (err) {
+      notify(localizeError(String(err), language), 'error');
     } finally {
       setSaving(false);
     }
@@ -415,6 +423,21 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
               value={jvmArgsText}
               onChange={(e) => setJvmArgsText(e.target.value)}
               placeholder="-XX:+UseG1GC"
+              autoComplete="off"
+              spellCheck={false}
+              className="hl-input font-mono text-xs"
+            />
+          </div>
+
+          <div>
+            <label className="hl-field-label" htmlFor="edit-instance-game">
+              {t('Аргументы игры (через пробел)')}
+            </label>
+            <input
+              id="edit-instance-game"
+              value={gameArgsText}
+              onChange={(e) => setGameArgsText(e.target.value)}
+              placeholder="-fullscreen"
               autoComplete="off"
               spellCheck={false}
               className="hl-input font-mono text-xs"

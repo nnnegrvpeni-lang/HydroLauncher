@@ -123,6 +123,12 @@ pub async fn update_instance(
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
         .collect();
+    instance.game_args = req
+        .game_args
+        .into_iter()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
     instance.loader_version = match req.loader_version.as_deref().map(str::trim) {
         Some(value) if !value.is_empty() => Some(
             sanitize_version_token(value)

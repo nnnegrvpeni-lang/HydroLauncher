@@ -76,12 +76,26 @@ export const useInstancesStore = create<InstancesState>((set, get) => ({
   update: async (id, patch) => {
     const current = get().instances.find((i) => i.id === id);
     if (!current) return;
+    // `null` — это осознанное «сбросить к значению по умолчанию», поэтому
+    // сравниваем с undefined, иначе снять свой лимит памяти или путь к Java
+    // через настройки было нельзя.
     const updated = await api.updateInstance({
       id,
-      name: patch.name ?? current.name,
-      memoryMbOverride: patch.memoryMbOverride ?? current.memoryMbOverride,
-      javaPathOverride: patch.javaPathOverride ?? current.javaPathOverride,
-      jvmArgs: patch.jvmArgs ?? current.jvmArgs,
+      name: patch.name !== undefined ? patch.name : current.name,
+      memoryMbOverride:
+        patch.memoryMbOverride !== undefined
+          ? patch.memoryMbOverride
+          : current.memoryMbOverride,
+      javaPathOverride:
+        patch.javaPathOverride !== undefined
+          ? patch.javaPathOverride
+          : current.javaPathOverride,
+      jvmArgs: patch.jvmArgs !== undefined ? patch.jvmArgs : current.jvmArgs,
+      gameArgs: patch.gameArgs !== undefined ? patch.gameArgs : current.gameArgs,
+      autoUpdateHorizon:
+        patch.autoUpdateHorizon !== undefined
+          ? patch.autoUpdateHorizon
+          : current.autoUpdateHorizon,
       loaderVersion:
         patch.loaderVersion !== undefined ? patch.loaderVersion : current.loaderVersion,
       icon: patch.icon !== undefined ? patch.icon : current.icon,
@@ -100,8 +114,11 @@ export const useInstancesStore = create<InstancesState>((set, get) => ({
     try {
       await api.launchInstance(id, quickPlay);
     } catch (err) {
-      running.set(id, 'idle');
-      set({ running, error: String(err) });
+      // Новый Map, а не мутация уже опубликованного: иначе подписчики
+      // получают ту же ссылку и состояние «подготовка» не сбрасывается.
+      const next = new Map(get().running);
+      next.set(id, 'idle');
+      set({ running: next, error: String(err) });
       throw err;
     }
   },

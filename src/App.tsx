@@ -215,7 +215,7 @@ export default function App() {
       <QuitConfirmModal open={quitPromptOpen} onClose={() => setQuitPromptOpen(false)} />
 
       {dropActive && (
-        <div className="pointer-events-none fixed inset-0 z-[60] flex items-center justify-center bg-bg/55 backdrop-blur-sm">
+        <div className="pointer-events-none fixed inset-0 z-[60] flex items-center justify-center bg-bg/55">
           <div className="deck-surface hl-pop-in rounded-[16px] border border-accent/40 px-8 py-6 text-center">
             <Package size={28} className="mx-auto text-accent" />
             <p className="mt-2 text-sm font-medium text-ink">

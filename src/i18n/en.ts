@@ -177,6 +177,14 @@ export const en: Record<string, string> = {
   'Отчёт скопирован в буфер обмена': 'Report copied to clipboard',
   'Не удалось скопировать отчёт': 'Failed to copy the report',
 
+  // Ошибки интерфейса
+  'Интерфейс столкнулся с ошибкой': 'The interface ran into an error',
+  'Сборки и настройки не пострадали. Перезапустите интерфейс, а если ошибка повторится — приложите текст ниже к отчёту.':
+    'Your instances and settings are safe. Restart the interface, and if the error repeats, attach the text below to your report.',
+  Перезагрузить: 'Reload',
+  'Скопировать текст ошибки': 'Copy error text',
+  'Не удалось подготовить сборку: {error}': 'Failed to prepare the instance: {error}',
+
   // Выход при запущенной игре
   'Игра ещё запущена': 'The game is still running',
   'Если выйти сейчас, Minecraft продолжит работать, но лаунчер про него забудет — остановить игру можно будет только через диспетчер задач.':
@@ -457,6 +465,7 @@ export const en: Record<string, string> = {
   'Путь к Java (необязательно)': 'Java path (optional)',
   'Автоматический выбор': 'Automatic selection',
   'Аргументы JVM (через пробел)': 'JVM arguments (space-separated)',
+  'Аргументы игры (через пробел)': 'Game arguments (space-separated)',
   'Версия модлоадера ({loader})': 'Mod loader version ({loader})',
   'Авто (последняя стабильная)': 'Auto (latest stable)',
 

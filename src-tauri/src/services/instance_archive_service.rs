@@ -38,6 +38,9 @@ struct InstanceArchiveManifest {
     java_path_override: Option<String>,
     #[serde(default)]
     jvm_args: Vec<String>,
+    /// В архивах старых версий поля нет — тогда аргументов игры просто не было.
+    #[serde(default)]
+    game_args: Vec<String>,
     #[serde(default = "default_icon")]
     icon: String,
     #[serde(default = "default_background")]
@@ -191,6 +194,7 @@ pub async fn export_instance(
         memory_mb_override: instance.memory_mb_override,
         java_path_override: instance.java_path_override.clone(),
         jvm_args: instance.jvm_args.clone(),
+        game_args: instance.game_args.clone(),
         icon: instance.icon.clone(),
         background: instance.background.clone(),
     };
@@ -404,6 +408,7 @@ pub async fn import_instance(
             // а подставлять его в запуск процесса небезопасно.
             java_path_override: None,
             jvm_args: manifest.jvm_args,
+            game_args: manifest.game_args,
             loader_version: manifest.loader_version,
             auto_update_horizon: true,
             icon: None,

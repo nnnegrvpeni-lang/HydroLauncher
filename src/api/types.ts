@@ -67,6 +67,7 @@ export interface UpdateInstanceRequest {
   memoryMbOverride: number | null;
   javaPathOverride: string | null;
   jvmArgs: string[];
+  gameArgs?: string[];
   loaderVersion?: string | null;
   autoUpdateHorizon?: boolean;
   icon?: string | null;

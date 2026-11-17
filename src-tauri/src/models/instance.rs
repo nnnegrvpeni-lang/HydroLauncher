@@ -141,6 +141,8 @@ pub struct UpdateInstanceRequest {
     pub java_path_override: Option<String>,
     pub jvm_args: Vec<String>,
     #[serde(default)]
+    pub game_args: Vec<String>,
+    #[serde(default)]
     pub loader_version: Option<String>,
     #[serde(default = "default_true")]
     pub auto_update_horizon: bool,

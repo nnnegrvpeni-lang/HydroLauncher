@@ -8,6 +8,7 @@ import {
 } from '../api';
 import { useCatalogStore } from '../stores/catalogStore';
 import { useInstancesStore } from '../stores/instancesStore';
+import { useNotifyStore } from '../stores/notifyStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useI18n } from '../i18n';
 import { localizeError } from '../i18n/errors';
@@ -60,7 +61,19 @@ export function CreateInstanceModal({
   const create = useInstancesStore((s) => s.create);
   const loadInstances = useInstancesStore((s) => s.load);
   const showSnapshots = useSettingsStore((s) => s.settings?.showSnapshots ?? false);
+  const notify = useNotifyStore((s) => s.push);
   const { t, tf, language } = useI18n();
+
+  // Подготовка идёт в фоне и не должна отменять уже созданную сборку:
+  // сообщаем об ошибке, чтобы она не потерялась молча.
+  const reportPrepareFailure = (err: unknown) => {
+    notify(
+      tf('Не удалось подготовить сборку: {error}', {
+        error: localizeError(String(err), language),
+      }),
+      'error',
+    );
+  };
 
   const versionCatalog = useCatalogStore((s) => s.versionCatalog);
   const loading = useCatalogStore((s) => s.versionCatalogLoading);
@@ -285,7 +298,7 @@ export function CreateInstanceModal({
     try {
       const created = await api.installModrinthModpack(hit.projectId);
       await loadInstances();
-      void api.prepareInstance(created.id).catch(() => {});
+      void api.prepareInstance(created.id).catch(reportPrepareFailure);
       onCreated?.(created.id);
       onClose();
     } catch (err) {
@@ -315,7 +328,7 @@ export function CreateInstanceModal({
         importName.trim() || undefined,
       );
       await loadInstances();
-      void api.prepareInstance(created.id).catch(() => {});
+      void api.prepareInstance(created.id).catch(reportPrepareFailure);
       setMrpackPath('');
       setImportName('');
       onCreated?.(created.id);
