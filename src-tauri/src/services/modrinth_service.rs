@@ -1019,25 +1019,57 @@ async fn install_mrpack_from_bytes(
     let bytes_clone = bytes;
     let game_dir_clone = game_dir.clone();
     let overrides_result = tokio::task::spawn_blocking(move || -> AppResult<()> {
+        // Защита от zip-бомбы: модпак не должен уметь заполнить диск.
+        const MAX_OVERRIDE_BYTES: u64 = 4 * 1024 * 1024 * 1024;
+        const MAX_OVERRIDE_ENTRIES: usize = 20_000;
+
         let cursor = std::io::Cursor::new(&bytes_clone);
         let mut archive = zip::ZipArchive::new(cursor)?;
+        let mut total_bytes: u64 = 0;
+        let mut written_entries: usize = 0;
+
         for i in 0..archive.len() {
             let mut entry = archive.by_index(i)?;
             if entry.is_dir() {
                 continue;
             }
-            let name = entry.name().replace('\\', "/");
-            let rel = if let Some(r) = name.strip_prefix("overrides/") {
-                r
-            } else if let Some(r) = name.strip_prefix("client-overrides/") {
-                r
-            } else {
+
+            // enclosed_name отсекает абсолютные пути и `..`: на Windows без
+            // этого `join` с путём вида `C:/...` писал бы мимо папки сборки.
+            let Some(path) = entry.enclosed_name() else {
                 continue;
             };
-            if rel.is_empty() || rel.contains("..") {
+            let relative = match path
+                .strip_prefix("overrides")
+                .or_else(|_| path.strip_prefix("client-overrides"))
+            {
+                Ok(value) => value,
+                Err(_) => continue,
+            };
+            if relative.as_os_str().is_empty() {
                 continue;
             }
-            let out_path = game_dir_clone.join(rel);
+            if !relative
+                .components()
+                .all(|component| matches!(component, std::path::Component::Normal(_)))
+            {
+                continue;
+            }
+
+            written_entries += 1;
+            if written_entries > MAX_OVERRIDE_ENTRIES {
+                return Err(AppError::Validation(
+                    "В архиве модпака слишком много файлов".into(),
+                ));
+            }
+            total_bytes = total_bytes.saturating_add(entry.size());
+            if total_bytes > MAX_OVERRIDE_BYTES {
+                return Err(AppError::Validation(
+                    "Архив модпака больше допустимого размера".into(),
+                ));
+            }
+
+            let out_path = game_dir_clone.join(relative);
             if let Some(parent) = out_path.parent() {
                 std::fs::create_dir_all(parent)?;
             }

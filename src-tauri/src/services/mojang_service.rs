@@ -107,11 +107,19 @@ fn emit_progress(ctx: &InstallContext, stage: &str, message: &str, current: u64,
     );
 }
 
+/// Маркер полной установки: без него оборванная загрузка считалась бы
+/// готовой и игра запускалась бы без библиотек или ассетов.
+const INSTALL_MARKER: &str = ".hydro-complete";
+
 pub async fn is_version_installed(paths: &AppPaths, data_dir: &Path, version_id: &str) -> bool {
-    let jar = paths
-        .version_dir(data_dir, version_id)
-        .join(format!("{}.jar", version_id));
-    tokio::fs::try_exists(&jar).await.unwrap_or(false)
+    let dir = paths.version_dir(data_dir, version_id);
+    let jar = dir.join(format!("{}.jar", version_id));
+    if !tokio::fs::try_exists(&jar).await.unwrap_or(false) {
+        return false;
+    }
+    tokio::fs::try_exists(dir.join(INSTALL_MARKER))
+        .await
+        .unwrap_or(false)
 }
 
 pub async fn install_version_files(
@@ -127,8 +135,42 @@ pub async fn install_version_files(
     download_natives(ctx, details).await?;
     write_version_json(ctx, details).await?;
 
+    let version_dir = ctx.paths.version_dir(&ctx.data_dir, &details.id);
+    tokio::fs::write(version_dir.join(INSTALL_MARKER), b"installed\n").await?;
+
     emit_progress(ctx, "done", "Файлы готовы к запуску", 1, 1);
     Ok(())
+}
+
+/// Собирает результат параллельных загрузок: первая ошибка становится
+/// причиной провала установки, а не теряется в `JoinHandle`.
+async fn collect_download_results(
+    handles: Vec<tokio::task::JoinHandle<AppResult<()>>>,
+) -> AppResult<()> {
+    let mut failed = 0usize;
+    let mut first_error: Option<String> = None;
+
+    for handle in handles {
+        let outcome = match handle.await {
+            Ok(result) => result,
+            Err(err) => Err(AppError::Process(format!("Задача загрузки упала: {err}"))),
+        };
+        if let Err(err) = outcome {
+            failed += 1;
+            if first_error.is_none() {
+                first_error = Some(err.to_string());
+            }
+        }
+    }
+
+    if failed == 0 {
+        return Ok(());
+    }
+
+    Err(AppError::Validation(format!(
+        "Не удалось скачать файлов: {failed}. Первая ошибка: {}",
+        first_error.unwrap_or_else(|| "неизвестна".into())
+    )))
 }
 
 async fn download_client_jar(ctx: &InstallContext, details: &VersionDetails) -> AppResult<()> {
@@ -189,10 +231,16 @@ async fn download_assets(ctx: &InstallContext, details: &VersionDetails) -> AppR
 
         handles.push(tokio::spawn(async move {
             let _permit = semaphore.acquire_owned().await;
-            let hash_prefix = &obj.hash[0..2];
-            let dest = assets_dir.join("objects").join(hash_prefix).join(&obj.hash);
+            let hash_prefix = obj
+                .hash
+                .get(..2)
+                .ok_or_else(|| {
+                    AppError::Validation(format!("Некорректный хеш ассета: {}", obj.hash))
+                })?
+                .to_string();
+            let dest = assets_dir.join("objects").join(&hash_prefix).join(&obj.hash);
             let url = format!("{}/{}/{}", MOJANG_RESOURCES_BASE_URL, hash_prefix, obj.hash);
-            let _ = download_file(&client, &url, &dest, Some(&obj.hash)).await;
+            download_file(&client, &url, &dest, Some(&obj.hash)).await?;
 
             let current = done.fetch_add(1, Ordering::Relaxed) + 1;
             if current % 64 == 0 {
@@ -214,10 +262,11 @@ async fn download_assets(ctx: &InstallContext, details: &VersionDetails) -> AppR
                 );
             }
             let _ = name;
+            Ok::<(), AppError>(())
         }));
     }
 
-    futures_util::future::join_all(handles).await;
+    collect_download_results(handles).await?;
     emit_progress(ctx, "assets", "Ассеты скачаны", total, total);
     Ok(())
 }
@@ -272,7 +321,7 @@ async fn download_libraries(ctx: &InstallContext, details: &VersionDetails) -> A
 
         handles.push(tokio::spawn(async move {
             let _permit = semaphore.acquire_owned().await;
-            let _ = download_file(&client, &url, &dest, Some(&sha)).await;
+            download_file(&client, &url, &dest, Some(&sha)).await?;
             let current = done.fetch_add(1, Ordering::Relaxed) + 1;
             if current % 8 == 0 {
                 let percent = if total == 0 {
@@ -292,10 +341,11 @@ async fn download_libraries(ctx: &InstallContext, details: &VersionDetails) -> A
                     },
                 );
             }
+            Ok::<(), AppError>(())
         }));
     }
 
-    futures_util::future::join_all(handles).await;
+    collect_download_results(handles).await?;
     emit_progress(ctx, "libraries", "Библиотеки скачаны", total, total);
     Ok(())
 }
@@ -337,15 +387,15 @@ async fn download_natives(ctx: &InstallContext, details: &VersionDetails) -> App
         let maven_path = artifact_path(&lib.name, natives_artifact);
         let jar_path = ctx.paths.libraries_dir(&ctx.data_dir).join(&maven_path);
 
-        if !tokio::fs::try_exists(&jar_path).await? {
-            download_file(
-                &http_client(),
-                &natives_artifact.url,
-                &jar_path,
-                Some(&natives_artifact.sha1),
-            )
-            .await?;
-        }
+        // Скачиваем или сверяем всегда: лежащий в кэше jar мог быть обрезан
+        // или подменён, а распаковка идёт прямо в игру.
+        download_file(
+            &http_client(),
+            &natives_artifact.url,
+            &jar_path,
+            Some(&natives_artifact.sha1),
+        )
+        .await?;
 
         extract_native_binaries(&jar_path, &natives_dir).await?;
         emit_progress(
@@ -366,21 +416,33 @@ async fn extract_native_binaries(jar_path: &Path, dest: &Path) -> AppResult<()> 
 
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i)?;
-        let name = entry.name().to_string();
         if entry.is_dir() {
             continue;
         }
+        // Только обычные компоненты пути: запись не должна выходить за папку
+        // нативов, даже если в jar лежит абсолютный путь.
+        let Some(relative) = entry.enclosed_name() else {
+            continue;
+        };
+        if !relative
+            .components()
+            .all(|component| matches!(component, std::path::Component::Normal(_)))
+        {
+            continue;
+        }
+        let name = entry.name().to_string();
         if name.starts_with("META-INF") {
             continue;
         }
-        let is_binary = name.ends_with(".dll")
-            || name.ends_with(".so")
-            || name.ends_with(".dylib")
-            || name.ends_with(".jnilib");
+        let lower = name.to_ascii_lowercase();
+        let is_binary = lower.ends_with(".dll")
+            || lower.ends_with(".so")
+            || lower.ends_with(".dylib")
+            || lower.ends_with(".jnilib");
         if !is_binary {
             continue;
         }
-        let out_path = dest.join(&name);
+        let out_path = dest.join(relative);
         if let Some(parent) = out_path.parent() {
             tokio::fs::create_dir_all(parent).await?;
         }

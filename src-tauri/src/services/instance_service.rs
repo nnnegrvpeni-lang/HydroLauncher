@@ -1,8 +1,8 @@
 use crate::error::{AppError, AppResult};
 use crate::models::instance::{
-    CreateInstanceRequest, Instance, InstancesStore, UpdateInstanceRequest,
+    sanitize_version_token, CreateInstanceRequest, Instance, InstancesStore, UpdateInstanceRequest,
 };
-use crate::storage::json_store::{read_json_or_default, write_json_atomic};
+use crate::storage::json_store::{lock_file, read_json_or_default, read_locked, write_locked};
 use crate::storage::paths::AppPaths;
 use chrono::Utc;
 use std::path::Path;
@@ -43,8 +43,19 @@ pub async fn create_instance(
     if req.minecraft_version.trim().is_empty() {
         return Err(AppError::Validation("Не выбрана версия Minecraft".into()));
     }
+    let minecraft_version = sanitize_version_token(&req.minecraft_version).ok_or_else(|| {
+        AppError::Validation("Некорректная версия Minecraft".into())
+    })?;
+    let loader_version = match req.loader_version.as_deref() {
+        Some(value) => Some(sanitize_version_token(value).ok_or_else(|| {
+            AppError::Validation("Некорректная версия загрузчика".into())
+        })?),
+        None => None,
+    };
 
-    let mut store: InstancesStore = read_json_or_default(&paths.instances_file(data_dir)).await?;
+    let file = paths.instances_file(data_dir);
+    let _guard = lock_file(&file).await;
+    let mut store: InstancesStore = read_locked(&file).await?;
 
     let id = Uuid::new_v4().to_string();
     let game_dir = paths.instance_game_dir(data_dir, &id);
@@ -53,10 +64,10 @@ pub async fn create_instance(
     let instance = Instance {
         id,
         name: clean_name,
-        minecraft_version: req.minecraft_version.trim().to_string(),
+        minecraft_version,
         engine: req.engine,
         loader: req.loader,
-        loader_version: req.loader_version,
+        loader_version,
         auto_update_horizon: true,
         memory_mb_override: None,
         java_path_override: None,
@@ -70,7 +81,7 @@ pub async fn create_instance(
     };
 
     store.instances.push(instance.clone());
-    write_json_atomic(&paths.instances_file(data_dir), &store).await?;
+    write_locked(&file, &store).await?;
     Ok(instance)
 }
 
@@ -86,7 +97,9 @@ pub async fn update_instance(
         ));
     }
 
-    let mut store: InstancesStore = read_json_or_default(&paths.instances_file(data_dir)).await?;
+    let file = paths.instances_file(data_dir);
+    let _guard = lock_file(&file).await;
+    let mut store: InstancesStore = read_locked(&file).await?;
     let instance = store
         .instances
         .iter_mut()
@@ -94,7 +107,12 @@ pub async fn update_instance(
         .ok_or_else(|| AppError::NotFound("Сборка не найдена".into()))?;
 
     instance.name = clean_name;
-    instance.memory_mb_override = req.memory_mb_override;
+    // Память ограничиваем так же, как глобальную настройку: иначе импорт или
+    // ручной ввод могли передать JVM бессмысленный `-Xmx`.
+    instance.memory_mb_override = req.memory_mb_override.map(|value| {
+        let total = crate::services::settings_service::collect_system_info(paths).total_memory_mb;
+        value.clamp(crate::config::endpoints::MIN_MEMORY_MB, total.max(crate::config::endpoints::MIN_MEMORY_MB))
+    });
     instance.java_path_override = req
         .java_path_override
         .map(|s| s.trim().to_string())
@@ -105,10 +123,13 @@ pub async fn update_instance(
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
         .collect();
-    instance.loader_version = req
-        .loader_version
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty());
+    instance.loader_version = match req.loader_version.as_deref().map(str::trim) {
+        Some(value) if !value.is_empty() => Some(
+            sanitize_version_token(value)
+                .ok_or_else(|| AppError::Validation("Некорректная версия загрузчика".into()))?,
+        ),
+        _ => None,
+    };
     instance.auto_update_horizon = req.auto_update_horizon;
 
     if let Some(icon) = req.icon {
@@ -121,7 +142,7 @@ pub async fn update_instance(
     }
 
     let updated = instance.clone();
-    write_json_atomic(&paths.instances_file(data_dir), &store).await?;
+    write_locked(&file, &store).await?;
     Ok(updated)
 }
 
@@ -130,9 +151,13 @@ pub async fn delete_instance(
     data_dir: &Path,
     instance_id: &str,
 ) -> AppResult<()> {
-    let mut store: InstancesStore = read_json_or_default(&paths.instances_file(data_dir)).await?;
-    if !store.instances.iter().any(|i| i.id == instance_id) {
-        return Err(AppError::NotFound("Сборка не найдена".into()));
+    let file = paths.instances_file(data_dir);
+    {
+        let _guard = lock_file(&file).await;
+        let store: InstancesStore = read_locked(&file).await?;
+        if !store.instances.iter().any(|i| i.id == instance_id) {
+            return Err(AppError::NotFound("Сборка не найдена".into()));
+        }
     }
 
     // Сначала удаляем папку: если файлы заняты (игра/антивирус), запись в
@@ -142,8 +167,12 @@ pub async fn delete_instance(
         tokio::fs::remove_dir_all(&inst_dir).await?;
     }
 
+    // Перечитываем список под замком: пока удалялись файлы, статистика
+    // другой сборки могла обновиться.
+    let _guard = lock_file(&file).await;
+    let mut store: InstancesStore = read_locked(&file).await?;
     store.instances.retain(|i| i.id != instance_id);
-    write_json_atomic(&paths.instances_file(data_dir), &store).await?;
+    write_locked(&file, &store).await?;
 
     Ok(())
 }
@@ -154,13 +183,17 @@ pub async fn duplicate_instance(
     data_dir: &Path,
     instance_id: &str,
 ) -> AppResult<Instance> {
-    let mut store: InstancesStore = read_json_or_default(&paths.instances_file(data_dir)).await?;
-    let source = store
-        .instances
-        .iter()
-        .find(|i| i.id == instance_id)
-        .cloned()
-        .ok_or_else(|| AppError::NotFound("Сборка не найдена".into()))?;
+    let file = paths.instances_file(data_dir);
+    let source = {
+        let _guard = lock_file(&file).await;
+        let store: InstancesStore = read_locked(&file).await?;
+        store
+            .instances
+            .iter()
+            .find(|i| i.id == instance_id)
+            .cloned()
+            .ok_or_else(|| AppError::NotFound("Сборка не найдена".into()))?
+    };
 
     let new_id = Uuid::new_v4().to_string();
     let source_dir = paths.instance_dir(data_dir, instance_id);
@@ -179,8 +212,11 @@ pub async fn duplicate_instance(
     copy.last_played_at = None;
     copy.play_time_seconds = 0;
 
+    // Перечитываем список под замком: копирование файлов могло занять время.
+    let _guard = lock_file(&file).await;
+    let mut store: InstancesStore = read_locked(&file).await?;
     store.instances.push(copy.clone());
-    if let Err(err) = write_json_atomic(&paths.instances_file(data_dir), &store).await {
+    if let Err(err) = write_locked(&file, &store).await {
         let _ = tokio::fs::remove_dir_all(&target_dir).await;
         return Err(err);
     }
@@ -216,11 +252,13 @@ pub async fn record_play_session(
     instance_id: &str,
     elapsed_seconds: u64,
 ) -> AppResult<()> {
-    let mut store: InstancesStore = read_json_or_default(&paths.instances_file(data_dir)).await?;
+    let file = paths.instances_file(data_dir);
+    let _guard = lock_file(&file).await;
+    let mut store: InstancesStore = read_locked(&file).await?;
     if let Some(inst) = store.instances.iter_mut().find(|i| i.id == instance_id) {
         inst.last_played_at = Some(Utc::now().to_rfc3339());
         inst.play_time_seconds = inst.play_time_seconds.saturating_add(elapsed_seconds);
-        write_json_atomic(&paths.instances_file(data_dir), &store).await?;
+        write_locked(&file, &store).await?;
     }
     Ok(())
 }

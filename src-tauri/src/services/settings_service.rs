@@ -3,7 +3,7 @@ use crate::config::endpoints::{
 };
 use crate::error::{AppError, AppResult};
 use crate::models::settings::{AppSettings, SystemInfo, ThemeMode};
-use crate::storage::json_store::write_json_atomic;
+use crate::storage::json_store::{read_json_or_default, write_json_atomic};
 use crate::storage::paths::AppPaths;
 use std::path::PathBuf;
 use sysinfo::System;
@@ -33,14 +33,32 @@ pub fn compute_recommended_memory_mb(total_memory_mb: u64) -> u64 {
     quarter.clamp(RECOMMENDED_MIN_MEMORY_MB, RECOMMENDED_MAX_MEMORY_MB)
 }
 
+/// Приводит загруженные настройки в рабочее состояние. Нужен после добавления
+/// новых полей и после восстановления из резервной копии: пустые значения не
+/// должны доходить до команд.
+fn normalize_settings(mut settings: AppSettings, paths: &AppPaths) -> AppSettings {
+    if settings.data_dir.trim().is_empty() {
+        settings.data_dir = paths.default_data_dir().to_string_lossy().into_owned();
+    }
+    if settings.default_memory_mb < MIN_MEMORY_MB {
+        settings.default_memory_mb = RECOMMENDED_MIN_MEMORY_MB;
+    }
+    if settings.max_concurrent_downloads == 0 {
+        settings.max_concurrent_downloads = DEFAULT_CONCURRENT_DOWNLOADS;
+    }
+    settings.max_concurrent_downloads = settings.max_concurrent_downloads.clamp(1, 32);
+    if settings.backup_retention == 0 {
+        settings.backup_retention = 5;
+    }
+    settings.backup_retention = settings.backup_retention.clamp(1, 50);
+    settings
+}
+
 pub async fn load_or_init_settings(paths: &AppPaths) -> AppResult<AppSettings> {
     let config_file = paths.config_file();
     if tokio::fs::try_exists(&config_file).await? {
-        let bytes = tokio::fs::read(&config_file).await?;
-        if !bytes.is_empty() {
-            let settings: AppSettings = serde_json::from_slice(&bytes)?;
-            return Ok(settings);
-        }
+        let stored: AppSettings = read_json_or_default(&config_file).await?;
+        return Ok(normalize_settings(stored, paths));
     }
 
     let sys_info = collect_system_info(paths);

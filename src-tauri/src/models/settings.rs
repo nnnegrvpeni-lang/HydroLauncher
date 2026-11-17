@@ -9,6 +9,12 @@ pub enum ThemeMode {
     Light,
 }
 
+impl Default for ThemeMode {
+    fn default() -> Self {
+        ThemeMode::Dark
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Language {
@@ -24,8 +30,10 @@ fn default_backup_retention() -> usize {
     5
 }
 
+/// Новые поля получают значения по умолчанию: обновление лаунчера не должно
+/// ломать уже сохранённые настройки.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", default)]
 pub struct AppSettings {
     pub theme: ThemeMode,
     pub data_dir: String,
@@ -33,16 +41,30 @@ pub struct AppSettings {
     pub max_concurrent_downloads: usize,
     pub close_on_launch: bool,
     /// Сворачивать окно в трей при нажатии на крестик вместо выхода.
-    #[serde(default)]
     pub close_to_tray: bool,
-    #[serde(default = "default_language")]
     pub language: Language,
-    #[serde(default)]
     pub auto_backup_worlds: bool,
-    #[serde(default = "default_backup_retention")]
     pub backup_retention: usize,
     pub show_snapshots: bool,
     pub custom_java_paths: Vec<String>,
+}
+
+impl Default for AppSettings {
+    fn default() -> Self {
+        Self {
+            theme: ThemeMode::default(),
+            data_dir: String::new(),
+            default_memory_mb: 0,
+            max_concurrent_downloads: 0,
+            close_on_launch: false,
+            close_to_tray: false,
+            language: default_language(),
+            auto_backup_worlds: false,
+            backup_retention: default_backup_retention(),
+            show_snapshots: false,
+            custom_java_paths: Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

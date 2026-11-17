@@ -9,10 +9,31 @@ use tauri::State;
 pub async fn ensure_instance_idle(registry: &LaunchRegistry, instance_id: &str) -> AppResult<()> {
     if registry.contains(instance_id).await {
         return Err(AppError::Validation(
-            "Остановите игру перед этим действием".into(),
+            "Дождитесь завершения запуска или остановите игру".into(),
         ));
     }
     Ok(())
+}
+
+/// Занимает слот сборки на время разрушительной операции. Проверка «сборка
+/// свободна» и сама операция выполняются без окна, в которое мог бы вклиниться
+/// запуск: иначе игра стартовала бы с файлами, которые сейчас перезаписываются.
+pub async fn with_instance_reserved<T, F>(
+    registry: &LaunchRegistry,
+    instance_id: &str,
+    action: F,
+) -> AppResult<T>
+where
+    F: std::future::Future<Output = AppResult<T>>,
+{
+    if !registry.try_reserve_quiet(instance_id).await {
+        return Err(AppError::Validation(
+            "Дождитесь завершения запуска или остановите игру".into(),
+        ));
+    }
+    let result = action.await;
+    registry.release(instance_id).await;
+    result
 }
 
 pub async fn resolve_data_dir(

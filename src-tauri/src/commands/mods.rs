@@ -65,16 +65,24 @@ pub async fn install_modrinth_mod(
     project_id: String,
     version_id: Option<String>,
 ) -> Result<InstalledModFile, AppError> {
-    shared::ensure_instance_idle(&registry, &instance_id).await?;
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
-    let instances = instance_service::load_instances(&paths, &data_dir).await?;
-    let instance = instances
-        .into_iter()
-        .find(|i| i.id == instance_id)
-        .ok_or_else(|| AppError::NotFound("Сборка не найдена".into()))?;
+    shared::with_instance_reserved(&registry, &instance_id, async {
+        let instances = instance_service::load_instances(&paths, &data_dir).await?;
+        let instance = instances
+            .into_iter()
+            .find(|i| i.id == instance_id)
+            .ok_or_else(|| AppError::NotFound("Сборка не найдена".into()))?;
 
-    modrinth_service::install_mod(&paths, &data_dir, &instance, &project_id, version_id.as_deref())
+        modrinth_service::install_mod(
+            &paths,
+            &data_dir,
+            &instance,
+            &project_id,
+            version_id.as_deref(),
+        )
         .await
+    })
+    .await
 }
 
 #[tauri::command]
@@ -93,9 +101,11 @@ pub async fn remove_installed_mod(
     instance_id: String,
     file_name: String,
 ) -> Result<(), AppError> {
-    shared::ensure_instance_idle(&registry, &instance_id).await?;
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
-    modrinth_service::remove_installed_mod(&paths, &data_dir, &instance_id, &file_name).await
+    shared::with_instance_reserved(&registry, &instance_id, async {
+        modrinth_service::remove_installed_mod(&paths, &data_dir, &instance_id, &file_name).await
+    })
+    .await
 }
 
 #[tauri::command]
@@ -124,10 +134,18 @@ pub async fn install_horizon_mod(
     project_id: String,
     version: Option<String>,
 ) -> Result<InstalledModFile, AppError> {
-    shared::ensure_instance_idle(&registry, &instance_id).await?;
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
-    horizon_mods_service::install_mod(&paths, &data_dir, &instance_id, &project_id, version.as_deref())
+    shared::with_instance_reserved(&registry, &instance_id, async {
+        horizon_mods_service::install_mod(
+            &paths,
+            &data_dir,
+            &instance_id,
+            &project_id,
+            version.as_deref(),
+        )
         .await
+    })
+    .await
 }
 
 #[tauri::command]
@@ -137,9 +155,11 @@ pub async fn toggle_installed_mod(
     instance_id: String,
     file_name: String,
 ) -> Result<String, AppError> {
-    shared::ensure_instance_idle(&registry, &instance_id).await?;
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
-    modrinth_service::toggle_installed_mod(&paths, &data_dir, &instance_id, &file_name).await
+    shared::with_instance_reserved(&registry, &instance_id, async {
+        modrinth_service::toggle_installed_mod(&paths, &data_dir, &instance_id, &file_name).await
+    })
+    .await
 }
 
 #[tauri::command]
@@ -204,6 +224,8 @@ pub async fn export_instance_mrpack(
     registry: State<'_, crate::services::launch_service::LaunchRegistry>,
     instance_id: String,
 ) -> Result<Option<modrinth_service::ExportedMrpack>, AppError> {
+    // Быстрая проверка до диалога: не заставляем выбирать файл, если сборка
+    // занята. Точную защиту даёт резерв слота ниже.
     shared::ensure_instance_idle(&registry, &instance_id).await?;
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
     let instance = instance_service::load_instances(&paths, &data_dir)
@@ -228,8 +250,10 @@ pub async fn export_instance_mrpack(
         return Ok(None);
     };
 
-    let exported =
-        modrinth_service::export_instance_mrpack(&paths, &data_dir, &instance, &target).await?;
+    let exported = shared::with_instance_reserved(&registry, &instance_id, async {
+        modrinth_service::export_instance_mrpack(&paths, &data_dir, &instance, &target).await
+    })
+    .await?;
     Ok(Some(exported))
 }
 
@@ -269,13 +293,15 @@ pub async fn install_local_mod(
     instance_id: String,
     file_path: String,
 ) -> Result<InstalledModFile, AppError> {
-    shared::ensure_instance_idle(&registry, &instance_id).await?;
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
-    modrinth_service::install_local_mod(
-        &paths,
-        &data_dir,
-        &instance_id,
-        std::path::Path::new(&file_path),
-    )
+    shared::with_instance_reserved(&registry, &instance_id, async {
+        modrinth_service::install_local_mod(
+            &paths,
+            &data_dir,
+            &instance_id,
+            std::path::Path::new(&file_path),
+        )
+        .await
+    })
     .await
 }

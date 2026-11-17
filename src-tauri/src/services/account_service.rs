@@ -1,6 +1,6 @@
 use crate::error::{AppError, AppResult};
 use crate::models::account::{AccountsStore, OfflineAccount};
-use crate::storage::json_store::{read_json_or_default, write_json_atomic};
+use crate::storage::json_store::{lock_file, read_json_or_default, read_locked, write_locked};
 use crate::storage::paths::AppPaths;
 use chrono::Utc;
 use md5::{Digest, Md5};
@@ -48,7 +48,9 @@ pub async fn create_account(
     username: &str,
 ) -> AppResult<AccountsStore> {
     let clean_name = validate_username(username)?;
-    let mut store = load_accounts(paths, data_dir).await?;
+    let file = paths.accounts_file(data_dir);
+    let _guard = lock_file(&file).await;
+    let mut store: AccountsStore = read_locked(&file).await?;
 
     if store
         .accounts
@@ -75,7 +77,7 @@ pub async fn create_account(
         store.active_account_id = Some(new_id);
     }
 
-    write_json_atomic(&paths.accounts_file(data_dir), &store).await?;
+    write_locked(&file, &store).await?;
     Ok(store)
 }
 
@@ -84,12 +86,14 @@ pub async fn set_active_account(
     data_dir: &Path,
     account_id: &str,
 ) -> AppResult<AccountsStore> {
-    let mut store = load_accounts(paths, data_dir).await?;
+    let file = paths.accounts_file(data_dir);
+    let _guard = lock_file(&file).await;
+    let mut store: AccountsStore = read_locked(&file).await?;
     if !store.accounts.iter().any(|acc| acc.id == account_id) {
         return Err(AppError::NotFound("Аккаунт не найден".into()));
     }
     store.active_account_id = Some(account_id.to_string());
-    write_json_atomic(&paths.accounts_file(data_dir), &store).await?;
+    write_locked(&file, &store).await?;
     Ok(store)
 }
 
@@ -100,7 +104,9 @@ pub async fn rename_account(
     new_username: &str,
 ) -> AppResult<AccountsStore> {
     let clean_name = validate_username(new_username)?;
-    let mut store = load_accounts(paths, data_dir).await?;
+    let file = paths.accounts_file(data_dir);
+    let _guard = lock_file(&file).await;
+    let mut store: AccountsStore = read_locked(&file).await?;
 
     if store
         .accounts
@@ -122,7 +128,7 @@ pub async fn rename_account(
     account.username = clean_name.clone();
     account.uuid = compute_offline_uuid(&clean_name);
 
-    write_json_atomic(&paths.accounts_file(data_dir), &store).await?;
+    write_locked(&file, &store).await?;
     Ok(store)
 }
 
@@ -131,7 +137,9 @@ pub async fn delete_account(
     data_dir: &Path,
     account_id: &str,
 ) -> AppResult<AccountsStore> {
-    let mut store = load_accounts(paths, data_dir).await?;
+    let file = paths.accounts_file(data_dir);
+    let _guard = lock_file(&file).await;
+    let mut store: AccountsStore = read_locked(&file).await?;
     let initial_len = store.accounts.len();
     store.accounts.retain(|acc| acc.id != account_id);
 
@@ -143,7 +151,7 @@ pub async fn delete_account(
         store.active_account_id = store.accounts.first().map(|a| a.id.clone());
     }
 
-    write_json_atomic(&paths.accounts_file(data_dir), &store).await?;
+    write_locked(&file, &store).await?;
     Ok(store)
 }
 
@@ -152,10 +160,12 @@ pub async fn mark_account_used(
     data_dir: &Path,
     account_id: &str,
 ) -> AppResult<()> {
-    let mut store = load_accounts(paths, data_dir).await?;
+    let file = paths.accounts_file(data_dir);
+    let _guard = lock_file(&file).await;
+    let mut store: AccountsStore = read_locked(&file).await?;
     if let Some(acc) = store.accounts.iter_mut().find(|a| a.id == account_id) {
         acc.last_used_at = Some(Utc::now().to_rfc3339());
-        write_json_atomic(&paths.accounts_file(data_dir), &store).await?;
+        write_locked(&file, &store).await?;
     }
     Ok(())
 }

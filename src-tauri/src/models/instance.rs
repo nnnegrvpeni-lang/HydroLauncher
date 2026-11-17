@@ -7,6 +7,12 @@ pub enum EngineKind {
     Horizon,
 }
 
+impl Default for EngineKind {
+    fn default() -> Self {
+        EngineKind::Java
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ModLoaderKind {
@@ -16,6 +22,12 @@ pub enum ModLoaderKind {
     #[serde(rename = "neoforge", alias = "neoForge")]
     NeoForge,
     Quilt,
+}
+
+impl Default for ModLoaderKind {
+    fn default() -> Self {
+        ModLoaderKind::Vanilla
+    }
 }
 
 fn default_true() -> bool {
@@ -30,8 +42,28 @@ pub(crate) fn default_background() -> String {
     String::new()
 }
 
+/// Версии попадают в имена папок, профилей и URL, поэтому принимаем только
+/// безопасный набор символов. Иначе версия вида `../../evil` из импортированного
+/// архива увела бы запись файлов за пределы каталога лаунчера.
+pub fn sanitize_version_token(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() || trimmed.len() > 64 {
+        return None;
+    }
+    if trimmed
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '+' | '-'))
+    {
+        Some(trimmed.to_string())
+    } else {
+        None
+    }
+}
+
+/// `default` на уровне структуры: добавление нового поля не ломает уже
+/// сохранённые сборки, отсутствующие значения берутся из `Default`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", default)]
 pub struct Instance {
     pub id: String,
     pub name: String,
@@ -60,6 +92,29 @@ pub struct Instance {
 #[serde(rename_all = "camelCase")]
 pub struct InstancesStore {
     pub instances: Vec<Instance>,
+}
+
+impl Default for Instance {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            name: String::new(),
+            minecraft_version: String::new(),
+            engine: EngineKind::default(),
+            loader: ModLoaderKind::default(),
+            loader_version: None,
+            auto_update_horizon: true,
+            memory_mb_override: None,
+            java_path_override: None,
+            jvm_args: Vec::new(),
+            game_args: Vec::new(),
+            icon: default_icon(),
+            background: default_background(),
+            created_at: String::new(),
+            last_played_at: None,
+            play_time_seconds: 0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

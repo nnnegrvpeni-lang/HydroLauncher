@@ -39,9 +39,11 @@ pub async fn delete_instance(
     registry: State<'_, crate::services::launch_service::LaunchRegistry>,
     instance_id: String,
 ) -> Result<(), AppError> {
-    shared::ensure_instance_idle(&registry, &instance_id).await?;
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
-    instance_service::delete_instance(&paths, &data_dir, &instance_id).await
+    shared::with_instance_reserved(&registry, &instance_id, async {
+        instance_service::delete_instance(&paths, &data_dir, &instance_id).await
+    })
+    .await
 }
 
 #[tauri::command]
@@ -50,9 +52,11 @@ pub async fn duplicate_instance(
     registry: State<'_, crate::services::launch_service::LaunchRegistry>,
     instance_id: String,
 ) -> Result<Instance, AppError> {
-    shared::ensure_instance_idle(&registry, &instance_id).await?;
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
-    instance_service::duplicate_instance(&paths, &data_dir, &instance_id).await
+    shared::with_instance_reserved(&registry, &instance_id, async {
+        instance_service::duplicate_instance(&paths, &data_dir, &instance_id).await
+    })
+    .await
 }
 
 #[tauri::command]
@@ -529,14 +533,16 @@ pub async fn backup_instance_world(
     instance_id: String,
     folder_name: String,
 ) -> Result<crate::services::world_backup_service::WorldBackupEntry, AppError> {
-    shared::ensure_instance_idle(&registry, &instance_id).await?;
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
-    crate::services::world_backup_service::backup_world(
-        &paths,
-        &data_dir,
-        &instance_id,
-        &folder_name,
-    )
+    shared::with_instance_reserved(&registry, &instance_id, async {
+        crate::services::world_backup_service::backup_world(
+            &paths,
+            &data_dir,
+            &instance_id,
+            &folder_name,
+        )
+        .await
+    })
     .await
 }
 
@@ -557,15 +563,17 @@ pub async fn restore_world_backup(
     folder_name: String,
     file_name: String,
 ) -> Result<(), AppError> {
-    shared::ensure_instance_idle(&registry, &instance_id).await?;
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
-    crate::services::world_backup_service::restore_backup(
-        &paths,
-        &data_dir,
-        &instance_id,
-        &folder_name,
-        &file_name,
-    )
+    shared::with_instance_reserved(&registry, &instance_id, async {
+        crate::services::world_backup_service::restore_backup(
+            &paths,
+            &data_dir,
+            &instance_id,
+            &folder_name,
+            &file_name,
+        )
+        .await
+    })
     .await
 }
 
@@ -577,15 +585,17 @@ pub async fn delete_world_backup(
     folder_name: String,
     file_name: String,
 ) -> Result<(), AppError> {
-    shared::ensure_instance_idle(&registry, &instance_id).await?;
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
-    crate::services::world_backup_service::delete_backup(
-        &paths,
-        &data_dir,
-        &instance_id,
-        &folder_name,
-        &file_name,
-    )
+    shared::with_instance_reserved(&registry, &instance_id, async {
+        crate::services::world_backup_service::delete_backup(
+            &paths,
+            &data_dir,
+            &instance_id,
+            &folder_name,
+            &file_name,
+        )
+        .await
+    })
     .await
 }
 
@@ -596,23 +606,25 @@ pub async fn delete_instance_world(
     instance_id: String,
     folder_name: String,
 ) -> Result<(), AppError> {
-    shared::ensure_instance_idle(&registry, &instance_id).await?;
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
-    let folder = crate::services::world_backup_service::validate_world_folder(&folder_name)?;
-    let saves_dir = paths.instance_game_dir(&data_dir, &instance_id).join("saves");
-    let target = saves_dir.join(&folder);
-    if !target.is_dir() {
-        return Err(AppError::NotFound("Мир не найден".into()));
-    }
-    tokio::fs::remove_dir_all(&target).await?;
-    // Сбрасываем кэш размеров: записи удалённого мира больше не нужны.
-    let _ = tokio::fs::remove_file(
-        paths
-            .instance_dir(&data_dir, &instance_id)
-            .join("worlds-cache.json"),
-    )
-    .await;
-    Ok(())
+    shared::with_instance_reserved(&registry, &instance_id, async {
+        let folder = crate::services::world_backup_service::validate_world_folder(&folder_name)?;
+        let saves_dir = paths.instance_game_dir(&data_dir, &instance_id).join("saves");
+        let target = saves_dir.join(&folder);
+        if !target.is_dir() {
+            return Err(AppError::NotFound("Мир не найден".into()));
+        }
+        tokio::fs::remove_dir_all(&target).await?;
+        // Сбрасываем кэш размеров: записи удалённого мира больше не нужны.
+        let _ = tokio::fs::remove_file(
+            paths
+                .instance_dir(&data_dir, &instance_id)
+                .join("worlds-cache.json"),
+        )
+        .await;
+        Ok(())
+    })
+    .await
 }
 
 fn instance_latest_log(
@@ -716,6 +728,7 @@ pub async fn export_instance_archive(
     instance_id: String,
 ) -> Result<Option<crate::services::instance_archive_service::ExportedInstanceArchive>, AppError>
 {
+    // Проверяем занятость до диалога, а сам архив пишем под резервом слота.
     shared::ensure_instance_idle(&registry, &instance_id).await?;
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
     let instance = instance_service::load_instances(&paths, &data_dir)
@@ -734,9 +747,12 @@ pub async fn export_instance_archive(
         return Ok(None);
     };
 
-    let exported = crate::services::instance_archive_service::export_instance(
-        &app, &paths, &data_dir, &instance, &target,
-    )
+    let exported = shared::with_instance_reserved(&registry, &instance_id, async {
+        crate::services::instance_archive_service::export_instance(
+            &app, &paths, &data_dir, &instance, &target,
+        )
+        .await
+    })
     .await?;
     Ok(Some(exported))
 }

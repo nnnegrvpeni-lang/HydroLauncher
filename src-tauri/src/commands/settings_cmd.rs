@@ -26,8 +26,9 @@ pub async fn save_settings_cmd(
 ) -> Result<AppSettings, AppError> {
     let paths = AppPaths::discover()?;
 
-    // Папку данных нельзя менять на ходу: запущенная игра пишет в старую.
-    if registry.has_running() {
+    // Папку данных нельзя менять на ходу: запущенная игра или идущая
+    // установка пишут в старую.
+    if registry.has_active().await {
         let current_dir = {
             let current = state.settings.lock().await;
             current.as_ref().map(|saved| saved.data_dir.clone())
@@ -40,7 +41,7 @@ pub async fn save_settings_cmd(
         };
         if settings.data_dir.trim() != current_dir.trim() {
             return Err(AppError::Validation(
-                "Остановите игру перед сменой папки данных".into(),
+                "Дождитесь завершения запуска или остановите игру".into(),
             ));
         }
     }

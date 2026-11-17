@@ -21,42 +21,93 @@ use tokio::sync::Mutex;
 
 type KillHandle = tokio::sync::oneshot::Sender<()>;
 
-/// Реестр запущенных игровых процессов, доступный из state Tauri.
+/// Занятость сборки. `Preparing` появляется до начала скачивания: без этого
+/// повторный запуск и удаление видели сборку свободной, пока она готовилась.
+enum LaunchSlot {
+    Preparing,
+    Running(KillHandle),
+}
+
+/// Реестр занятых сборок, доступный из state Tauri.
 pub struct LaunchRegistry {
-    processes: Mutex<HashMap<String, KillHandle>>,
-    /// Дублирует размер карты для синхронной проверки в обработчике окна.
+    slots: Mutex<HashMap<String, LaunchSlot>>,
+    /// Только реально запущенные игры: подготовка и служебные операции не
+    /// должны выглядеть как «игра идёт» при закрытии окна.
     running: AtomicUsize,
 }
 
 impl LaunchRegistry {
     pub fn new() -> Self {
         Self {
-            processes: Mutex::new(HashMap::new()),
+            slots: Mutex::new(HashMap::new()),
             running: AtomicUsize::new(0),
         }
     }
 
-    pub async fn insert(&self, instance_id: String, kill_tx: KillHandle) {
-        let mut processes = self.processes.lock().await;
-        if processes.insert(instance_id, kill_tx).is_none() {
-            self.running.fetch_add(1, Ordering::Relaxed);
+    /// Пытается занять слот. `false` означает, что сборка уже занята: текст
+    /// ошибки выбирает вызывающий, потому что причины бывают разные.
+    pub async fn try_reserve_quiet(&self, instance_id: &str) -> bool {
+        let mut slots = self.slots.lock().await;
+        if slots.contains_key(instance_id) {
+            return false;
+        }
+        slots.insert(instance_id.to_string(), LaunchSlot::Preparing);
+        true
+    }
+
+    /// Атомарно занимает слот. Ошибка означает, что сборка уже готовится или
+    /// запущена — второй раз качать и запускать её нельзя.
+    pub async fn try_reserve(&self, instance_id: &str) -> AppResult<()> {
+        if self.try_reserve_quiet(instance_id).await {
+            Ok(())
+        } else {
+            Err(AppError::Validation("Эта сборка уже запускается".into()))
         }
     }
 
-    pub async fn remove(&self, instance_id: &str) -> Option<KillHandle> {
-        let removed = self.processes.lock().await.remove(instance_id);
-        if removed.is_some() {
-            self.running.fetch_sub(1, Ordering::Relaxed);
+    /// Переводит занятый слот в состояние «игра запущена».
+    pub async fn attach(&self, instance_id: String, kill_tx: KillHandle) {
+        let mut slots = self.slots.lock().await;
+        match slots.get_mut(&instance_id) {
+            Some(slot) => {
+                *slot = LaunchSlot::Running(kill_tx);
+                self.running.fetch_add(1, Ordering::Relaxed);
+            }
+            None => {
+                slots.insert(instance_id, LaunchSlot::Running(kill_tx));
+                self.running.fetch_add(1, Ordering::Relaxed);
+            }
         }
-        removed
+    }
+
+    /// Снимает слот. Возвращает канал остановки, только если игра уже идёт.
+    pub async fn take(&self, instance_id: &str) -> Option<KillHandle> {
+        let mut slots = self.slots.lock().await;
+        match slots.remove(instance_id) {
+            Some(LaunchSlot::Running(kill_tx)) => {
+                self.running.fetch_sub(1, Ordering::Relaxed);
+                Some(kill_tx)
+            }
+            Some(LaunchSlot::Preparing) | None => None,
+        }
+    }
+
+    /// Освобождает слот, не посылая сигнал остановки.
+    pub async fn release(&self, instance_id: &str) {
+        let _ = self.take(instance_id).await;
     }
 
     pub async fn contains(&self, instance_id: &str) -> bool {
-        self.processes.lock().await.contains_key(instance_id)
+        self.slots.lock().await.contains_key(instance_id)
+    }
+
+    /// Занята ли сборка любой операцией: подготовкой, игрой или службой.
+    pub async fn has_active(&self) -> bool {
+        !self.slots.lock().await.is_empty()
     }
 
     pub async fn ids(&self) -> Vec<String> {
-        self.processes.lock().await.keys().cloned().collect()
+        self.slots.lock().await.keys().cloned().collect()
     }
 
     /// Синхронная проверка для CloseRequested: ждать мьютекс там нельзя.
@@ -66,20 +117,32 @@ impl LaunchRegistry {
 
     /// Останавливает все запущенные игры (сигнал watcher-задачам).
     pub async fn stop_all(&self) {
-        let mut processes = self.processes.lock().await;
-        for (_, kill_tx) in processes.drain() {
-            let _ = kill_tx.send(());
-            self.running.fetch_sub(1, Ordering::Relaxed);
+        let mut slots = self.slots.lock().await;
+        for (_, slot) in slots.drain() {
+            if let LaunchSlot::Running(kill_tx) = slot {
+                let _ = kill_tx.send(());
+            }
         }
+        self.running.store(0, Ordering::Relaxed);
     }
 }
 
 pub async fn prepare_instance(app: AppHandle, instance: Instance) -> AppResult<()> {
     let registry = app.state::<LaunchRegistry>();
-    if registry.contains(&instance.id).await {
+
+    // Подготовка тоже занимает слот: иначе сборку можно удалить прямо во
+    // время скачивания файлов.
+    if registry.try_reserve(&instance.id).await.is_err() {
         return Ok(());
     }
 
+    let result = prepare_instance_inner(app.clone(), instance.clone()).await;
+    registry.release(&instance.id).await;
+    emit_state(&app, &instance.id, "exited");
+    result
+}
+
+async fn prepare_instance_inner(app: AppHandle, instance: Instance) -> AppResult<()> {
     let paths = AppPaths::discover()?;
     let settings = settings_service::load_or_init_settings(&paths).await?;
     let data_dir = PathBuf::from(&settings.data_dir);
@@ -181,7 +244,6 @@ pub async fn prepare_instance(app: AppHandle, instance: Instance) -> AppResult<(
     }
     .await;
 
-    emit_state(&app, &instance.id, "exited");
     res
 }
 
@@ -192,16 +254,29 @@ pub struct QuickPlayTarget {
     pub value: String,
 }
 
+/// Запускает сборку, занимая слот до начала скачивания. Если подготовка или
+/// сам запуск сорвались, слот возвращается — иначе сборка навсегда осталась бы
+/// «занятой».
 pub async fn launch(
     app: AppHandle,
     instance: Instance,
     quick_play: Option<QuickPlayTarget>,
 ) -> AppResult<()> {
     let registry = app.state::<LaunchRegistry>();
-    if registry.contains(&instance.id).await {
-        return Err(AppError::Validation("Эта сборка уже запущена".into()));
-    }
+    registry.try_reserve(&instance.id).await?;
 
+    let result = launch_inner(app.clone(), instance.clone(), quick_play).await;
+    if result.is_err() {
+        registry.release(&instance.id).await;
+    }
+    result
+}
+
+async fn launch_inner(
+    app: AppHandle,
+    instance: Instance,
+    quick_play: Option<QuickPlayTarget>,
+) -> AppResult<()> {
     let paths = AppPaths::discover()?;
     let settings = settings_service::load_or_init_settings(&paths).await?;
     let data_dir = PathBuf::from(&settings.data_dir);
@@ -247,6 +322,10 @@ pub async fn launch(
         .or_else(|| accounts.accounts.first())
         .ok_or_else(|| AppError::Validation("Не найдено ни одного офлайн-аккаунта".into()))?
         .clone();
+
+    // Отмечаем аккаунт до спавна: ошибка записи не должна превращать уже
+    // запущенную игру в «неудачный запуск».
+    let _ = account_service::mark_account_used(&paths, &data_dir, &account.id).await;
 
     // 4. Запуск процесса в зависимости от движка
     let game_dir = paths.instance_game_dir(&data_dir, &instance.id);
@@ -435,9 +514,10 @@ pub async fn launch(
     let log_sink_watcher = log_sink.clone();
 
     let (kill_tx, mut kill_rx) = tokio::sync::oneshot::channel::<()>();
-    registry.insert(instance.id.clone(), kill_tx).await;
+    app.state::<LaunchRegistry>()
+        .attach(instance.id.clone(), kill_tx)
+        .await;
     emit_state(&app, &instance.id, "running");
-    account_service::mark_account_used(&paths, &data_dir, &account.id).await?;
 
     // Сворачиваем окно, чтобы не мешать игре (настройка «сворачивать при запуске»).
     if settings.close_on_launch {
@@ -459,7 +539,7 @@ pub async fn launch(
         };
 
         let watcher_registry = watcher_app.state::<LaunchRegistry>();
-        watcher_registry.remove(&watcher_instance.id).await;
+        watcher_registry.release(&watcher_instance.id).await;
 
         let elapsed = started_at.elapsed().as_secs();
         let mut restore_window = false;
@@ -503,7 +583,7 @@ pub async fn launch(
 
 pub async fn terminate(app: AppHandle, instance_id: String) -> AppResult<bool> {
     let registry = app.state::<LaunchRegistry>();
-    if let Some(kill_tx) = registry.remove(&instance_id).await {
+    if let Some(kill_tx) = registry.take(&instance_id).await {
         let _ = kill_tx.send(());
         return Ok(true);
     }
@@ -713,18 +793,50 @@ mod tests {
         let registry = LaunchRegistry::new();
         assert!(!registry.has_running());
 
+        registry.try_reserve("inst-1").await.unwrap();
+        // Подготовка занимает слот, но игрой ещё не считается.
+        assert!(!registry.has_running());
+        assert!(registry.has_active().await);
+        assert!(registry.contains("inst-1").await);
+
         let (tx, _rx) = tokio::sync::oneshot::channel();
-        registry.insert("inst-1".to_string(), tx).await;
+        registry.attach("inst-1".to_string(), tx).await;
         assert!(registry.has_running());
         assert!(registry.contains("inst-1").await);
 
-        registry.remove("inst-1").await;
+        registry.release("inst-1").await;
         assert!(!registry.has_running());
 
         let (tx, _rx) = tokio::sync::oneshot::channel();
-        registry.insert("inst-2".to_string(), tx).await;
+        registry.attach("inst-2".to_string(), tx).await;
         registry.stop_all().await;
         assert!(!registry.has_running());
+        assert!(!registry.has_active().await);
         assert!(registry.ids().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn reservation_blocks_second_launch() {
+        let registry = LaunchRegistry::new();
+        registry.try_reserve("inst-1").await.unwrap();
+
+        // Второй запуск той же сборки должен получить отказ ещё до скачивания.
+        assert!(registry.try_reserve("inst-1").await.is_err());
+        assert!(!registry.try_reserve_quiet("inst-1").await);
+        assert_eq!(registry.ids().await, vec!["inst-1".to_string()]);
+
+        registry.release("inst-1").await;
+        assert!(registry.try_reserve("inst-1").await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn prepare_slot_cannot_be_terminated() {
+        let registry = LaunchRegistry::new();
+        registry.try_reserve("inst-1").await.unwrap();
+
+        // Пока идёт подготовка, останавливать нечего, но слот занят.
+        assert!(registry.take("inst-1").await.is_none());
+        assert!(!registry.has_running());
+        assert!(registry.try_reserve("inst-1").await.is_ok());
     }
 }

@@ -33,6 +33,8 @@ struct InstanceArchiveManifest {
     loader: ModLoaderKind,
     loader_version: Option<String>,
     memory_mb_override: Option<u64>,
+    /// Игнорируется при импорте: путь привязан к чужой машине.
+    #[allow(dead_code)]
     java_path_override: Option<String>,
     #[serde(default)]
     jvm_args: Vec<String>,
@@ -369,14 +371,16 @@ pub async fn import_instance(
     )
     .await?;
 
-    let updated = instance_service::update_instance(
+    let updated = match instance_service::update_instance(
         paths,
         data_dir,
         UpdateInstanceRequest {
             id: created.id.clone(),
             name: created.name.clone(),
             memory_mb_override: manifest.memory_mb_override,
-            java_path_override: manifest.java_path_override,
+            // Java с чужой машины не применяем: путь почти наверняка чужой,
+            // а подставлять его в запуск процесса небезопасно.
+            java_path_override: None,
             jvm_args: manifest.jvm_args,
             loader_version: manifest.loader_version,
             auto_update_horizon: true,
@@ -385,7 +389,14 @@ pub async fn import_instance(
         },
     )
     .await
-    .unwrap_or(created);
+    {
+        Ok(instance) => instance,
+        Err(err) => {
+            // Не оставляем полуимпортированную сборку с настройками по умолчанию.
+            let _ = instance_service::delete_instance(paths, data_dir, &created.id).await;
+            return Err(err);
+        }
+    };
 
     let game_dir = paths.instance_game_dir(data_dir, &updated.id);
     let app_for_task = app.clone();
