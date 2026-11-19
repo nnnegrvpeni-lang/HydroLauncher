@@ -12,6 +12,30 @@ pub const MOJANG_VERSION_MANIFEST_URL: &str =
 pub const MOJANG_PISTON_PREFIX: &str = "https://piston-meta.mojang.com/";
 pub const MOJANG_RESOURCES_BASE_URL: &str = "https://resources.download.minecraft.net";
 
+/// Вход в Microsoft/Xbox Live и Minecraft Services.
+pub const MICROSOFT_CLIENT_ID: &str = "00000000402b5328";
+pub const MICROSOFT_AUTH_REPLY_URL: &str = "https://login.live.com/oauth20_desktop.srf";
+pub const MICROSOFT_OAUTH_TOKEN_URL: &str = "https://login.live.com/oauth20_token.srf";
+pub const MICROSOFT_SCOPE: &str = "service::user.auth.xboxlive.com::MBI_SSL";
+pub const XBOX_DEVICE_AUTH_URL: &str = "https://device.auth.xboxlive.com/device/authenticate";
+pub const XBOX_SISU_AUTHENTICATE_URL: &str = "https://sisu.xboxlive.com/authenticate";
+pub const XBOX_SISU_AUTHORIZE_URL: &str = "https://sisu.xboxlive.com/authorize";
+pub const XBOX_XSTS_AUTHORIZE_URL: &str = "https://xsts.auth.xboxlive.com/xsts/authorize";
+pub const XBOX_DEVICE_RELYING_PARTY: &str = "http://auth.xboxlive.com";
+pub const XBOX_USER_RELYING_PARTY: &str = "http://xboxlive.com";
+pub const XBOX_XSTS_RELYING_PARTY: &str = "rp://api.minecraftservices.com/";
+pub const MINECRAFT_LAUNCHER_LOGIN_URL: &str = "https://api.minecraftservices.com/launcher/login";
+pub const MINECRAFT_ENTITLEMENTS_URL: &str =
+    "https://api.minecraftservices.com/entitlements/license";
+pub const MINECRAFT_PROFILE_URL: &str = "https://api.minecraftservices.com/minecraft/profile";
+pub const MINECRAFT_SKINS_URL: &str = "https://api.minecraftservices.com/minecraft/profile/skins";
+pub const MINECRAFT_SKINS_ACTIVE_URL: &str =
+    "https://api.minecraftservices.com/minecraft/profile/skins/active";
+pub const MINECRAFT_CAPES_ACTIVE_URL: &str =
+    "https://api.minecraftservices.com/minecraft/profile/capes/active";
+pub const MINECRAFT_SERVICES_USER_AGENT: &str =
+    concat!("HydroLauncher/", env!("CARGO_PKG_VERSION"));
+
 pub const ADOPTIUM_API_BASE_URL: &str = "https://api.adoptium.net/v3";
 pub const MODRINTH_API_BASE_URL: &str = "https://api.modrinth.com/v2";
 pub const HORIZON_RELEASES_API_URL: &str =

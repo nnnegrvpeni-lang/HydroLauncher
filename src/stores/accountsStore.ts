@@ -8,6 +8,7 @@ interface AccountsState {
   error: string | null;
   load: () => Promise<void>;
   create: (username: string) => Promise<void>;
+  loginMicrosoft: () => Promise<void>;
   setActive: (id: string) => Promise<void>;
   rename: (id: string, username: string) => Promise<void>;
   remove: (id: string) => Promise<void>;
@@ -37,6 +38,13 @@ export const useAccountsStore = create<AccountsState>((set, get) => ({
     const activeAccount =
       store.accounts.find((a) => a.id === store.activeAccountId) ?? null;
     set({ store, activeAccount });
+  },
+
+  loginMicrosoft: async () => {
+    const store = await api.microsoftLogin();
+    const activeAccount =
+      store.accounts.find((a) => a.id === store.activeAccountId) ?? null;
+    set({ store, activeAccount, error: null });
   },
 
   setActive: async (id) => {

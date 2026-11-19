@@ -8,10 +8,13 @@
 import type {
   AccountsStore,
   AppSettings,
+  CapeInfo,
   DownloadJob,
   Instance,
   JavaRuntime,
   OfflineAccount,
+  SkinProfile,
+  SkinVariant,
   SystemInfo,
   VersionCatalog,
 } from './types';
@@ -34,6 +37,52 @@ function offlineUuid(name: string): string {
   return `${hash}-1111-3333-8444-${(hash + hash).slice(0, 12)}`;
 }
 
+/** Текстура для превью в dev-режиме: рисуем 64×64 прямо в canvas. */
+function mockSkinTexture(): string | null {
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.fillStyle = '#c9a27a';
+  ctx.fillRect(0, 0, 64, 64);
+  ctx.fillStyle = '#6b4b32';
+  ctx.fillRect(8, 8, 8, 8);
+  ctx.fillRect(24, 8, 8, 8);
+  ctx.fillStyle = '#9fb8a4';
+  ctx.fillRect(20, 20, 8, 12);
+  ctx.fillRect(32, 20, 8, 12);
+  ctx.fillRect(44, 20, 4, 12);
+  ctx.fillRect(4, 20, 4, 12);
+  ctx.fillStyle = '#4b5a52';
+  ctx.fillRect(4, 20, 4, 12);
+  ctx.fillRect(20, 20, 8, 12);
+  ctx.fillRect(12, 20, 4, 12);
+  return canvas.toDataURL('image/png');
+}
+
+let mockSkinVariant: SkinVariant = 'classic';
+let mockSkinTextureUrl = mockSkinTexture();
+let mockCapes: CapeInfo[] = [
+  { id: 'cape-founder', name: 'Плащ основателя', active: true },
+  { id: 'cape-cartographer', name: 'Плащ картографа', active: false },
+];
+
+function mockSkinProfile(accountId: string): SkinProfile {
+  const account = accounts.accounts.find((item) => item.id === accountId);
+  return {
+    accountId,
+    id: (account?.uuid ?? '').replace(/-/g, ''),
+    name: account?.username ?? 'Player',
+    variant: mockSkinVariant,
+    textureUrl: 'https://example.invalid/skin.png',
+    textureDataUrl: mockSkinTextureUrl,
+    capes: structuredClone(mockCapes),
+  };
+}
+
 let settings: AppSettings = {
   theme: initialTheme(),
   dataDir: 'C:\\HydroLauncher\\data',
@@ -54,6 +103,7 @@ let accounts: AccountsStore = {
   accounts: [
     {
       id: 'acc-1',
+      kind: 'offline',
       username: 'HydroDev',
       uuid: '3f2a91c4-1111-3333-8444-a0b1c2d3e4f5',
       createdAt: now(),
@@ -61,6 +111,7 @@ let accounts: AccountsStore = {
     },
     {
       id: 'acc-2',
+      kind: 'offline',
       username: 'Player',
       uuid: '8b1c22d0-1111-3333-8444-5e6f7a8b9c0d',
       createdAt: now(),
@@ -373,6 +424,7 @@ export async function mockInvoke<T>(
       }
       const account: OfflineAccount = {
         id: `acc-${Date.now()}`,
+        kind: 'offline',
         username,
         uuid: offlineUuid(username),
         createdAt: now(),
@@ -402,6 +454,44 @@ export async function mockInvoke<T>(
     }
     case 'get_active_account':
       return structuredClone(activeAccount()) as T;
+    case 'microsoft_login': {
+      const existing = accounts.accounts.find((a) => a.kind === 'microsoft');
+      if (existing) {
+        accounts.activeAccountId = existing.id;
+      } else {
+        const account: OfflineAccount = {
+          id: `acc-ms-${Date.now()}`,
+          kind: 'microsoft',
+          username: 'Player',
+          uuid: '8b1c22d0-1111-3333-8444-5e6f7a8b9c0d',
+          createdAt: now(),
+          lastUsedAt: now(),
+        };
+        accounts.accounts.push(account);
+        accounts.activeAccountId = account.id;
+      }
+      return structuredClone(accounts) as T;
+    }
+
+    case 'get_skin':
+      return mockSkinProfile(String(args?.accountId)) as T;
+    case 'upload_skin':
+      mockSkinVariant = (args?.variant === 'slim' ? 'slim' : 'classic') as SkinVariant;
+      mockSkinTextureUrl = mockSkinTexture() ?? mockSkinTextureUrl;
+      return mockSkinProfile(String(args?.accountId)) as T;
+    case 'reset_skin':
+      mockSkinVariant = 'classic';
+      return mockSkinProfile(String(args?.accountId)) as T;
+    case 'equip_cape': {
+      const capeId = String(args?.capeId);
+      mockCapes = mockCapes.map((cape) => ({ ...cape, active: cape.id === capeId }));
+      return mockSkinProfile(String(args?.accountId)) as T;
+    }
+    case 'remove_cape':
+      mockCapes = mockCapes.map((cape) => ({ ...cape, active: false }));
+      return mockSkinProfile(String(args?.accountId)) as T;
+    case 'pick_skin_file':
+      return null as T;
 
     case 'get_instances':
       return structuredClone(instances) as T;

@@ -94,8 +94,11 @@ export interface UpdateInstanceRequest {
   background?: string | null;
 }
 
+export type AccountKind = 'offline' | 'microsoft';
+
 export interface OfflineAccount {
   id: string;
+  kind: AccountKind;
   username: string;
   uuid: string;
   createdAt: string;
@@ -105,6 +108,24 @@ export interface OfflineAccount {
 export interface AccountsStore {
   activeAccountId: string | null;
   accounts: OfflineAccount[];
+}
+
+export type SkinVariant = 'classic' | 'slim';
+
+export interface CapeInfo {
+  id: string;
+  name: string;
+  active: boolean;
+}
+
+export interface SkinProfile {
+  accountId: string;
+  id: string;
+  name: string;
+  variant: SkinVariant;
+  textureUrl: string | null;
+  textureDataUrl: string | null;
+  capes: CapeInfo[];
 }
 
 export interface JavaRuntime {
@@ -442,6 +463,17 @@ export const api = {
     invoke<AccountsStore>('rename_account', { accountId, username }),
   deleteAccount: (accountId: string) => invoke<AccountsStore>('delete_account', { accountId }),
   getActiveAccount: () => invoke<OfflineAccount | null>('get_active_account'),
+  microsoftLogin: () => invoke<AccountsStore>('microsoft_login'),
+
+  // Скины и плащи
+  getSkin: (accountId: string) => invoke<SkinProfile>('get_skin', { accountId }),
+  uploadSkin: (accountId: string, filePath: string, variant: SkinVariant) =>
+    invoke<SkinProfile>('upload_skin', { accountId, filePath, variant }),
+  resetSkin: (accountId: string) => invoke<SkinProfile>('reset_skin', { accountId }),
+  equipCape: (accountId: string, capeId: string) =>
+    invoke<SkinProfile>('equip_cape', { accountId, capeId }),
+  removeCape: (accountId: string) => invoke<SkinProfile>('remove_cape', { accountId }),
+  pickSkinFile: () => invoke<string | null>('pick_skin_file'),
 
   // Сборки
   getInstances: () => invoke<Instance[]>('get_instances'),

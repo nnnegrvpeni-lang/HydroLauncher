@@ -1,5 +1,5 @@
 use crate::error::{AppError, AppResult};
-use crate::models::account::{AccountsStore, OfflineAccount};
+use crate::models::account::{AccountKind, AccountsStore, OfflineAccount};
 use crate::storage::json_store::{lock_file, read_json_or_default, read_locked, write_locked};
 use crate::storage::paths::AppPaths;
 use chrono::Utc;
@@ -65,6 +65,7 @@ pub async fn create_account(
 
     let account = OfflineAccount {
         id: Uuid::new_v4().to_string(),
+        kind: AccountKind::Offline,
         uuid: compute_offline_uuid(&clean_name),
         username: clean_name,
         created_at: Utc::now().to_rfc3339(),
@@ -125,6 +126,12 @@ pub async fn rename_account(
         .find(|acc| acc.id == account_id)
         .ok_or_else(|| AppError::NotFound("Аккаунт не найден".into()))?;
 
+    if account.kind.is_microsoft() {
+        return Err(AppError::Validation(
+            "Имя Microsoft-аккаунта меняется на сайте Minecraft".into(),
+        ));
+    }
+
     account.username = clean_name.clone();
     account.uuid = compute_offline_uuid(&clean_name);
 
@@ -168,4 +175,57 @@ pub async fn mark_account_used(
         write_locked(&file, &store).await?;
     }
     Ok(())
+}
+
+/// Приводит UUID из ответа Mojang к виду с дефисами, как у остальных аккаунтов.
+pub fn normalize_uuid(value: &str) -> String {
+    Uuid::parse_str(value.trim())
+        .map(|uuid| uuid.hyphenated().to_string())
+        .unwrap_or_else(|_| value.trim().to_string())
+}
+
+/// Создаёт Microsoft-аккаунт или обновляет существующий с тем же UUID.
+/// Возвращает store и реальный локальный ID: при повторном входе он может
+/// отличаться от временного, под которым сохранились токены.
+pub async fn upsert_microsoft_account(
+    paths: &AppPaths,
+    data_dir: &Path,
+    temporary_id: &str,
+    username: &str,
+    uuid: &str,
+) -> AppResult<(AccountsStore, String)> {
+    let normalized = normalize_uuid(uuid);
+    let file = paths.accounts_file(data_dir);
+    let _guard = lock_file(&file).await;
+    let mut store: AccountsStore = read_locked(&file).await?;
+
+    let existing = store
+        .accounts
+        .iter()
+        .find(|acc| {
+            acc.kind.is_microsoft() && normalize_uuid(&acc.uuid).eq_ignore_ascii_case(&normalized)
+        })
+        .map(|acc| acc.id.clone());
+
+    let account_id = if let Some(id) = existing {
+        if let Some(account) = store.accounts.iter_mut().find(|acc| acc.id == id) {
+            account.username = username.to_string();
+            account.uuid = normalized;
+        }
+        id
+    } else {
+        store.accounts.push(OfflineAccount {
+            id: temporary_id.to_string(),
+            kind: AccountKind::Microsoft,
+            username: username.to_string(),
+            uuid: normalized,
+            created_at: Utc::now().to_rfc3339(),
+            last_used_at: None,
+        });
+        temporary_id.to_string()
+    };
+
+    store.active_account_id = Some(account_id.clone());
+    write_locked(&file, &store).await?;
+    Ok((store, account_id))
 }

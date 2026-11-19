@@ -5,6 +5,7 @@ import {
   ChevronDown,
   Compass,
   Layers,
+  LogIn,
   Minus,
   Package,
   Plus,
@@ -19,7 +20,9 @@ import { api } from '../api';
 import { isMockEnabled } from '../api/mock';
 import { useAccountsStore } from '../stores/accountsStore';
 import { useLauncherUpdate } from '../stores/updateStore';
+import { useNotifyStore } from '../stores/notifyStore';
 import { useI18n } from '../i18n';
+import { localizeError } from '../i18n/errors';
 import { cn } from '../utils/cn';
 import { AccountAvatar } from './AccountAvatar';
 import { DownloadsButton } from './DownloadsButton';
@@ -47,10 +50,13 @@ export function TitleBar({ page, onNavigate, onQuickAddAccount }: TitleBarProps)
   const activeAccount = useAccountsStore((s) => s.activeAccount);
   const setActiveAccount = useAccountsStore((s) => s.setActive);
   const removeAccount = useAccountsStore((s) => s.remove);
+  const loginMicrosoft = useAccountsStore((s) => s.loginMicrosoft);
+  const notify = useNotifyStore((s) => s.push);
   const launcherUpdate = useLauncherUpdate();
-  const { t, tf } = useI18n();
+  const { t, tf, language } = useI18n();
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [microsoftBusy, setMicrosoftBusy] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<OfflineAccount | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -167,7 +173,7 @@ export function TitleBar({ page, onNavigate, onQuickAddAccount }: TitleBarProps)
           {menuOpen && (
             <div className="absolute top-full right-0 mt-1.5 w-64 rounded-[11px] border border-line-strong bg-surface/96 p-1.5 shadow-[0_24px_48px_-12px_rgba(0,0,0,0.65)] backdrop-blur-2xl">
               <div className="px-2 py-1 text-[11px] font-medium text-faint">
-                {t('Офлайн-профили')}
+                {t('Профили')}
               </div>
               {accounts.length === 0 ? (
                 <p className="px-2 py-2 text-xs text-muted">{t('Профилей пока нет')}</p>
@@ -221,6 +227,21 @@ export function TitleBar({ page, onNavigate, onQuickAddAccount }: TitleBarProps)
               )}
 
               <div className="mt-1 border-t border-line pt-1">
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setMicrosoftBusy(true);
+                    void loginMicrosoft()
+                      .then(() => notify(t('Аккаунт Microsoft подключён')))
+                      .catch((err) => notify(localizeError(String(err), language), 'error'))
+                      .finally(() => setMicrosoftBusy(false));
+                  }}
+                  disabled={microsoftBusy}
+                  className="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-surface-2 disabled:opacity-50"
+                >
+                  <LogIn size={12} className="text-muted" />
+                  {microsoftBusy ? t('Ожидание входа…') : t('Войти через Microsoft')}
+                </button>
                 <button
                   onClick={() => {
                     setMenuOpen(false);

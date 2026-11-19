@@ -10,8 +10,8 @@ pub use error::{AppError, AppResult};
 
 use commands::{
     accounts::{
-        create_account, delete_account, get_accounts, get_active_account, rename_account,
-        set_active_account,
+        create_account, delete_account, get_accounts, get_active_account, microsoft_login,
+        rename_account, set_active_account,
     },
     instances::{
         add_quick_server, backup_instance_world, create_instance, delete_instance,
@@ -34,6 +34,7 @@ use commands::{
         check_launcher_update, get_app_links, get_settings, get_system_info, open_data_dir,
         open_external_url, pick_directory, quit_app, save_settings_cmd, validate_data_dir,
     },
+    skins::{equip_cape, get_skin, pick_skin_file, remove_cape, reset_skin, upload_skin},
     storage::{
         cleanup_storage, get_storage_report, import_drop_content, import_drop_instance,
         inspect_drop_paths,
@@ -171,6 +172,11 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            // Правила закрытия относятся только к главному окну: окно входа
+            // Microsoft должно закрываться обычным образом.
+            if window.label() != "main" {
+                return;
+            }
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 let app = window.app_handle();
                 if app.state::<AppState>().close_to_tray() {
@@ -194,6 +200,14 @@ pub fn run() {
             rename_account,
             delete_account,
             get_active_account,
+            microsoft_login,
+            // Скины и плащи
+            get_skin,
+            upload_skin,
+            reset_skin,
+            equip_cape,
+            remove_cape,
+            pick_skin_file,
             // Сборки
             get_instances,
             create_instance,

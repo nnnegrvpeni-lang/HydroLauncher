@@ -3,8 +3,10 @@ use crate::models::events::{GameLogEvent, GameStateEvent, LaunchProgressEvent};
 use crate::models::instance::{EngineKind, Instance};
 use crate::services::account_service;
 use crate::services::horizon_service;
+use crate::services::microsoft_auth_service;
 use crate::services::mojang_service::{
-    collect_classpath, compute_launch_args, ensure_version_files, InstallContext, MojangService,
+    collect_classpath, compute_launch_args, ensure_version_files, InstallContext, LaunchSession,
+    MojangService,
 };
 use crate::services::settings_service;
 use crate::storage::paths::AppPaths;
@@ -354,6 +356,20 @@ async fn launch_inner(
         .ok_or_else(|| AppError::Validation("Не найдено ни одного офлайн-аккаунта".into()))?
         .clone();
 
+    // Данные входа: офлайн-профиль или токен Microsoft.
+    let session = if account.kind.is_microsoft() {
+        let credentials =
+            microsoft_auth_service::launch_credentials(&paths, &data_dir, &account.id).await?;
+        LaunchSession::microsoft(
+            &account.username,
+            &account.uuid,
+            &credentials.access_token,
+            credentials.xuid.as_deref(),
+        )
+    } else {
+        LaunchSession::offline(&account.username, &account.uuid)
+    };
+
     // Отмечаем аккаунт до спавна: ошибка записи не должна превращать уже
     // запущенную игру в «неудачный запуск».
     let _ = account_service::mark_account_used(&paths, &data_dir, &account.id).await;
@@ -407,8 +423,7 @@ async fn launch_inner(
                 &natives_dir,
                 &libs_dir,
                 &classpath,
-                &account.username,
-                &account.uuid,
+                &session,
                 &game_dir,
                 memory_mb,
                 &instance.jvm_args,
@@ -513,9 +528,9 @@ async fn launch_inner(
 
             if let Some(mut stdin) = proc.stdin.take() {
                 let session_json = serde_json::json!({
-                    "name": account.username,
-                    "uuid": account.uuid,
-                    "access_token": "0"
+                    "name": session.username,
+                    "uuid": session.uuid,
+                    "access_token": session.access_token
                 })
                 .to_string();
                 let _ = stdin.write_all(session_json.as_bytes()).await;

@@ -5,5 +5,6 @@ pub mod jobs;
 pub mod mods;
 pub mod settings_cmd;
 pub mod shared;
+pub mod skins;
 pub mod storage;
 pub mod versions;

@@ -522,14 +522,48 @@ pub fn collect_classpath(details: &VersionDetails, libs_dir: &Path, client_jar: 
     entries.join(separator)
 }
 
+/// Данные игрока для командной строки. Офлайн-профиль передаёт `legacy` и
+/// нулевой токен, Microsoft-аккаунт — настоящий токен и тип `msa`.
+#[derive(Debug, Clone)]
+pub struct LaunchSession {
+    pub username: String,
+    pub uuid: String,
+    pub access_token: String,
+    pub xuid: String,
+    pub user_type: &'static str,
+}
+
+impl LaunchSession {
+    /// Офлайн-профиль: серверы всё равно не пустят без проверки сессии.
+    pub fn offline(username: &str, uuid: &str) -> Self {
+        Self {
+            username: username.to_string(),
+            uuid: uuid.to_string(),
+            access_token: "0".to_string(),
+            xuid: "0".to_string(),
+            user_type: "legacy",
+        }
+    }
+
+    /// Microsoft-профиль: UUID Mojang приходит без дефисов, его и передаём.
+    pub fn microsoft(username: &str, uuid: &str, access_token: &str, xuid: Option<&str>) -> Self {
+        Self {
+            username: username.to_string(),
+            uuid: uuid.replace('-', ""),
+            access_token: access_token.to_string(),
+            xuid: xuid.unwrap_or("0").to_string(),
+            user_type: "msa",
+        }
+    }
+}
+
 pub fn compute_launch_args(
     details: &VersionDetails,
     assets_dir: &Path,
     natives_dir: &Path,
     libs_dir: &Path,
     classpath: &str,
-    username: &str,
-    user_uuid: &str,
+    session: &LaunchSession,
     game_dir: &Path,
     memory_mb: u64,
     extra_jvm_args: &[String],
@@ -620,8 +654,7 @@ pub fn compute_launch_args(
                 crate::models::mojang::ArgumentEntry::Simple(s) => {
                     args.push(replace_game_placeholders(
                         s,
-                        username,
-                        user_uuid,
+                        session,
                         &game_dir_str,
                         &assets_str,
                         &details.asset_index.id,
@@ -634,8 +667,7 @@ pub fn compute_launch_args(
                             crate::models::mojang::ArgumentValue::Single(s) => {
                                 args.push(replace_game_placeholders(
                                     s,
-                                    username,
-                                    user_uuid,
+                                    session,
                                     &game_dir_str,
                                     &assets_str,
                                     &details.asset_index.id,
@@ -646,8 +678,7 @@ pub fn compute_launch_args(
                                 args.extend(list.iter().map(|value| {
                                     replace_game_placeholders(
                                         value,
-                                        username,
-                                        user_uuid,
+                                        session,
                                         &game_dir_str,
                                         &assets_str,
                                         &details.asset_index.id,
@@ -666,8 +697,7 @@ pub fn compute_launch_args(
         for token in split_quoted_args(legacy) {
             args.push(replace_legacy_placeholders(
                 &token,
-                username,
-                user_uuid,
+                session,
                 &game_dir_str,
                 &assets_str,
                 &details.asset_index.id,
@@ -747,26 +777,25 @@ fn split_quoted_args(input: &str) -> Vec<String> {
 
 fn replace_legacy_placeholders(
     template: &str,
-    username: &str,
-    user_uuid: &str,
+    session: &LaunchSession,
     game_dir_str: &str,
     assets_str: &str,
     assets_index_id: &str,
     version_id: &str,
 ) -> String {
     template
-        .replace("${auth_player_name}", username)
+        .replace("${auth_player_name}", &session.username)
         .replace("${version_name}", version_id)
         .replace("${game_directory}", game_dir_str)
         .replace("${assets_root}", assets_str)
         .replace("${assets_index_name}", assets_index_id)
-        .replace("${auth_uuid}", user_uuid)
-        .replace("${auth_access_token}", "0")
-        .replace("${auth_session}", "0")
-        .replace("${user_type}", "legacy")
+        .replace("${auth_uuid}", &session.uuid)
+        .replace("${auth_access_token}", &session.access_token)
+        .replace("${auth_session}", &session.access_token)
+        .replace("${user_type}", session.user_type)
         .replace("${version_type}", "HydroLauncher")
         .replace("${user_properties}", "{}")
-        .replace("${profile_name}", username)
+        .replace("${profile_name}", &session.username)
 }
 
 fn replace_jvm_placeholders(
@@ -796,20 +825,19 @@ fn classpath_separator_str() -> &'static str {
 
 fn replace_game_placeholders(
     template: &str,
-    username: &str,
-    user_uuid: &str,
+    session: &LaunchSession,
     game_dir_str: &str,
     assets_str: &str,
     assets_index_id: &str,
     version_id: &str,
 ) -> String {
     template
-        .replace("${auth_player_name}", username)
-        .replace("${auth_uuid}", user_uuid)
-        .replace("${auth_access_token}", "0")
-        .replace("${auth_xuid}", "0")
+        .replace("${auth_player_name}", &session.username)
+        .replace("${auth_uuid}", &session.uuid)
+        .replace("${auth_access_token}", &session.access_token)
+        .replace("${auth_xuid}", &session.xuid)
         .replace("${clientid}", "hydro-launcher")
-        .replace("${user_type}", "legacy")
+        .replace("${user_type}", session.user_type)
         .replace("${user_properties}", "{}")
         .replace("${version_name}", version_id)
         .replace("${version_type}", "HydroLauncher")
@@ -895,8 +923,7 @@ mod tests {
             Path::new("/natives"),
             Path::new("/libraries"),
             "/libraries/a.jar",
-            "Steve",
-            "uuid",
+            &LaunchSession::offline("Steve", "uuid"),
             Path::new("C:/games/My World"),
             1024,
             &[],
@@ -911,6 +938,46 @@ mod tests {
             .expect("сессия должна быть в аргументах");
         assert_eq!(args[session + 1], "0");
         assert!(!args.iter().any(|value| value.contains("${auth_session}")));
+    }
+
+    #[test]
+    fn microsoft_session_fills_real_auth_values() {
+        let details = base_details(serde_json::json!({
+            "arguments": {
+                "game": [
+                    "--username", "${auth_player_name}",
+                    "--uuid", "${auth_uuid}",
+                    "--accessToken", "${auth_access_token}",
+                    "--xuid", "${auth_xuid}",
+                    "--userType", "${user_type}"
+                ],
+                "jvm": []
+            }
+        }));
+
+        let args = compute_launch_args(
+            &details,
+            Path::new("/assets"),
+            Path::new("/natives"),
+            Path::new("/libraries"),
+            "/libraries/a.jar",
+            &LaunchSession::microsoft(
+                "Steve",
+                "8b1c22d0-1111-3333-8444-5e6f7a8b9c0d",
+                "token",
+                Some("123"),
+            ),
+            Path::new("/game"),
+            1024,
+            &[],
+            &[],
+        );
+
+        assert!(args.contains(&"token".to_string()));
+        assert!(args.contains(&"123".to_string()));
+        assert!(args.contains(&"msa".to_string()));
+        assert!(args.contains(&"8b1c22d01111333384445e6f7a8b9c0d".to_string()));
+        assert!(!args.iter().any(|value| value.contains("${auth_")));
     }
 
     #[test]
@@ -931,8 +998,7 @@ mod tests {
             Path::new("/natives"),
             Path::new("/libraries"),
             "/libraries/a.jar",
-            "Steve",
-            "uuid",
+            &LaunchSession::offline("Steve", "uuid"),
             Path::new("/game"),
             1024,
             &[],

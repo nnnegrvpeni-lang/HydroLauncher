@@ -45,6 +45,11 @@ impl AppPaths {
     }
 
     /// Очередь и история задач установки.
+    /// Токены Microsoft и ключ устройства лежат отдельно от accounts.json.
+    pub fn microsoft_auth_file(&self, data_dir: &Path) -> PathBuf {
+        data_dir.join("microsoft-auth.json")
+    }
+
     pub fn jobs_file(data_dir: &Path) -> PathBuf {
         data_dir.join("jobs.json")
     }
