@@ -291,7 +291,6 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
             <SelectMenu
               value={loaderVersion}
               onChange={setLoaderVersion}
-              placement="up"
               ariaLabel={t('Версия бинарников Horizon')}
               hint={installedLabel}
               options={[
@@ -395,7 +394,6 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
             <SelectMenu
               value={javaPath.trim()}
               onChange={setJavaPath}
-              placement="up"
               ariaLabel={t('Java для сборки')}
               hint={
                 javaRuntimes.length === 0
@@ -472,7 +470,6 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
               <SelectMenu
                 value={loaderVersion}
                 onChange={setLoaderVersion}
-                placement="up"
                 ariaLabel={tf('Версия модлоадера ({loader})', { loader: instance.loader })}
                 options={[
                   {

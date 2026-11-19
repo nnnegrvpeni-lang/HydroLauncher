@@ -10,6 +10,7 @@ import {
   Package,
   Plus,
   Settings,
+  Shirt,
   Square,
   Trash2,
   UserPlus,
@@ -29,12 +30,13 @@ import { DownloadsButton } from './DownloadsButton';
 import { Button } from './ui/Button';
 import { Modal } from './ui/Modal';
 
-export type PageId = 'home' | 'instances' | 'mods' | 'settings';
+export type PageId = 'home' | 'instances' | 'mods' | 'skins' | 'settings';
 
 const NAV_TABS: Array<{ id: PageId; label: string; icon: typeof Compass }> = [
   { id: 'home', label: 'Обзор', icon: Compass },
   { id: 'instances', label: 'Сборки', icon: Layers },
   { id: 'mods', label: 'Моды', icon: Package },
+  { id: 'skins', label: 'Скины', icon: Shirt },
   { id: 'settings', label: 'Настройки', icon: Settings },
 ];
 

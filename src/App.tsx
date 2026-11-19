@@ -20,6 +20,7 @@ import { HomePage } from './pages/HomePage';
 import { InstancesPage } from './pages/InstancesPage';
 import { ModsPage } from './pages/ModsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { SkinsPage } from './pages/SkinsPage';
 import { useInitAccounts } from './stores/accountsStore';
 import { useInitCatalogPreload } from './stores/catalogStore';
 import { useInitInstances, useInstancesStore } from './stores/instancesStore';
@@ -52,6 +53,7 @@ export default function App() {
   const [page, setPage] = useHashRoute();
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
   const [modsTargetInstanceId, setModsTargetInstanceId] = useState<string | null>(null);
+  const [skinsAccountId, setSkinsAccountId] = useState<string | null>(null);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [quickAccountOpen, setQuickAccountOpen] = useState(false);
   const [quitPromptOpen, setQuitPromptOpen] = useState(false);
@@ -183,7 +185,15 @@ export default function App() {
             onQuickCreateInstance={() => setQuickCreateOpen(true)}
           />
         )}
-        {page === 'settings' && <SettingsPage />}
+        {page === 'skins' && <SkinsPage initialAccountId={skinsAccountId} />}
+        {page === 'settings' && (
+          <SettingsPage
+            onOpenSkins={(accountId) => {
+              setSkinsAccountId(accountId);
+              setPage('skins');
+            }}
+          />
+        )}
       </main>
 
       <CreateInstanceModal
@@ -204,7 +214,7 @@ export default function App() {
         <div className="space-y-3 text-[13px] text-muted">
           <ul className="space-y-2">{dropItems.map((item) => <li key={item.path} className="flex justify-between gap-4"><span className="truncate text-ink">{item.fileName}</span><span>{translate(item.kind)}</span></li>)}</ul>
           {dropItems.some((item) => item.kind === 'unknown') && <p className="text-danger">{translate('Тип архива не распознан. Импортировать его нельзя.')}</p>}
-          {dropItems.some((item) => ['world', 'resourcepack', 'mod'].includes(item.kind)) && <div className="block"><span className="hl-field-label">{translate('Целевая сборка')}</span><SelectMenu value={dropTargetId} onChange={setDropTargetId} placement="up" ariaLabel={translate('Целевая сборка')} options={[{ value: '', label: translate('Выберите сборку') }, ...availableInstances.map((instance) => ({ value: instance.id, label: instance.name }))]} /></div>}
+          {dropItems.some((item) => ['world', 'resourcepack', 'mod'].includes(item.kind)) && <div className="block"><span className="hl-field-label">{translate('Целевая сборка')}</span><SelectMenu value={dropTargetId} onChange={setDropTargetId} ariaLabel={translate('Целевая сборка')} options={[{ value: '', label: translate('Выберите сборку') }, ...availableInstances.map((instance) => ({ value: instance.id, label: instance.name }))]} /></div>}
         </div>
       </Modal>
       <ToastHost />

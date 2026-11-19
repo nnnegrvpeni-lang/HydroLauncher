@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { PageId } from '../components/TitleBar';
 
-const PAGES: readonly PageId[] = ['home', 'instances', 'mods', 'settings'];
+const PAGES: readonly PageId[] = ['home', 'instances', 'mods', 'skins', 'settings'];
 const DEFAULT_PAGE: PageId = 'home';
 
 /** Читает страницу из хэша: `#instances` или `#/instances`. */

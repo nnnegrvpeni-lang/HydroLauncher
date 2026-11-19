@@ -582,6 +582,22 @@ export const en: Record<string, string> = {
   Профили: 'Profiles',
   'Офлайн-профили и аккаунты Microsoft': 'Offline profiles and Microsoft accounts',
   Скин: 'Skin',
+  Скины: 'Skins',
+  'Скин и плащи аккаунта Microsoft — так их видят другие игроки':
+    'Microsoft account skin and capes — the way other players see them',
+  'Добавить аккаунт Microsoft': 'Add Microsoft account',
+  'Аккаунты Microsoft': 'Microsoft accounts',
+  'Сделать текущим профилем': 'Make the active profile',
+  'Офлайн-профили не поддерживают скины: игра берёт текстуру с серверов Mojang.':
+    'Offline profiles cannot have skins: the game loads the texture from Mojang servers.',
+  'Модель скина': 'Skin model',
+  Текстура: 'Texture',
+  'Скин обновлён': 'Skin updated',
+  'Требуется аккаунт Microsoft': 'A Microsoft account is required',
+  'Вход выполняется в отдельном окне Microsoft':
+    'Sign-in happens in a separate Microsoft window',
+  'Скины и плащи хранятся на серверах Mojang, поэтому менять их можно только у официального аккаунта. Офлайн-профили игра показывает со стандартным скином.':
+    'Skins and capes are stored on Mojang servers, so only an official account can change them. Offline profiles are shown with the default skin.',
   'Скин и плащ': 'Skin and cape',
   'Вид спереди': 'Front',
   'Вид сзади': 'Back',

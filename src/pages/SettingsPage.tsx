@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import { AccountAvatar } from '../components/AccountAvatar';
 import { QuickAccountModal } from '../components/QuickAccountModal';
-import { SkinEditorModal } from '../components/SkinEditorModal';
 import { Button, IconButton } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { SelectMenu } from '../components/ui/SelectMenu';
@@ -39,7 +38,7 @@ const TABS: Array<{ id: TabId; label: string }> = [
   { id: 'storage', label: 'Хранилище' },
 ];
 
-export function SettingsPage() {
+export function SettingsPage({ onOpenSkins }: { onOpenSkins: (accountId: string) => void }) {
   const [tab, setTab] = useState<TabId>('profiles');
   const { t } = useI18n();
 
@@ -79,7 +78,7 @@ export function SettingsPage() {
       <div className="mt-6 space-y-5">
         {tab === 'profiles' && (
           <>
-            <AccountsGroup />
+            <AccountsGroup onOpenSkins={onOpenSkins} />
             <AppearanceGroup />
             <AboutGroup />
           </>
@@ -122,14 +121,13 @@ function Group({
   );
 }
 
-function AccountsGroup() {
+function AccountsGroup({ onOpenSkins }: { onOpenSkins: (accountId: string) => void }) {
   const store = useAccountsStore((s) => s.store);
   const setActive = useAccountsStore((s) => s.setActive);
   const remove = useAccountsStore((s) => s.remove);
   const { t } = useI18n();
   const [addOpen, setAddOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<OfflineAccount | null>(null);
-  const [skinAccount, setSkinAccount] = useState<OfflineAccount | null>(null);
 
   const accounts = store?.accounts ?? [];
 
@@ -189,7 +187,7 @@ function AccountsGroup() {
               )}
 
               {account.kind === 'microsoft' && (
-                <Button size="sm" variant="ghost" onClick={() => setSkinAccount(account)}>
+                <Button size="sm" variant="ghost" onClick={() => onOpenSkins(account.id)}>
                   <Shirt size={12} />
                   {t('Скин')}
                 </Button>
@@ -208,11 +206,6 @@ function AccountsGroup() {
       )}
 
       <QuickAccountModal open={addOpen} onClose={() => setAddOpen(false)} />
-      <SkinEditorModal
-        open={skinAccount !== null}
-        account={skinAccount}
-        onClose={() => setSkinAccount(null)}
-      />
 
       <Modal
         open={pendingDelete !== null}
