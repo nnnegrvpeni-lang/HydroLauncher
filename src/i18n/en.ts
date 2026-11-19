@@ -591,6 +591,7 @@ export const en: Record<string, string> = {
   'Офлайн-профили не поддерживают скины: игра берёт текстуру с серверов Mojang.':
     'Offline profiles cannot have skins: the game loads the texture from Mojang servers.',
   'Модель скина': 'Skin model',
+  'Потяните модель, чтобы повернуть': 'Drag the model to rotate it',
   Текстура: 'Texture',
   'Скин обновлён': 'Skin updated',
   'Требуется аккаунт Microsoft': 'A Microsoft account is required',

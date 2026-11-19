@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { api, type SkinProfile, type SkinVariant } from '../api';
 import { AccountAvatar } from '../components/AccountAvatar';
-import { SkinPreview } from '../components/SkinPreview';
+import { SkinModel3D } from '../components/SkinModel3D';
 import { Button } from '../components/ui/Button';
 import { useI18n } from '../i18n';
 import { localizeError } from '../i18n/errors';
@@ -201,11 +201,11 @@ export function SkinsPage({ initialAccountId }: { initialAccountId?: string | nu
             ) : (
               <div className="grid grid-cols-1 gap-5 p-5 xl:grid-cols-[minmax(0,1fr)_300px]">
                 <div className="min-w-0">
-                  <SkinPreview
+                  <SkinModel3D
                     texture={profile?.textureDataUrl ?? null}
                     variant={variant}
-                    scale={10}
-                    className="h-full min-h-[340px]"
+                    scale={9}
+                    className="h-full min-h-[360px]"
                   />
                 </div>
 

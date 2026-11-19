@@ -37,7 +37,43 @@ function offlineUuid(name: string): string {
   return `${hash}-1111-3333-8444-${(hash + hash).slice(0, 12)}`;
 }
 
-/** Текстура для превью в dev-режиме: рисуем 64×64 прямо в canvas. */
+interface MockPart {
+  u: number;
+  v: number;
+  w: number;
+  h: number;
+  d: number;
+  /** Цвета граней: верх, низ, бока, перед, зад. */
+  top: string;
+  bottom: string;
+  side: string;
+  front: string;
+  back: string;
+}
+
+/**
+ * Раскладывает деталь по развёртке Minecraft 64×64: верх, низ, бока,
+ * перед и зад получают свои прямоугольники в текстуре.
+ */
+function paintMockPart(ctx: CanvasRenderingContext2D, part: MockPart) {
+  const { u, v, w, h, d } = part;
+  const rect = (x: number, y: number, rw: number, rh: number, color: string) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, rw, rh);
+  };
+
+  rect(u + d, v, w, d, part.top);
+  rect(u + d + w, v, w, d, part.bottom);
+  rect(u, v + d, d, h, part.side);
+  rect(u + d, v + d, w, h, part.front);
+  rect(u + d + w, v + d, d, h, part.side);
+  rect(u + d + w + d, v + d, w, h, part.back);
+}
+
+/**
+ * Текстура-заглушка для dev-режима: обычный скин 64×64, нарисованный в canvas.
+ * Нужен, чтобы 3D-превью в браузере показывало объёмную фигуру, а не заливку.
+ */
 function mockSkinTexture(): string | null {
   if (typeof document === 'undefined') return null;
   const canvas = document.createElement('canvas');
@@ -46,20 +82,41 @@ function mockSkinTexture(): string | null {
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
 
-  ctx.fillStyle = '#c9a27a';
-  ctx.fillRect(0, 0, 64, 64);
-  ctx.fillStyle = '#6b4b32';
-  ctx.fillRect(8, 8, 8, 8);
-  ctx.fillRect(24, 8, 8, 8);
-  ctx.fillStyle = '#9fb8a4';
-  ctx.fillRect(20, 20, 8, 12);
-  ctx.fillRect(32, 20, 8, 12);
-  ctx.fillRect(44, 20, 4, 12);
-  ctx.fillRect(4, 20, 4, 12);
-  ctx.fillStyle = '#4b5a52';
-  ctx.fillRect(4, 20, 4, 12);
-  ctx.fillRect(20, 20, 8, 12);
-  ctx.fillRect(12, 20, 4, 12);
+  const skin = '#c9a27a';
+  const skinShade = '#b78f6b';
+  const hair = '#4a3524';
+  const shirt = '#9fb8a4';
+  const shirtShade = '#8aa38f';
+  const pants = '#4b5a52';
+  const pantsShade = '#3d4a43';
+  const shoes = '#2f3833';
+
+  const parts: MockPart[] = [
+    { u: 0, v: 0, w: 8, h: 8, d: 8, top: hair, bottom: skinShade, side: hair, front: skin, back: hair },
+    { u: 16, v: 16, w: 8, h: 12, d: 4, top: shirt, bottom: shirtShade, side: shirtShade, front: shirt, back: shirt },
+    { u: 40, v: 16, w: 4, h: 12, d: 4, top: shirt, bottom: skinShade, side: shirtShade, front: shirt, back: shirt },
+    { u: 32, v: 48, w: 4, h: 12, d: 4, top: shirt, bottom: skinShade, side: shirtShade, front: shirt, back: shirt },
+    { u: 0, v: 16, w: 4, h: 12, d: 4, top: pants, bottom: shoes, side: pantsShade, front: pants, back: pantsShade },
+    { u: 16, v: 48, w: 4, h: 12, d: 4, top: pants, bottom: shoes, side: pantsShade, front: pants, back: pantsShade },
+  ];
+
+  parts.forEach((part) => paintMockPart(ctx, part));
+
+  // Лицо: глаза и рот, чтобы на превью читалось направление взгляда.
+  ctx.fillStyle = '#f4f4f0';
+  ctx.fillRect(9, 10, 2, 2);
+  ctx.fillRect(13, 10, 2, 2);
+  ctx.fillStyle = '#2b3a4a';
+  ctx.fillRect(10, 10, 1, 2);
+  ctx.fillRect(14, 10, 1, 2);
+  ctx.fillStyle = '#8f6b52';
+  ctx.fillRect(11, 13, 2, 1);
+
+  // Рукава заканчиваются кожей, иначе руки сливаются с корпусом.
+  ctx.fillStyle = skin;
+  ctx.fillRect(44, 28, 4, 4);
+  ctx.fillRect(36, 60, 4, 4);
+
   return canvas.toDataURL('image/png');
 }
 
