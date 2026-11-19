@@ -188,8 +188,10 @@ fn write_archive(
     Ok(())
 }
 
+/// `app` необязателен: CLI импортирует и экспортирует архивы без окна и
+/// событий прогресса, а десктопный интерфейс передаёт `AppHandle`.
 pub async fn export_instance(
-    app: &AppHandle,
+    app: Option<&AppHandle>,
     paths: &AppPaths,
     data_dir: &Path,
     instance: &Instance,
@@ -214,7 +216,7 @@ pub async fn export_instance(
     let manifest_bytes = serde_json::to_vec_pretty(&manifest)?;
 
     let target_owned = target.to_path_buf();
-    let app_for_task = app.clone();
+    let app_for_task = app.cloned();
     let instance_id = instance.id.clone();
     let written = tokio::task::spawn_blocking(move || {
         write_archive(
@@ -228,17 +230,19 @@ pub async fn export_instance(
                     (done as f64 / total as f64) * 100.0
                 };
                 let relative = name.trim_start_matches("game/");
-                let _ = app_for_task.emit(
-                    "launch://progress",
-                    LaunchProgressEvent {
-                        instance_id: instance_id.clone(),
-                        stage: "archive".to_string(),
-                        message: format!("Экспорт сборки: {relative}"),
-                        current: done,
-                        total,
-                        percent,
-                    },
-                );
+                if let Some(app) = app_for_task.as_ref() {
+                    let _ = app.emit(
+                        "launch://progress",
+                        LaunchProgressEvent {
+                            instance_id: instance_id.clone(),
+                            stage: "archive".to_string(),
+                            message: format!("Экспорт сборки: {relative}"),
+                            current: done,
+                            total,
+                            percent,
+                        },
+                    );
+                }
             },
         )
     })
@@ -366,7 +370,7 @@ pub(crate) async fn unique_name(
 }
 
 pub async fn import_instance(
-    app: &AppHandle,
+    app: Option<&AppHandle>,
     paths: &AppPaths,
     data_dir: &Path,
     source: &Path,
@@ -452,7 +456,7 @@ pub async fn import_instance(
     };
 
     let game_dir = paths.instance_game_dir(data_dir, &updated.id);
-    let app_for_task = app.clone();
+    let app_for_task = app.cloned();
     let instance_id = updated.id.clone();
     let extracted = tokio::task::spawn_blocking(move || {
         extract_game_files(archive, &game_dir, |done, total| {
@@ -461,17 +465,19 @@ pub async fn import_instance(
             } else {
                 (done as f64 / total as f64) * 100.0
             };
-            let _ = app_for_task.emit(
-                "launch://progress",
-                LaunchProgressEvent {
-                    instance_id: instance_id.clone(),
-                    stage: "archive".to_string(),
-                    message: "Импорт сборки…".to_string(),
-                    current: done as u64,
-                    total: total as u64,
-                    percent,
-                },
-            );
+            if let Some(app) = app_for_task.as_ref() {
+                let _ = app.emit(
+                    "launch://progress",
+                    LaunchProgressEvent {
+                        instance_id: instance_id.clone(),
+                        stage: "archive".to_string(),
+                        message: "Импорт сборки…".to_string(),
+                        current: done as u64,
+                        total: total as u64,
+                        percent,
+                    },
+                );
+            }
         })
     })
     .await

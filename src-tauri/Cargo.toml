@@ -5,10 +5,21 @@ description = "Clean, minimal Minecraft launcher supporting Java Edition and Hor
 authors = ["HydroLauncher"]
 license = "GPL-3.0-only"
 edition = "2021"
+# С двумя бинарниками `cargo run` без этого флага не знает, что запускать.
+default-run = "hydro-launcher"
 
 [lib]
 name = "hydro_launcher_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "hydro-launcher"
+path = "src/main.rs"
+
+# Headless-режим для скриптов: та же папка данных, но без окна.
+[[bin]]
+name = "hydro-cli"
+path = "src/bin/hydro_cli.rs"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

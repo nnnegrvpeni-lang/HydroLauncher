@@ -755,7 +755,11 @@ pub async fn export_instance_archive(
 
     let exported = shared::with_instance_reserved(&registry, &instance_id, async {
         crate::services::instance_archive_service::export_instance(
-            &app, &paths, &data_dir, &instance, &target,
+            Some(&app),
+            &paths,
+            &data_dir,
+            &instance,
+            &target,
         )
         .await
     })
@@ -780,7 +784,7 @@ pub async fn import_instance_archive(
 ) -> Result<Instance, AppError> {
     let (paths, data_dir) = shared::resolve_data_dir(&state).await?;
     crate::services::instance_archive_service::import_instance(
-        &app,
+        Some(&app),
         &paths,
         &data_dir,
         std::path::Path::new(&file_path),
