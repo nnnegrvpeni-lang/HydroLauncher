@@ -468,9 +468,8 @@ async fn install_mod_inner(
         }
         // Канал обновлений отсекает бета- и альфа-сборки: без этого
         // «стабильный» лаунчер приносил бы пользователю чужие эксперименты.
-        versions.retain(|version| {
-            channel.allows(version.version_type.as_deref().unwrap_or("release"))
-        });
+        versions
+            .retain(|version| channel.allows(version.version_type.as_deref().unwrap_or("release")));
         versions.into_iter().next().ok_or_else(|| {
             AppError::NotFound(format!(
                 "Нет совместимой версии для {}",
@@ -986,11 +985,11 @@ pub async fn check_mod_updates(
 
         // Сравниваем файл с хэшем, записанным при установке: подменённый
         // вручную мод нельзя молча перезаписывать.
-        let local_sha1 = match find_installed_file(paths, data_dir, &instance.id, &mod_item.file_name)
-        {
-            Some(path) => compute_sha1_hex(&path).await,
-            None => None,
-        };
+        let local_sha1 =
+            match find_installed_file(paths, data_dir, &instance.id, &mod_item.file_name) {
+                Some(path) => compute_sha1_hex(&path).await,
+                None => None,
+            };
         let local_modified = match (mod_item.sha1.as_deref(), local_sha1.as_deref()) {
             (Some(stored), Some(actual)) => !stored.eq_ignore_ascii_case(actual),
             _ => false,
@@ -1038,9 +1037,7 @@ pub async fn check_mod_updates(
                                 .unwrap_or_else(|| "—".into()),
                             latest_version_id: latest.id,
                             latest_version_number: latest.version_number,
-                            latest_channel: latest
-                                .version_type
-                                .unwrap_or_else(|| "release".into()),
+                            latest_channel: latest.version_type.unwrap_or_else(|| "release".into()),
                             latest_file_size: file.map(|f| f.size).unwrap_or(0),
                             latest_published: latest.date_published,
                             local_modified,

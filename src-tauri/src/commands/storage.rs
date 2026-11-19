@@ -128,23 +128,12 @@ pub async fn import_drop_content(
             shared::with_instance_reserved(&registry, &instance.id, async {
                 let name = match kind {
                     DropKind::World => {
-                        drop_service::import_world(
-                            &paths,
-                            &data_dir,
-                            &instance.id,
-                            &source,
-                            None,
-                        )
-                        .await?
+                        drop_service::import_world(&paths, &data_dir, &instance.id, &source, None)
+                            .await?
                     }
                     DropKind::Resourcepack => {
-                        drop_service::import_resourcepack(
-                            &paths,
-                            &data_dir,
-                            &instance.id,
-                            &source,
-                        )
-                        .await?
+                        drop_service::import_resourcepack(&paths, &data_dir, &instance.id, &source)
+                            .await?
                     }
                     DropKind::Mod => {
                         drop_service::import_mod(&paths, &data_dir, &instance, &source).await?

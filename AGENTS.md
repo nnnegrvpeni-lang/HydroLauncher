@@ -25,5 +25,5 @@
 5. **Обязательная проверка после правок**:
    - Не удалять импорт и его использование отдельными `edit`-вызовами в одном файле, чтобы Vite HMR не застревал на сломанном промежуточном состоянии.
    - Фронтенд: `npx tsc -b` и `npm run build`.
-   - Бэкенд: `cargo check --manifest-path src-tauri/Cargo.toml` и `cargo test --manifest-path src-tauri/Cargo.toml`.
+   - Бэкенд: `cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check`, `cargo check --manifest-path src-tauri/Cargo.toml --all-targets` и `cargo test --manifest-path src-tauri/Cargo.toml` (те же шаги, что в CI).
    - Визуал и runtime: проверка в headless Edge / `tools.browser` (`errors: []` на `#home` и `#instances`).

@@ -51,15 +51,12 @@ pub async fn prepare_instance(
         .ok_or_else(|| AppError::NotFound("Сборка не найдена".into()))?;
 
     let queue = jobs.inner().clone();
-    let spec = JobSpec::new(
-        JobKind::Prepare,
-        format!("Подготовка «{}»", instance.name),
-    )
-    .instance(instance.id.clone())
-    .retry(JobRetry::new(
-        "prepare_instance",
-        serde_json::json!({ "instanceId": instance.id.clone() }),
-    ));
+    let spec = JobSpec::new(JobKind::Prepare, format!("Подготовка «{}»", instance.name))
+        .instance(instance.id.clone())
+        .retry(JobRetry::new(
+            "prepare_instance",
+            serde_json::json!({ "instanceId": instance.id.clone() }),
+        ));
 
     queue
         .run(&app, &data_dir, spec, || {

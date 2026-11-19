@@ -99,9 +99,7 @@ fn classify_zip_names(names: &[String]) -> Classified {
 
     Classified {
         kind: DropKind::Unknown,
-        hint: Some(
-            "В архиве нет level.dat, pack.mcmeta или манифеста сборки".to_string(),
-        ),
+        hint: Some("В архиве нет level.dat, pack.mcmeta или манифеста сборки".to_string()),
     }
 }
 
@@ -211,7 +209,9 @@ fn sanitize_name(raw: &str, fallback: &str) -> String {
     let cleaned: String = raw
         .trim()
         .chars()
-        .filter(|c| !c.is_control() && !matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|'))
+        .filter(|c| {
+            !c.is_control() && !matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|')
+        })
         .collect();
     let trimmed = cleaned.trim().trim_matches('.').trim();
     let limited: String = trimmed.chars().take(64).collect();
@@ -240,10 +240,7 @@ fn unique_file_name(parent: &Path, file_name: &str) -> String {
         return file_name.to_string();
     }
     let path = Path::new(file_name);
-    let stem = path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("pack");
+    let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("pack");
     let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
     for index in 2..1000 {
         let candidate = if ext.is_empty() {
@@ -261,9 +258,9 @@ fn unique_file_name(parent: &Path, file_name: &str) -> String {
 /// Префикс верхней папки в архиве мира: `MyWorld/level.dat` → `MyWorld`.
 /// `__MACOSX` и прочий мусор при поиске игнорируется.
 fn world_root(names: &[String]) -> Option<String> {
-    let level = names
-        .iter()
-        .find(|name| name == &"level.dat" || name.ends_with("/level.dat") && !name.starts_with("__MACOSX/"))?;
+    let level = names.iter().find(|name| {
+        name == &"level.dat" || name.ends_with("/level.dat") && !name.starts_with("__MACOSX/")
+    })?;
     let parent = level
         .strip_suffix("level.dat")
         .unwrap_or_default()
@@ -336,9 +333,7 @@ pub async fn import_world(
     source: &Path,
     name: Option<String>,
 ) -> AppResult<String> {
-    let saves_dir = paths
-        .instance_game_dir(data_dir, instance_id)
-        .join("saves");
+    let saves_dir = paths.instance_game_dir(data_dir, instance_id).join("saves");
     tokio::fs::create_dir_all(&saves_dir).await?;
 
     if source.is_dir() {
@@ -493,11 +488,7 @@ fn prism_instance_name(source: &Path) -> Option<String> {
 
 /// Импорт сборки Prism Launcher / MultiMC: версия и загрузчик берутся из
 /// `mmc-pack.json`, файлы игры — из папки `minecraft` (или `.minecraft`).
-pub async fn import_prism(
-    paths: &AppPaths,
-    data_dir: &Path,
-    source: &Path,
-) -> AppResult<Instance> {
+pub async fn import_prism(paths: &AppPaths, data_dir: &Path, source: &Path) -> AppResult<Instance> {
     let pack_path = source.join("mmc-pack.json");
     let pack: PrismPack = serde_json::from_slice(&tokio::fs::read(&pack_path).await?)
         .map_err(|e| AppError::Validation(format!("Некорректный mmc-pack.json: {e}")))?;
@@ -541,7 +532,11 @@ pub async fn import_prism(
 }
 
 /// Импорт папки сборки: свой экспорт HydroLauncher или сборка Prism/MultiMC.
-pub async fn import_folder(paths: &AppPaths, data_dir: &Path, source: &Path) -> AppResult<Instance> {
+pub async fn import_folder(
+    paths: &AppPaths,
+    data_dir: &Path,
+    source: &Path,
+) -> AppResult<Instance> {
     if !source.is_dir() {
         return Err(AppError::NotFound("Папка сборки не найдена".into()));
     }
@@ -612,7 +607,10 @@ mod tests {
         let world = root.join("world.zip");
         write_zip(&world, &[("MyWorld/level.dat", b"x")]);
         assert_eq!(classify(&world).kind, DropKind::World);
-        assert_eq!(world_root(&zip_names(&world).unwrap()), Some("MyWorld".into()));
+        assert_eq!(
+            world_root(&zip_names(&world).unwrap()),
+            Some("MyWorld".into())
+        );
 
         let resourcepack = root.join("res.zip");
         write_zip(&resourcepack, &[("pack.mcmeta", b"{}")]);

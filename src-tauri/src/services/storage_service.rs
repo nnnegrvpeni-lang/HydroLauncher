@@ -161,11 +161,7 @@ fn clear_dir(path: &Path) -> u64 {
 }
 
 /// Удаляет только кэш или логи. Миры, моды и настройки не затрагиваются.
-pub async fn cleanup(
-    paths: &AppPaths,
-    data_dir: &Path,
-    kind: CleanupKind,
-) -> AppResult<u64> {
+pub async fn cleanup(paths: &AppPaths, data_dir: &Path, kind: CleanupKind) -> AppResult<u64> {
     let paths = paths.clone();
     let data_dir = data_dir.to_path_buf();
 

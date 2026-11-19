@@ -361,11 +361,7 @@ impl JobsRegistry {
             state.order.push(id.clone());
             state.records.insert(id.clone(), record.clone());
             state.controls.insert(id.clone(), control.clone());
-            (
-                record,
-                state.snapshot(),
-                state.store_path.clone(),
-            )
+            (record, state.snapshot(), state.store_path.clone())
         };
 
         if let Some(path) = path {
@@ -391,7 +387,8 @@ impl JobsRegistry {
         self.ensure_loaded(data_dir).await;
         let (id, control) = self.register(app, spec.clone());
 
-        let permit: OwnedSemaphorePermit = match self.inner.semaphore.clone().acquire_owned().await {
+        let permit: OwnedSemaphorePermit = match self.inner.semaphore.clone().acquire_owned().await
+        {
             Ok(permit) => permit,
             Err(_) => {
                 self.finish(app, &id, JobStatus::Canceled, None);
@@ -473,11 +470,7 @@ impl JobsRegistry {
             };
             change(record);
             record.updated_at = now();
-            (
-                record.clone(),
-                state.snapshot(),
-                state.store_path.clone(),
-            )
+            (record.clone(), state.snapshot(), state.store_path.clone())
         };
 
         if let Some(path) = path {
@@ -502,13 +495,7 @@ impl JobsRegistry {
         let _ = app.emit(JOBS_EVENT, record);
     }
 
-    fn finish(
-        &self,
-        app: &AppHandle,
-        id: &str,
-        status: JobStatus,
-        error: Option<String>,
-    ) {
+    fn finish(&self, app: &AppHandle, id: &str, status: JobStatus, error: Option<String>) {
         self.transition(app, id, |record| {
             record.status = status;
             record.error = error;
@@ -620,9 +607,7 @@ impl JobsRegistry {
                 return Ok(());
             };
             if !record.status.is_terminal() {
-                return Err(AppError::Validation(
-                    "Сначала остановите задачу".into(),
-                ));
+                return Err(AppError::Validation("Сначала остановите задачу".into()));
             }
             state.records.remove(id);
             state.controls.remove(id);

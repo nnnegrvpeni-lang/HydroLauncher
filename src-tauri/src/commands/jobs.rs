@@ -42,9 +42,6 @@ pub async fn cancel_job(
 }
 
 #[tauri::command]
-pub async fn dismiss_job(
-    jobs: State<'_, JobsRegistry>,
-    job_id: String,
-) -> Result<(), AppError> {
+pub async fn dismiss_job(jobs: State<'_, JobsRegistry>, job_id: String) -> Result<(), AppError> {
     jobs.dismiss(&job_id)
 }
