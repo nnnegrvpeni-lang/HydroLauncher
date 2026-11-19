@@ -46,7 +46,7 @@ import { isJobCanceled, localizeError } from '../i18n/errors';
 import { cn } from '../utils/cn';
 import { formatBytes, formatLoaderLabel } from '../utils/format';
 import { InstanceIcon } from './InstanceIcon';
-import { Button } from './ui/Button';
+import { Button, IconButton } from './ui/Button';
 import { Modal } from './ui/Modal';
 import { Switch } from './ui/Switch';
 
@@ -631,7 +631,7 @@ export function InstanceModsModal({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             {isRunning ? (
               <Button
                 size="sm"
@@ -663,15 +663,17 @@ export function InstanceModsModal({
               </Button>
             )}
 
-            {tab === 'mods' && instance.engine === 'java' && mods.length > 0 && (
+            {supportsMods && (
               <Button
                 size="sm"
                 variant="secondary"
-                disabled={checkingUpdates || updatingAll}
-                onClick={() => void handleCheckUpdates()}
+                onClick={() => {
+                  onClose();
+                  onInstallMods(instance.id);
+                }}
               >
-                <RefreshCw size={13} className={checkingUpdates ? 'animate-spin' : undefined} />
-                {checkingUpdates ? t('Проверка…') : t('Обновления')}
+                <Plus size={13} />
+                {t('Установить моды')}
               </Button>
             )}
 
@@ -691,55 +693,52 @@ export function InstanceModsModal({
               </Button>
             )}
 
-            {tab === 'mods' && supportsMods && (
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={runtimeLocked || installingLocal}
-                onClick={() => void handleInstallLocalMod()}
-              >
-                {installingLocal ? (
-                  <Loader2 size={13} className="animate-spin" />
-                ) : (
-                  <Upload size={13} />
-                )}
-                {t('Установить .jar')}
-              </Button>
-            )}
+            {/* Второстепенные действия — иконками: строка не должна разрастаться. */}
+            <div className="ml-1 flex items-center gap-1 border-l border-line pl-1.5">
+              {tab === 'mods' && instance.engine === 'java' && mods.length > 0 && (
+                <IconButton
+                  disabled={checkingUpdates || updatingAll}
+                  title={t('Проверить обновления модов')}
+                  aria-label={t('Проверить обновления модов')}
+                  onClick={() => void handleCheckUpdates()}
+                >
+                  <RefreshCw size={13} className={checkingUpdates ? 'animate-spin' : undefined} />
+                </IconButton>
+              )}
 
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => void handleOpenFolder('game')}
-            >
-              <FolderOpen size={13} />
-              {t('Папка')}
-            </Button>
+              {tab === 'mods' && supportsMods && (
+                <IconButton
+                  disabled={runtimeLocked || installingLocal}
+                  title={t('Установить мод из файла')}
+                  aria-label={t('Установить мод из файла')}
+                  onClick={() => void handleInstallLocalMod()}
+                >
+                  {installingLocal ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <Upload size={13} />
+                  )}
+                </IconButton>
+              )}
 
-            {onOpenSettings && (
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={onOpenSettings}
+              <IconButton
+                title={t('Открыть папку сборки')}
+                aria-label={t('Открыть папку сборки')}
+                onClick={() => void handleOpenFolder('game')}
               >
-                <SlidersHorizontal size={13} />
-                {t('Настройки')}
-              </Button>
-            )}
+                <FolderOpen size={13} />
+              </IconButton>
 
-            {supportsMods && (
-              <Button
-                size="sm"
-                variant="primary"
-                onClick={() => {
-                  onClose();
-                  onInstallMods(instance.id);
-                }}
-              >
-                <Plus size={13} />
-                {t('Установить моды')}
-              </Button>
-            )}
+              {onOpenSettings && (
+                <IconButton
+                  title={t('Параметры сборки')}
+                  aria-label={t('Параметры сборки')}
+                  onClick={onOpenSettings}
+                >
+                  <SlidersHorizontal size={13} />
+                </IconButton>
+              )}
+            </div>
           </div>
         </div>
 

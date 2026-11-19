@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Loader2, Package } from 'lucide-react';
 import { Modal } from './components/ui/Modal';
+import { SelectMenu } from './components/ui/SelectMenu';
 import { Button } from './components/ui/Button';
 import type { DropItem } from './api/types';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
@@ -203,7 +204,7 @@ export default function App() {
         <div className="space-y-3 text-[13px] text-muted">
           <ul className="space-y-2">{dropItems.map((item) => <li key={item.path} className="flex justify-between gap-4"><span className="truncate text-ink">{item.fileName}</span><span>{translate(item.kind)}</span></li>)}</ul>
           {dropItems.some((item) => item.kind === 'unknown') && <p className="text-danger">{translate('Тип архива не распознан. Импортировать его нельзя.')}</p>}
-          {dropItems.some((item) => ['world', 'resourcepack', 'mod'].includes(item.kind)) && <label className="block">{translate('Целевая сборка')}<select className="hl-input mt-1 w-full" value={dropTargetId} onChange={(event) => setDropTargetId(event.target.value)}><option value="">{translate('Выберите сборку')}</option>{availableInstances.map((instance) => <option key={instance.id} value={instance.id}>{instance.name}</option>)}</select></label>}
+          {dropItems.some((item) => ['world', 'resourcepack', 'mod'].includes(item.kind)) && <div className="block"><span className="hl-field-label">{translate('Целевая сборка')}</span><SelectMenu value={dropTargetId} onChange={setDropTargetId} placement="up" ariaLabel={translate('Целевая сборка')} options={[{ value: '', label: translate('Выберите сборку') }, ...availableInstances.map((instance) => ({ value: instance.id, label: instance.name }))]} /></div>}
         </div>
       </Modal>
       <ToastHost />

@@ -16,6 +16,7 @@ import { QuickAccountModal } from '../components/QuickAccountModal';
 import { SkinEditorModal } from '../components/SkinEditorModal';
 import { Button, IconButton } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
+import { SelectMenu } from '../components/ui/SelectMenu';
 import { Switch } from '../components/ui/Switch';
 import { LANGUAGE_OPTIONS, useI18n, type Language } from '../i18n';
 import { localizeError } from '../i18n/errors';
@@ -744,20 +745,16 @@ function StorageGroup() {
               {t('Старые копии удаляются автоматически')}
             </p>
           </div>
-          <select
-            value={settings.backupRetention}
-            onChange={(e) =>
-              void save({ ...settings, backupRetention: Number(e.target.value) })
-            }
-            className="hl-input h-8 w-20 px-2 text-xs"
-            aria-label={t('Хранить копий на мир')}
-          >
-            {[3, 5, 10, 20].map((count) => (
-              <option key={count} value={count}>
-                {count}
-              </option>
-            ))}
-          </select>
+          <SelectMenu
+            value={String(settings.backupRetention)}
+            onChange={(value) => void save({ ...settings, backupRetention: Number(value) })}
+            className="w-24"
+            ariaLabel={t('Хранить копий на мир')}
+            options={[3, 5, 10, 20].map((count) => ({
+              value: String(count),
+              label: String(count),
+            }))}
+          />
         </div>
       )}
 

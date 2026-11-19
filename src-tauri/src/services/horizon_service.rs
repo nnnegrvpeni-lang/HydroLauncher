@@ -19,14 +19,15 @@ const PREPARE_CHECK_TIMEOUT: Duration = Duration::from_secs(60);
 /// не дают зависшему процессу остановить запуск.
 async fn prepared_ready(prepare_bin: &Path, prepared_dir: &Path, prepare_root: &Path) -> bool {
     let command = async {
-        Command::new(prepare_bin)
+        let mut check = Command::new(prepare_bin);
+        check
             .arg("--check")
             .arg("--output")
             .arg(prepared_dir)
             .current_dir(prepare_root)
-            .kill_on_drop(true)
-            .output()
-            .await
+            .kill_on_drop(true);
+        crate::services::process_ext::hide_console(&mut check);
+        check.output().await
     };
     matches!(
         tokio::time::timeout(PREPARE_CHECK_TIMEOUT, command).await,
@@ -793,6 +794,7 @@ pub async fn ensure_horizon_prepared(
         100,
     );
 
+    crate::services::process_ext::hide_console(&mut cmd);
     let mut child = cmd
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())

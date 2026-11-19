@@ -546,14 +546,17 @@ async fn run_installer(
         1,
         2,
     );
-    let child = Command::new(java_exec)
+    let mut installer = Command::new(java_exec);
+    installer
         .arg("-jar")
         .arg(&installer_path)
         .arg("--installClient")
         .arg(data_dir)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
-        .kill_on_drop(true)
+        .kill_on_drop(true);
+    crate::services::process_ext::hide_console(&mut installer);
+    let child = installer
         .spawn()
         .map_err(|e| AppError::Process(format!("Не удалось запустить установщик {label}: {e}")))?;
 

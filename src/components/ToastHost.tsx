@@ -35,10 +35,10 @@ export function ToastHost() {
   return (
     <div
       aria-live="polite"
-      className="pointer-events-none fixed top-15 right-5 z-50 flex w-[340px] max-w-[calc(100vw-2.5rem)] flex-col gap-2.5"
+      className="pointer-events-none fixed top-[68px] right-5 z-50 flex w-[340px] max-w-[calc(100vw-2.5rem)] flex-col gap-2.5"
     >
       {progress && (
-        <div className="pointer-events-auto deck-surface hl-toast-in rounded-[12px] px-3.5 py-3 shadow-[0_20px_44px_-16px_rgba(0,0,0,0.75)]">
+        <div className="pointer-events-auto hl-toast hl-toast-in rounded-[12px] px-3.5 py-3">
           <div className="flex items-start justify-between gap-2.5">
             <div className="flex min-w-0 flex-1 items-center gap-2">
               {isDone ? (
@@ -75,7 +75,7 @@ export function ToastHost() {
       )}
 
       {error && (
-        <div className="pointer-events-auto deck-surface hl-toast-in flex items-start gap-2.5 rounded-[12px] border-danger/40 bg-danger/12 px-3.5 py-3 shadow-[0_20px_44px_-16px_rgba(0,0,0,0.75)]">
+        <div className="pointer-events-auto hl-toast hl-toast-danger hl-toast-in flex items-start gap-2.5 rounded-[12px] px-3.5 py-3">
           <AlertCircle size={15} className="mt-0.5 shrink-0 text-danger" />
           <p className="min-w-0 flex-1 text-[12px] leading-relaxed break-words text-ink">
             {localizeError(error, language)}
@@ -94,7 +94,7 @@ export function ToastHost() {
       {notices.map((notice) => (
         <div
           key={notice.id}
-          className="pointer-events-auto deck-surface hl-toast-in flex items-start gap-2.5 rounded-[12px] px-3.5 py-3 shadow-[0_20px_44px_-16px_rgba(0,0,0,0.75)]"
+          className="pointer-events-auto hl-toast hl-toast-in flex items-start gap-2.5 rounded-[12px] px-3.5 py-3"
         >
           <div
             className={cn(

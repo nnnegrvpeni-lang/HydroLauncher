@@ -448,6 +448,7 @@ async fn launch_inner(
                 .stderr(std::process::Stdio::piped());
             #[cfg(unix)]
             command.process_group(0);
+            crate::services::process_ext::hide_console(&mut command);
             command
                 .spawn()
                 .map_err(|e| AppError::Process(format!("Не удалось запустить игру: {}", e)))?
@@ -522,6 +523,7 @@ async fn launch_inner(
                 .stderr(std::process::Stdio::piped());
             #[cfg(unix)]
             cmd.process_group(0);
+            crate::services::process_ext::hide_console(&mut cmd);
             let mut proc = cmd
                 .spawn()
                 .map_err(|e| AppError::Process(format!("Не удалось запустить Horizon: {}", e)))?;

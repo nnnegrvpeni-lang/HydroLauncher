@@ -20,6 +20,7 @@ pub mod loader_service;
 pub mod microsoft_auth_service;
 pub mod modrinth_service;
 pub mod mojang_service;
+pub mod process_ext;
 pub mod server_ping_service;
 pub mod settings_service;
 pub mod skin_service;

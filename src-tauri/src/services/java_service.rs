@@ -308,11 +308,10 @@ pub async fn probe_java(exec: &Path) -> AppResult<JavaRuntime> {
     }
 
     let command = async {
-        Command::new(exec)
-            .arg("-version")
-            .kill_on_drop(true)
-            .output()
-            .await
+        let mut probe = Command::new(exec);
+        probe.arg("-version").kill_on_drop(true);
+        crate::services::process_ext::hide_console(&mut probe);
+        probe.output().await
     };
     let output = tokio::time::timeout(PROBE_TIMEOUT, command)
         .await

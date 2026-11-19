@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
-import { ChevronDown, Download, Loader2, Palette } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Download, Loader2, Palette } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Modal } from './ui/Modal';
+import { SelectMenu } from './ui/SelectMenu';
 import { Switch } from './ui/Switch';
 import { InstanceIcon } from './InstanceIcon';
 import { InstanceIconEditorModal } from './InstanceIconEditorModal';
@@ -46,8 +47,6 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
   const [autoUpdateHorizon, setAutoUpdateHorizon] = useState(true);
   const [loaderVersions, setLoaderVersions] = useState<string[]>([]);
   const [loaderVersionsLoading, setLoaderVersionsLoading] = useState(false);
-  const [loaderDropdownOpen, setLoaderDropdownOpen] = useState(false);
-  const loaderDropdownRef = useRef<HTMLDivElement>(null);
   const [installedHorizon, setInstalledHorizon] = useState<InstalledHorizonBinary[]>([]);
   const [javaRuntimes, setJavaRuntimes] = useState<JavaRuntime[]>([]);
   const [saving, setSaving] = useState(false);
@@ -74,7 +73,6 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
         instance.id,
       ),
     );
-    setLoaderDropdownOpen(false);
     setIconEditorOpen(false);
   }, [instance, settings?.defaultMemoryMb]);
 
@@ -148,17 +146,6 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
       active = false;
     };
   }, [instance, ensureHorizonReleases]);
-
-  useEffect(() => {
-    if (!loaderDropdownOpen) return;
-    const onDown = (e: MouseEvent) => {
-      if (loaderDropdownRef.current && !loaderDropdownRef.current.contains(e.target as Node)) {
-        setLoaderDropdownOpen(false);
-      }
-    };
-    window.addEventListener('mousedown', onDown);
-    return () => window.removeEventListener('mousedown', onDown);
-  }, [loaderDropdownOpen]);
 
   if (!instance) return null;
 
@@ -301,62 +288,26 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
 
           <div>
             <span className="hl-field-label">{t('Версия бинарников Horizon')}</span>
-            <div ref={loaderDropdownRef} className="relative">
-              <button
-                type="button"
-                onClick={() => setLoaderDropdownOpen((v) => !v)}
-                className="hl-input flex items-center justify-between text-left text-xs"
-              >
-                <span className="truncate font-mono">
-                  {horizonReleasesLoading
+            <SelectMenu
+              value={loaderVersion}
+              onChange={setLoaderVersion}
+              placement="up"
+              ariaLabel={t('Версия бинарников Horizon')}
+              hint={installedLabel}
+              options={[
+                {
+                  value: '',
+                  label: horizonReleasesLoading
                     ? t('Загрузка релизов Horizon…')
-                    : loaderVersion
-                      ? horizonReleases.find((r) => r.tagName === loaderVersion)?.name ??
-                        loaderVersion
-                      : t('Авто (последний nightly)')}
-                </span>
-                <ChevronDown size={13} className="shrink-0 text-muted" />
-              </button>
-              {loaderDropdownOpen && (
-                <div className="absolute right-0 bottom-full left-0 z-20 mb-1 max-h-44 overflow-y-auto rounded-[8px] border border-line-strong bg-surface p-1 shadow-xl">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLoaderVersion('');
-                      setLoaderDropdownOpen(false);
-                    }}
-                    className={cn(
-                      'flex w-full items-center justify-between rounded-[6px] px-2.5 py-1.5 text-left text-xs transition-colors',
-                      loaderVersion === ''
-                        ? 'bg-surface-2 font-medium text-ink'
-                        : 'text-muted hover:bg-surface-2/60 hover:text-ink',
-                    )}
-                  >
-                    <span>{t('Авто (последний nightly)')}</span>
-                  </button>
-                  {horizonReleases.map((rel) => (
-                    <button
-                      key={rel.tagName}
-                      type="button"
-                      onClick={() => {
-                        setLoaderVersion(rel.tagName);
-                        setLoaderDropdownOpen(false);
-                      }}
-                      className={cn(
-                        'flex w-full items-center justify-between gap-2 rounded-[6px] px-2.5 py-1.5 text-left text-xs transition-colors',
-                        loaderVersion === rel.tagName
-                          ? 'bg-surface-2 font-medium text-ink'
-                          : 'text-muted hover:bg-surface-2/60 hover:text-ink',
-                      )}
-                    >
-                      <span className="truncate font-mono">{rel.tagName}</span>
-                      <span className="shrink-0 text-[11px] text-faint">{rel.name}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <p className="mt-1.5 font-mono text-[11px] text-faint">{installedLabel}</p>
+                    : t('Авто (последний nightly)'),
+                },
+                ...horizonReleases.map((rel) => ({
+                  value: rel.tagName,
+                  label: rel.tagName,
+                  hint: rel.name,
+                })),
+              ]}
+            />
           </div>
 
           <div className="rounded-[8px] border border-line bg-bg-well/70 p-3.5">
@@ -440,32 +391,32 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
           </div>
 
           <div>
-            <label className="hl-field-label" htmlFor="edit-instance-java">
-              {t('Java для сборки')}
-            </label>
-            <select
-              id="edit-instance-java"
+            <span className="hl-field-label">{t('Java для сборки')}</span>
+            <SelectMenu
               value={javaPath.trim()}
-              onChange={(e) => setJavaPath(e.target.value)}
-              className="hl-input cursor-pointer text-xs"
-            >
-              <option value="">{t('Автоматически — по версии Minecraft')}</option>
-              {javaPath.trim() &&
-                !javaRuntimes.some((runtime) => runtime.path === javaPath.trim()) && (
-                  <option value={javaPath.trim()}>{t('Свой путь')}</option>
-                )}
-              {javaRuntimes.map((runtime) => (
-                <option key={runtime.path} value={runtime.path} title={runtime.path}>
-                  Java {runtime.majorVersion} · {runtime.vendor}
-                  {runtime.isManaged ? ` · ${t('управляемая')}` : ''}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-[11px] text-faint">
-              {javaRuntimes.length === 0
-                ? t('Совместимая Java не найдена — лаунчер скачает Temurin при первом запуске')
-                : t('Автоматический режим подбирает Java нужной версии сам')}
-            </p>
+              onChange={setJavaPath}
+              placement="up"
+              ariaLabel={t('Java для сборки')}
+              hint={
+                javaRuntimes.length === 0
+                  ? t('Совместимая Java не найдена — лаунчер скачает Temurin при первом запуске')
+                  : t('Автоматический режим подбирает Java нужной версии сам')
+              }
+              options={[
+                { value: '', label: t('Автоматически — по версии Minecraft') },
+                ...(javaPath.trim() &&
+                !javaRuntimes.some((runtime) => runtime.path === javaPath.trim())
+                  ? [{ value: javaPath.trim(), label: t('Свой путь') }]
+                  : []),
+                ...javaRuntimes.map((runtime) => ({
+                  value: runtime.path,
+                  label: `Java ${runtime.majorVersion} · ${runtime.vendor}${
+                    runtime.isManaged ? ` · ${t('управляемая')}` : ''
+                  }`,
+                  title: runtime.path,
+                })),
+              ]}
+            />
           </div>
 
           <div>
@@ -518,57 +469,21 @@ export function InstanceSettingsModal({ instance, onClose }: InstanceSettingsMod
               <span className="hl-field-label">
                 {tf('Версия модлоадера ({loader})', { loader: instance.loader })}
               </span>
-              <div ref={loaderDropdownRef} className="relative">
-                <button
-                  type="button"
-                  onClick={() => setLoaderDropdownOpen((v) => !v)}
-                  className="hl-input flex items-center justify-between text-left text-xs"
-                >
-                  <span className="truncate font-mono">
-                    {loaderVersionsLoading
+              <SelectMenu
+                value={loaderVersion}
+                onChange={setLoaderVersion}
+                placement="up"
+                ariaLabel={tf('Версия модлоадера ({loader})', { loader: instance.loader })}
+                options={[
+                  {
+                    value: '',
+                    label: loaderVersionsLoading
                       ? t('Загрузка версий лоадера…')
-                      : loaderVersion || t('Авто (последняя стабильная)')}
-                  </span>
-                  <ChevronDown size={13} className="shrink-0 text-muted" />
-                </button>
-                {loaderDropdownOpen && (
-                  <div className="absolute right-0 bottom-full left-0 z-20 mb-1 max-h-44 overflow-y-auto rounded-[8px] border border-line-strong bg-surface p-1 shadow-xl">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLoaderVersion('');
-                        setLoaderDropdownOpen(false);
-                      }}
-                      className={cn(
-                        'flex w-full items-center justify-between rounded-[6px] px-2.5 py-1.5 text-left text-xs transition-colors',
-                        loaderVersion === ''
-                          ? 'bg-surface-2 font-medium text-ink'
-                          : 'text-muted hover:bg-surface-2/60 hover:text-ink',
-                      )}
-                    >
-                      <span>{t('Авто (последняя стабильная)')}</span>
-                    </button>
-                    {loaderVersions.map((lv) => (
-                      <button
-                        key={lv}
-                        type="button"
-                        onClick={() => {
-                          setLoaderVersion(lv);
-                          setLoaderDropdownOpen(false);
-                        }}
-                        className={cn(
-                          'flex w-full items-center justify-between rounded-[6px] px-2.5 py-1.5 text-left font-mono text-xs transition-colors',
-                          loaderVersion === lv
-                            ? 'bg-surface-2 font-medium text-ink'
-                            : 'text-muted hover:bg-surface-2/60 hover:text-ink',
-                        )}
-                      >
-                        <span>{lv}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+                      : t('Авто (последняя стабильная)'),
+                  },
+                  ...loaderVersions.map((lv) => ({ value: lv, label: lv })),
+                ]}
+              />
             </div>
           )}
         </>
